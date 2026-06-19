@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0b1220">
+<link rel="icon" href="data:,">
 <title>工图投影大师 v5 · 空间智能教学</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -692,9 +693,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0
   border-radius:var(--radius-sm);
   background:rgba(255,255,255,.03);
   color:#d8e3eb;
-  font-size:12px;
-  font-weight:700;
-  padding:10px 11px;
+  padding:9px 10px;
   cursor:pointer;
   text-align:left;
   transition:background var(--tx-fast),border-color var(--tx-fast),transform var(--tx-fast);
@@ -702,6 +701,95 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0
 .quiz-option:hover{transform:translateY(-1px);background:rgba(94,208,230,.08);border-color:rgba(94,208,230,.40);}
 .quiz-option.correct{border-color:rgba(139,208,124,.72);background:rgba(139,208,124,.12);}
 .quiz-option.disabled{opacity:.45;}
+.candidate-body{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-width:0;
+}
+.candidate-copy{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+.candidate-copy b{
+  font-size:12px;
+  line-height:1.2;
+  color:#eef7ff;
+}
+.candidate-copy small{
+  font-size:10px;
+  line-height:1.25;
+  color:var(--muted);
+}
+.candidate-icon{
+  flex:0 0 auto;
+  width:44px;
+  height:36px;
+  border-radius:8px;
+  position:relative;
+  overflow:hidden;
+  background:rgba(255,255,255,.045);
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 1px 0 rgba(255,255,255,.06) inset;
+}
+.candidate-cylinder::before{
+  content:"";
+  position:absolute;
+  left:8px;right:8px;top:9px;bottom:9px;
+  border-radius:999px / 38%;
+  background:linear-gradient(90deg,rgba(94,208,230,.20),rgba(94,208,230,.62),rgba(94,208,230,.18));
+  border:1px solid rgba(188,245,255,.55);
+}
+.candidate-cylinder::after{
+  content:"";
+  position:absolute;
+  left:8px;top:9px;width:11px;height:18px;
+  border-radius:50%;
+  border:1px solid rgba(238,247,255,.75);
+  background:rgba(7,16,34,.28);
+}
+.candidate-rect::before{
+  content:"";
+  position:absolute;
+  width:23px;height:18px;
+  left:9px;top:12px;
+  background:linear-gradient(135deg,rgba(242,181,78,.82),rgba(238,122,102,.62));
+  border:1px solid rgba(255,233,183,.72);
+}
+.candidate-rect::after{
+  content:"";
+  position:absolute;
+  left:16px;top:7px;width:22px;height:18px;
+  background:linear-gradient(135deg,rgba(94,208,230,.48),rgba(167,139,250,.48));
+  border:1px solid rgba(213,237,255,.48);
+  transform:skewY(-28deg);
+  z-index:-1;
+}
+.candidate-tri::before{
+  content:"";
+  position:absolute;
+  left:8px;top:7px;
+  width:0;height:0;
+  border-left:24px solid transparent;
+  border-bottom:22px solid rgba(139,208,124,.78);
+  filter:drop-shadow(0 0 0 rgba(255,255,255,.0));
+}
+.candidate-tri::after{
+  content:"";
+  position:absolute;
+  left:8px;top:29px;width:27px;height:1px;
+  background:rgba(225,255,219,.85);
+}
+.candidate-sphere::before{
+  content:"";
+  position:absolute;
+  left:9px;top:6px;width:24px;height:24px;
+  border-radius:50%;
+  background:radial-gradient(circle at 32% 28%,#ffffff 0 8%,rgba(251,113,133,.82) 28%,rgba(167,139,250,.38) 72%);
+  border:1px solid rgba(255,230,236,.65);
+}
 .quiz-stage{
   display:flex;
   align-items:center;
@@ -724,6 +812,58 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0
   font-weight:800;
 }
 .quiz-view-tag.on{background:rgba(94,208,230,.18);color:#dff9ff;border:1px solid rgba(94,208,230,.28);}
+.quiz-view-panel{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  margin:10px 0 12px;
+}
+.quiz-view-card{
+  position:relative;
+  min-height:92px;
+  padding:8px;
+  border:1px dashed rgba(255,255,255,.13);
+  border-radius:var(--radius-sm);
+  background:rgba(5,11,22,.38);
+  opacity:.48;
+  overflow:hidden;
+  transition:opacity var(--tx-fast),border-color var(--tx-fast),background var(--tx-fast);
+}
+.quiz-view-card.revealed{
+  opacity:1;
+  border-style:solid;
+  border-color:rgba(94,208,230,.36);
+  background:rgba(94,208,230,.055);
+}
+.quiz-view-card .view-name{
+  display:block;
+  font-size:10px;
+  color:var(--muted);
+  font-weight:800;
+  letter-spacing:.08em;
+  margin-bottom:3px;
+}
+.quiz-view-card svg{
+  display:block;
+  width:100%;
+  height:62px;
+}
+.quiz-view-card svg *{
+  vector-effect:non-scaling-stroke;
+}
+.quiz-view-card:not(.revealed) svg{
+  opacity:.12;
+}
+.quiz-view-card .unknown{
+  position:absolute;
+  inset:26px 8px 8px;
+  display:grid;
+  place-items:center;
+  font-size:26px;
+  font-weight:900;
+  color:rgba(255,255,255,.30);
+}
+.quiz-view-card.revealed .unknown{display:none;}
 .quiz-feedback{
   min-height:34px;
   margin-top:12px;
@@ -885,11 +1025,60 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0
               <div class="quiz-view-tag" id="quiz-tag-side">侧面图</div>
             </div>
           </div>
+          <div class="quiz-view-panel" aria-label="逐步给出的三视图图像">
+            <div class="quiz-view-card revealed" id="quiz-view-front">
+              <span class="view-name">正面图</span>
+              <svg viewBox="0 0 120 70" aria-hidden="true">
+                <rect x="28" y="17" width="64" height="36" rx="1.5" fill="rgba(94,208,230,.14)" stroke="#9eeeff" stroke-width="2"/>
+                <path d="M28 17H92M28 53H92M28 17V53M92 17V53" stroke="rgba(255,255,255,.35)" stroke-width="1"/>
+                <path d="M20 58H100" stroke="rgba(242,181,78,.55)" stroke-width="1.4" stroke-dasharray="5 4"/>
+              </svg>
+              <span class="unknown">?</span>
+            </div>
+            <div class="quiz-view-card" id="quiz-view-top">
+              <span class="view-name">俯视图</span>
+              <svg viewBox="0 0 120 70" aria-hidden="true">
+                <rect x="25" y="23" width="70" height="24" rx="1.5" fill="rgba(242,181,78,.12)" stroke="#ffd58b" stroke-width="2"/>
+                <path d="M25 35H95" stroke="rgba(255,255,255,.38)" stroke-width="1" stroke-dasharray="4 4"/>
+                <path d="M17 15L25 23M103 15L95 23M17 55L25 47M103 55L95 47" stroke="rgba(94,208,230,.45)" stroke-width="1.2"/>
+              </svg>
+              <span class="unknown">?</span>
+            </div>
+            <div class="quiz-view-card" id="quiz-view-side">
+              <span class="view-name">侧面图</span>
+              <svg viewBox="0 0 120 70" aria-hidden="true">
+                <rect x="31" y="18" width="58" height="34" rx="1.5" fill="rgba(139,208,124,.12)" stroke="#b8f0ae" stroke-width="2"/>
+                <path d="M31 18L89 52M89 18L31 52" stroke="rgba(255,255,255,.18)" stroke-width="1" stroke-dasharray="4 4"/>
+                <path d="M25 58H95" stroke="rgba(242,181,78,.55)" stroke-width="1.4" stroke-dasharray="5 4"/>
+              </svg>
+              <span class="unknown">?</span>
+            </div>
+          </div>
           <div class="quiz-options">
-            <button class="quiz-option" data-answer="cylinder">圆柱体</button>
-            <button class="quiz-option" data-answer="rect">方柱 / 长方体</button>
-            <button class="quiz-option" data-answer="tri">三角板</button>
-            <button class="quiz-option" data-answer="sphere">球体</button>
+            <button class="quiz-option" data-answer="cylinder">
+              <span class="candidate-body">
+                <span class="candidate-icon candidate-cylinder" aria-hidden="true"></span>
+                <span class="candidate-copy"><b>圆柱体</b><small>侧放时正面可呈矩形</small></span>
+              </span>
+            </button>
+            <button class="quiz-option" data-answer="rect">
+              <span class="candidate-body">
+                <span class="candidate-icon candidate-rect" aria-hidden="true"></span>
+                <span class="candidate-copy"><b>方柱 / 长方体</b><small>三向轮廓均为直边</small></span>
+              </span>
+            </button>
+            <button class="quiz-option" data-answer="tri">
+              <span class="candidate-body">
+                <span class="candidate-icon candidate-tri" aria-hidden="true"></span>
+                <span class="candidate-copy"><b>三角板</b><small>某些方向会混淆</small></span>
+              </span>
+            </button>
+            <button class="quiz-option" data-answer="sphere">
+              <span class="candidate-body">
+                <span class="candidate-icon candidate-sphere" aria-hidden="true"></span>
+                <span class="candidate-copy"><b>球体</b><small>各向投影近似圆</small></span>
+              </span>
+            </button>
           </div>
           <div class="quiz-feedback" id="quiz-feedback">从一个矩形正面图开始，圆柱侧放、方柱、三角板侧视都可能混淆。</div>
         </div>
@@ -929,7 +1118,8 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0
       <input type="file" id="obj-file-mobile" style="display:none" accept=".obj,.stl,text/plain,model/stl">
     </div>
     <div class="mobile-drawer-content" id="mobile-content-controls" style="display:none">
-      <button class="action-btn primary-btn" id="unfold-btn-mobile" aria-pressed="false" style="margin:2px 0 12px 0">展开三视图</button>
+      <button class="action-btn primary-btn" id="unfold-btn-mobile" aria-pressed="false" style="margin:2px 0 8px 0">展开三视图</button>
+      <button class="action-btn ghost-btn" id="quiz-btn-mobile" style="margin:0 0 12px 0">进入空间测评</button>
       <div class="panel-section" style="margin-bottom:0">
         <div class="toggle-row"><span class="label">投影连线</span><div class="toggle on" id="tog-projlines-m"></div></div>
         <div class="toggle-row"><span class="label">虚线与中心线</span><div class="toggle on" id="tog-hidden-m"></div></div>

@@ -951,8 +951,13 @@ function setMobileTab(tab) {
 function bindMobileUI() {
   const menuBtn = document.getElementById('mobile-menu-btn');
   const scrim = document.getElementById('mobile-drawer-scrim');
+  const quizBtn = document.getElementById('quiz-btn-mobile');
   menuBtn?.addEventListener('click', openDrawer);
   scrim?.addEventListener('click', closeDrawer);
+  quizBtn?.addEventListener('click', () => {
+    document.querySelector('.mode-tab[data-mode="quiz"]')?.click();
+    closeDrawer();
+  });
   Array.from(document.querySelectorAll('.mobile-drawer-tab')).forEach(t => {
     t.addEventListener('click', () => setMobileTab(t.dataset.tab));
   });
@@ -1005,7 +1010,9 @@ function renderQuizStep() {
 
   ['front', 'top', 'side'].forEach(view => {
     const tag = document.getElementById(`quiz-tag-${view}`);
+    const card = document.getElementById(`quiz-view-${view}`);
     tag?.classList.toggle('on', step.views.includes(view));
+    card?.classList.toggle('revealed', step.views.includes(view));
   });
 
   document.querySelectorAll('.quiz-option[data-answer]').forEach(btn => {
