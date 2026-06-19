@@ -2,314 +2,964 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>工图投影大师 - 三维与三视图教学工具</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1220">
+<title>工图投影大师 v5 · 空间智能教学</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
+*{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#101723;
-  --panel:#172233;
-  --panel-2:#1d2d3f;
-  --line:rgba(255,255,255,.12);
-  --text:#edf5f8;
-  --muted:#94a8b7;
-  --cyan:#62d7e8;
-  --amber:#f2b84b;
-  --green:#83d17b;
-  --coral:#f07864;
+  --bg-0:#071022;
+  --bg-1:#0a162e;
+  --bg-2:#0f1f3c;
+  --panel:rgba(16,24,40,.76);
+  --panel-solid:rgba(14,20,34,.95);
+  --panel-elev:rgba(24,38,60,.72);
+  --line:rgba(255,255,255,.08);
+  --line-strong:rgba(255,255,255,.15);
+  --text:#eef5ff;
+  --muted:#98abbd;
+  --muted-2:#7a8c9f;
+  --cyan:#5ed0e6;
+  --cyan-soft:rgba(94,208,230,.14);
+  --cyan-glow:rgba(94,208,230,.35);
+  --amber:#f2b54e;
+  --green:#8bd07c;
+  --coral:#ee7a66;
+  --violet:#a78bfa;
+  --rose:#fb7185;
+  --shadow-gl:0 2px 0 rgba(255,255,255,.05) inset;
+  --shadow-sm:0 4px 12px -4px rgba(0,0,0,.40);
+  --shadow-md:0 10px 28px -8px rgba(0,0,0,.55);
+  --shadow-lg:0 24px 60px -14px rgba(0,0,0,.70);
+  --shadow-xl:0 30px 80px -18px rgba(0,0,0,.8);
+  --radius:14px;
+  --radius-sm:10px;
+  --radius-xs:7px;
+  --radius-lg:18px;
+  --tx-fast:.16s cubic-bezier(.4,0,.2,1);
+  --tx-mid:.24s cubic-bezier(.4,0,.2,1);
+  --tx-slow:.4s cubic-bezier(.4,0,.2,1);
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
 }
+html,body{height:100%;}
 body{
   height:100vh;
   overflow:hidden;
   display:flex;
-  color:var(--text);
-  background:radial-gradient(circle at 74% 18%,rgba(98,215,232,.18),transparent 30%),
-    linear-gradient(135deg,#101723 0%,#172033 52%,#111821 100%);
-  font-family:"Microsoft YaHei","Segoe UI",Arial,sans-serif;
-}
-#left-panel{
-  width:306px;
-  min-width:306px;
-  height:100vh;
-  padding:18px 16px;
-  display:flex;
   flex-direction:column;
-  gap:14px;
-  overflow-y:auto;
-  background:rgba(18,28,42,.92);
-  border-right:1px solid var(--line);
-  box-shadow:18px 0 42px rgba(0,0,0,.25);
-  z-index:10;
+  color:var(--text);
+  background:
+    radial-gradient(1200px 800px at 85% 8%,rgba(94,208,230,.18),transparent 55%),
+    radial-gradient(900px 700px at 10% 90%,rgba(167,139,250,.12),transparent 58%),
+    radial-gradient(800px 600px at 60% 105%,rgba(242,181,78,.08),transparent 62%),
+    linear-gradient(180deg,var(--bg-0) 0%,var(--bg-1) 40%,var(--bg-2) 100%);
+  font-family:"Inter","HarmonyOS Sans SC","PingFang SC","Microsoft YaHei","Segoe UI",system-ui,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+  letter-spacing:.005em;
 }
-#left-panel h1{
-  font-size:20px;
-  line-height:1.2;
-  letter-spacing:0;
-  color:#f6fbff;
+
+/* 顶部导航 */
+#topbar{
+  position:relative;
+  z-index:30;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:calc(8px + var(--safe-top)) 14px 10px 14px;
+  background:linear-gradient(180deg,rgba(7,16,34,.95),rgba(7,16,34,.60));
+  border-bottom:1px solid var(--line);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
 }
-#left-panel h1 span{
-  display:block;
-  margin-top:5px;
-  color:var(--cyan);
-  font-size:11px;
-  font-weight:500;
+#brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
 }
-.panel-section{
-  padding:13px;
-  border:1px solid var(--line);
-  border-radius:8px;
-  background:rgba(255,255,255,.045);
+#logo{
+  flex-shrink:0;
+  width:36px;height:36px;
+  border-radius:12px;
+  background:
+    radial-gradient(14px 14px at 30% 30%,rgba(255,255,255,.35),transparent 60%),
+    linear-gradient(135deg,var(--cyan),var(--violet));
+  box-shadow:0 0 0 1px rgba(255,255,255,.10) inset,0 10px 30px -10px rgba(94,208,230,.45),var(--shadow-sm);
+  display:grid;
+  place-items:center;
 }
-.panel-section h3{
-  margin-bottom:10px;
-  color:#cfe9f0;
-  font-size:12px;
-  letter-spacing:.08em;
+#logo svg{width:20px;height:20px;fill:#071022;}
+#brand h1{
+  font-size:15px;
+  font-weight:800;
+  line-height:1.1;
+  color:#f7fbff;
+  letter-spacing:-.01em;
 }
-.model-grid{display:grid;grid-template-columns:1fr;gap:7px}
-.model-btn{
-  width:100%;
-  min-height:36px;
-  padding:8px 10px;
-  border:1px solid rgba(255,255,255,.1);
-  border-radius:7px;
-  background:rgba(255,255,255,.045);
-  color:#d9e5eb;
-  font-size:13px;
-  text-align:left;
-  cursor:pointer;
-  transition:background .18s,border-color .18s,color .18s,transform .18s;
-}
-.model-btn:hover{transform:translateX(2px);background:rgba(98,215,232,.09);border-color:rgba(98,215,232,.42)}
-.model-btn.active{background:rgba(98,215,232,.16);border-color:var(--cyan);color:#f6feff}
-.model-btn small{display:block;margin-top:2px;color:#8fa6b5;font-size:11px}
-.slider-group{margin:11px 0}
-.slider-group label{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;color:#b8c8d3;font-size:12px}
-.slider-group label span{color:var(--cyan);font-weight:700}
-input[type=range]{
-  width:100%;
-  height:5px;
+#brand h1 .tag{
+  display:inline-block;
+  margin-left:5px;
+  padding:1px 6px;
   border-radius:999px;
-  outline:none;
-  -webkit-appearance:none;
-  background:linear-gradient(90deg,rgba(98,215,232,.45),rgba(242,184,75,.35));
+  background:linear-gradient(135deg,var(--cyan),var(--violet));
+  color:#071022;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.06em;
+  vertical-align:middle;
+  transform:translateY(-1px);
 }
-input[type=range]::-webkit-slider-thumb{
-  -webkit-appearance:none;
-  width:15px;
-  height:15px;
-  border-radius:50%;
-  background:#f9fdff;
-  border:3px solid var(--cyan);
-  cursor:pointer;
-  box-shadow:0 2px 10px rgba(98,215,232,.42);
+#brand p{
+  color:var(--muted);
+  font-size:10.5px;
+  font-weight:500;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  margin-top:2px;
+  opacity:.95;
 }
-.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0}
-.toggle-row span{color:#c6d4dd;font-size:12px}
-.toggle{
-  width:38px;
-  height:22px;
+#mode-tabs{
+  display:flex;
+  gap:4px;
   padding:3px;
   border-radius:999px;
-  background:#314052;
-  cursor:pointer;
-  transition:background .2s;
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--line);
+  box-shadow:var(--shadow-gl);
 }
-.toggle::after{
-  content:"";
-  display:block;
-  width:16px;
-  height:16px;
-  border-radius:50%;
-  background:#edf5f8;
-  transition:transform .2s;
-}
-.toggle.on{background:var(--cyan)}
-.toggle.on::after{transform:translateX(16px)}
-#unfold-btn{
-  width:100%;
-  min-height:38px;
-  margin:3px 0 7px;
+.mode-tab{
+  position:relative;
   border:0;
-  border-radius:7px;
-  background:linear-gradient(135deg,var(--cyan),var(--amber));
-  color:#10202a;
-  font-size:13px;
-  font-weight:800;
-  cursor:pointer;
-  box-shadow:0 10px 26px rgba(0,0,0,.25);
-  transition:transform .16s,filter .16s;
-}
-#unfold-btn:hover{transform:translateY(-1px);filter:saturate(1.08)}
-#unfold-btn:active{transform:translateY(0)}
-.import-btn{
-  width:100%;
-  min-height:36px;
-  border:1px solid rgba(98,215,232,.42);
-  border-radius:7px;
-  background:rgba(98,215,232,.1);
-  color:#e8fbff;
-  font-size:13px;
+  background:transparent;
+  color:var(--muted);
+  font-size:11.5px;
   font-weight:700;
+  letter-spacing:.02em;
+  padding:6px 10px;
+  border-radius:999px;
   cursor:pointer;
-  transition:background .18s,border-color .18s,transform .18s;
+  transition:color var(--tx-fast),transform var(--tx-fast);
 }
-.import-btn:hover{transform:translateY(-1px);background:rgba(98,215,232,.16);border-color:var(--cyan)}
-#obj-file{display:none}
-.import-status{
-  margin-top:8px;
-  color:#94a8b7;
-  font-size:11px;
-  line-height:1.55;
+.mode-tab:active{transform:scale(.98);}
+.mode-tab.active{
+  color:#071022;
+  background:linear-gradient(135deg,var(--cyan),var(--amber));
+  box-shadow:0 8px 24px -10px rgba(94,208,230,.50);
 }
-.import-status strong{color:#62d7e8;font-weight:700}
-.info-box{
-  padding:10px;
-  border-left:3px solid var(--amber);
-  border-radius:7px;
-  background:rgba(0,0,0,.18);
-  color:#9fb0bc;
-  font-size:11px;
-  line-height:1.65;
+#mobile-menu-btn{
+  display:none;
+  border:0;
+  background:rgba(255,255,255,.06);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:7px 9px;
+  cursor:pointer;
+  box-shadow:var(--shadow-gl);
+  transition:background var(--tx-fast),border-color var(--tx-fast),transform var(--tx-fast);
 }
-.info-box b{color:#eaf3f7}
-.info-box kbd{
-  display:inline-block;
-  min-width:38px;
-  margin-right:4px;
-  padding:1px 5px;
-  border:1px solid rgba(255,255,255,.14);
-  border-radius:4px;
-  background:rgba(255,255,255,.08);
-  color:#dce8ee;
-  font-size:10px;
-  text-align:center;
-}
-#viewport{flex:1;position:relative;min-width:0}
-#viewport canvas{display:block;width:100%;height:100%}
-#view-label{
-  position:absolute;
-  top:16px;
-  right:18px;
-  padding:7px 11px;
-  border:1px solid rgba(255,255,255,.12);
-  border-radius:7px;
-  background:rgba(18,28,42,.78);
-  color:#d8f8ff;
-  font-size:12px;
-  pointer-events:none;
-  backdrop-filter:blur(10px);
-}
-#status-strip{
-  position:absolute;
-  left:18px;
-  bottom:16px;
-  max-width:min(560px,calc(100vw - 360px));
-  padding:8px 12px;
-  border:1px solid rgba(255,255,255,.12);
-  border-radius:7px;
-  background:rgba(18,28,42,.72);
-  color:#cad8df;
-  font-size:12px;
-  pointer-events:none;
-  backdrop-filter:blur(10px);
-}
+#mobile-menu-btn:active{transform:scale(.97);}
+#mobile-menu-btn:hover{background:rgba(255,255,255,.09);border-color:var(--line-strong);}
+#mobile-menu-btn svg{width:18px;height:18px;fill:var(--text);display:block;}
 #mobile-unfold-fab{
   display:none;
   position:absolute;
   left:50%;
-  bottom:18px;
+  bottom:calc(18px + var(--safe-bottom));
   transform:translateX(-50%);
-  z-index:7;
+  z-index:22;
   min-width:168px;
   min-height:44px;
   padding:0 18px;
   border:1px solid rgba(255,255,255,.18);
   border-radius:999px;
   background:linear-gradient(135deg,var(--cyan),var(--amber));
-  color:#10202a;
+  color:#071022;
   font-size:14px;
-  font-weight:800;
-  box-shadow:0 14px 32px rgba(0,0,0,.34);
+  font-weight:900;
+  box-shadow:0 18px 44px -16px rgba(0,0,0,.75);
   cursor:pointer;
 }
-#mobile-unfold-fab:active{transform:translateX(-50%) scale(.98)}
-@media (max-width:760px){
-  body{flex-direction:column}
-  #left-panel{width:100%;min-width:0;height:auto;max-height:46vh;border-right:0;border-bottom:1px solid var(--line)}
-  #viewport{height:54vh}
-  #status-strip{left:12px;right:12px;bottom:72px;max-width:none}
-  #mobile-unfold-fab{display:block}
+#mobile-unfold-fab:active{transform:translateX(-50%) scale(.98);}
+
+/* 主内容区 */
+#workspace{
+  flex:1;
+  display:flex;
+  position:relative;
+  min-height:0;
+}
+
+/* 左侧面板（PC） */
+#sidepanel{
+  width:324px;
+  min-width:324px;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  background:linear-gradient(180deg,rgba(12,18,30,.86),rgba(10,14,22,.70));
+  border-right:1px solid var(--line);
+  box-shadow:var(--shadow-md);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  position:relative;
+  z-index:20;
+}
+#sidepanel-scroll{
+  flex:1;
+  overflow-y:auto;
+  padding:14px 14px calc(16px + var(--safe-bottom)) 14px;
+}
+#sidepanel-scroll::-webkit-scrollbar{width:7px;}
+#sidepanel-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10);border-radius:999px;}
+#sidepanel-scroll::-webkit-scrollbar-track{background:transparent;}
+.panel-section{
+  padding:13px 14px;
+  border-radius:var(--radius);
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--line);
+  box-shadow:var(--shadow-gl);
+  transition:border-color var(--tx-mid),background var(--tx-mid);
+  margin-bottom:12px;
+}
+.panel-section:hover{border-color:var(--line-strong);background:rgba(255,255,255,.055);}
+.panel-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:10px;
+}
+.panel-title .dot{
+  width:7px;height:7px;border-radius:99px;
+  background:var(--cyan);
+  box-shadow:0 0 14px var(--cyan-glow);
+}
+.panel-title h3{
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:#cfe7f0;
+}
+
+/* 模型按钮网格 */
+.model-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:6px;
+}
+.model-btn{
+  position:relative;
+  width:100%;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:rgba(255,255,255,.03);
+  color:#d5e1eb;
+  text-align:left;
+  cursor:pointer;
+  padding:9px 11px 9px 12px;
+  transition:transform var(--tx-fast),background var(--tx-fast),border-color var(--tx-fast),box-shadow var(--tx-fast);
+  overflow:hidden;
+}
+.model-btn::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(90deg,var(--cyan-soft),transparent 70%);
+  opacity:0;
+  transition:opacity var(--tx-fast);
+  pointer-events:none;
+}
+.model-btn::after{
+  content:"";
+  position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--cyan),var(--violet));
+  transform:scaleY(0);
+  transform-origin:bottom;
+  transition:transform var(--tx-mid);
+}
+.model-btn span{display:block;}
+.model-btn .name{
+  font-size:13px;font-weight:700;
+  letter-spacing:-.01em;
+}
+.model-btn .desc{
+  font-size:10.5px;color:#8fa4b3;margin-top:2px;line-height:1.3;
+}
+.model-btn:hover{
+  transform:translateX(2px);
+  background:rgba(94,208,230,.08);
+  border-color:rgba(94,208,230,.40);
+  box-shadow:var(--shadow-sm);
+}
+.model-btn:hover::before{opacity:1;}
+.model-btn.active{
+  background:linear-gradient(90deg,rgba(94,208,230,.18),rgba(94,208,230,.06));
+  border-color:var(--cyan);
+  color:#f7fbff;
+  box-shadow:var(--shadow-sm);
+}
+.model-btn.active::after{transform:scaleY(1);}
+
+/* 按钮组 */
+.action-btn{
+  position:relative;
+  width:100%;
+  border:0;
+  border-radius:var(--radius-sm);
+  padding:11px 12px;
+  font-size:13.5px;
+  font-weight:800;
+  letter-spacing:.02em;
+  cursor:pointer;
+  overflow:hidden;
+  transition:transform var(--tx-fast),filter var(--tx-fast),box-shadow var(--tx-fast);
+}
+.action-btn:active{transform:translateY(0);}
+.primary-btn{
+  background:linear-gradient(135deg,var(--cyan),var(--amber));
+  color:#071022;
+  box-shadow:var(--shadow-md),0 0 0 0 rgba(94,208,230,.35);
+}
+.primary-btn:hover{transform:translateY(-1px);filter:saturate(1.05);box-shadow:var(--shadow-md),0 0 0 4px rgba(94,208,230,.16);}
+.ghost-btn{
+  background:rgba(94,208,230,.09);
+  color:#e9fbff;
+  border:1px solid rgba(94,208,230,.40);
+  box-shadow:var(--shadow-gl);
+}
+.ghost-btn:hover{transform:translateY(-1px);background:rgba(94,208,230,.14);border-color:var(--cyan);}
+.action-btn::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(120deg,transparent 28%,rgba(255,255,255,.35) 50%,transparent 72%);
+  transform:translateX(-120%);
+  transition:transform .6s cubic-bezier(.4,0,.2,1);
+  pointer-events:none;
+}
+.action-btn:hover::after{transform:translateX(120%);}
+
+/* 导入 */
+.import-row{display:flex;gap:8px;}
+#obj-file{display:none;}
+.import-hint{
+  margin-top:9px;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.55;
+}
+.import-hint strong{color:var(--cyan);font-weight:700;}
+
+/* 开关行 */
+.toggle-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:8px 0;
+  border-bottom:1px dashed rgba(255,255,255,.06);
+}
+.toggle-row:last-child{border-bottom:0;}
+.toggle-row .label{
+  color:#c5d3dd;
+  font-size:12.5px;
+  font-weight:500;
+}
+.toggle{
+  width:40px;height:24px;
+  border-radius:999px;
+  padding:3px;
+  background:#233245;
+  cursor:pointer;
+  transition:background var(--tx-mid);
+  flex-shrink:0;
+  box-shadow:0 1px 0 rgba(255,255,255,.06) inset;
+}
+.toggle::after{
+  content:"";
+  display:block;
+  width:18px;height:18px;
+  border-radius:999px;
+  background:#edf5f8;
+  box-shadow:0 2px 6px rgba(0,0,0,.35);
+  transition:transform var(--tx-mid);
+}
+.toggle.on{
+  background:linear-gradient(135deg,var(--cyan),#3aa8c2);
+}
+.toggle.on::after{transform:translateX(16px);}
+
+/* 滑块 */
+.slider-group{margin:12px 0;}
+.slider-group label{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+  color:#b6c6d1;
+  font-size:12px;
+  font-weight:500;
+}
+.slider-group .value{
+  color:var(--cyan);
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  padding:2px 7px;
+  border-radius:8px;
+  background:var(--cyan-soft);
+}
+input[type=range]{
+  width:100%;
+  height:5px;
+  border-radius:999px;
+  outline:none;
+  -webkit-appearance:none;
+  background:linear-gradient(90deg,rgba(94,208,230,.60),rgba(242,181,78,.45));
+  cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:18px;height:18px;border-radius:999px;
+  background:#f9fdff;
+  border:3px solid var(--cyan);
+  cursor:pointer;
+  box-shadow:0 2px 12px rgba(94,208,230,.50);
+  transition:transform var(--tx-fast),box-shadow var(--tx-fast);
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0 2px 18px rgba(94,208,230,.65);}
+
+/* 帮助卡片 */
+.help-card{
+  margin-top:12px;
+  padding:11px 12px;
+  border-radius:var(--radius);
+  border-left:3px solid var(--amber);
+  background:rgba(0,0,0,.24);
+  color:#aab9c5;
+  font-size:11px;
+  line-height:1.65;
+}
+.help-card b{color:#e9f3f7;}
+.help-card kbd{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:38px;
+  margin-right:5px;
+  padding:2px 6px;
+  border-radius:6px;
+  border:1px solid var(--line-strong);
+  background:rgba(255,255,255,.07);
+  color:#dce8ee;
+  font-size:10px;
+  font-family:"JetBrains Mono","Consolas",monospace;
+  font-weight:700;
+}
+
+/* 视口 */
+#viewport{
+  flex:1;
+  position:relative;
+  min-width:0;
+  overflow:hidden;
+}
+#viewport canvas{display:block;width:100%;height:100%;}
+
+/* HUD */
+#hud-top-right{
+  position:absolute;
+  top:16px;right:16px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  pointer-events:none;
+  z-index:10;
+}
+.hud-chip{
+  pointer-events:none;
+  padding:8px 12px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--line-strong);
+  background:rgba(12,18,30,.72);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  color:#dafaff;
+  font-size:11.5px;
+  font-weight:700;
+  letter-spacing:.03em;
+  box-shadow:var(--shadow-md);
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.hud-chip .dot{
+  width:6px;height:6px;border-radius:99px;
+  background:var(--cyan);
+  box-shadow:0 0 10px var(--cyan-glow);
+  flex-shrink:0;
+}
+#status-strip{
+  position:absolute;
+  left:16px;bottom:16px;
+  right:16px;
+  max-width:min(620px,calc(100vw - 36px));
+  padding:10px 13px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--line-strong);
+  background:rgba(12,18,30,.72);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  color:#cad8df;
+  font-size:11.5px;
+  line-height:1.55;
+  box-shadow:var(--shadow-md);
+  pointer-events:none;
+  z-index:10;
+}
+
+/* 手机端抽屉 */
+#mobile-drawer-scrim{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity var(--tx-slow);
+  z-index:35;
+}
+#mobile-drawer-scrim.show{
+  opacity:1;
+  pointer-events:auto;
+}
+#mobile-drawer{
+  position:fixed;
+  left:0;right:0;bottom:0;
+  transform:translateY(102%);
+  transition:transform var(--tx-slow);
+  z-index:40;
+  display:none;
+  max-height:72vh;
+}
+#mobile-drawer.show{
+  transform:translateY(0);
+}
+.mobile-drawer-inner{
+  background:linear-gradient(180deg,rgba(18,24,32,.94),rgba(12,16,24,.90));
+  border-top:1px solid var(--line);
+  box-shadow:var(--shadow-xl);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  overflow:hidden;
+}
+.mobile-drawer-grabbar{
+  display:flex;
+  justify-content:center;
+  padding:10px 0 8px 0;
+}
+.mobile-drawer-grabbar .grab{
+  width:38px;height:4px;border-radius:999px;
+  background:rgba(255,255,255,.18);
+}
+.mobile-drawer-tabs{
+  display:flex;
+  gap:4px;
+  padding:0 14px 10px 14px;
+}
+.mobile-drawer-tab{
+  flex:1;
+  border:0;
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--line);
+  color:var(--muted);
+  font-size:11.5px;
+  font-weight:800;
+  letter-spacing:.02em;
+  padding:7px 10px;
+  border-radius:999px;
+  cursor:pointer;
+  box-shadow:var(--shadow-gl);
+  transition:background var(--tx-fast),color var(--tx-fast),border-color var(--tx-fast);
+}
+.mobile-drawer-tab.active{
+  color:#071022;
+  background:linear-gradient(135deg,var(--cyan),var(--amber));
+  border-color:transparent;
+}
+.mobile-drawer-content{
+  overflow-y:auto;
+  padding:0 14px calc(12px + var(--safe-bottom)) 14px;
+  max-height:52vh;
+}
+.mobile-drawer-content::-webkit-scrollbar{width:6px;}
+.mobile-drawer-content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:999px;}
+
+/* 测评模式（隐藏，可显示） */
+#quiz-overlay{
+  position:absolute;inset:0;
+  display:none;
+  background:linear-gradient(180deg,rgba(7,16,34,.60),rgba(7,16,34,.70));
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  z-index:15;
+}
+.quiz-card{
+  position:absolute;
+  left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  width:min(540px,calc(100vw - 32px));
+  background:var(--panel-solid);
+  border:1px solid var(--line-strong);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-xl);
+  padding:18px 18px 16px 18px;
+}
+.quiz-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.quiz-title{
+  min-width:0;
+}
+.quiz-title h2{
+  font-size:16px;
+  font-weight:800;
+  letter-spacing:-.01em;
+}
+.quiz-title p{
+  margin-top:4px;
+  color:var(--muted);
+  font-size:11.5px;
+  line-height:1.45;
+}
+.quiz-progress{
+  flex-shrink:0;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:4px;
+}
+.quiz-pill{
+  padding:3px 9px;
+  border-radius:999px;
+  background:rgba(94,208,230,.12);
+  border:1px solid rgba(94,208,230,.30);
+  color:#dafaff;
+  font-size:10.5px;
+  font-weight:800;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.progress-bar{
+  width:100px;height:5px;border-radius:999px;
+  background:rgba(255,255,255,.08);
+  overflow:hidden;
+}
+.progress-fill{
+  height:100%;
+  width:42%;
+  border-radius:999px;
+  background:linear-gradient(90deg,var(--cyan),var(--amber));
+  transition:width var(--tx-slow);
+}
+.quiz-question{
+  margin-top:8px;
+  padding:12px 12px;
+  border-radius:var(--radius);
+  background:rgba(255,255,255,.035);
+  border:1px solid var(--line);
+}
+.quiz-qtext{
+  font-size:13px;font-weight:700;
+  margin-bottom:10px;
+}
+.quiz-options{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.quiz-option{
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:rgba(255,255,255,.03);
+  color:#d8e3eb;
+  font-size:12px;
+  font-weight:700;
+  padding:10px 11px;
+  cursor:pointer;
+  text-align:left;
+  transition:background var(--tx-fast),border-color var(--tx-fast),transform var(--tx-fast);
+}
+.quiz-option:hover{transform:translateY(-1px);background:rgba(94,208,230,.08);border-color:rgba(94,208,230,.40);}
+.quiz-option.correct{border-color:rgba(139,208,124,.72);background:rgba(139,208,124,.12);}
+.quiz-option.disabled{opacity:.45;}
+.quiz-stage{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:14px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:rgba(255,255,255,.04);
+}
+.quiz-stage span{font-size:12px;color:var(--muted);}
+.quiz-view-tags{display:flex;gap:6px;flex-wrap:wrap;}
+.quiz-view-tag{
+  padding:4px 8px;
+  border-radius:999px;
+  background:rgba(255,255,255,.07);
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+}
+.quiz-view-tag.on{background:rgba(94,208,230,.18);color:#dff9ff;border:1px solid rgba(94,208,230,.28);}
+.quiz-feedback{
+  min-height:34px;
+  margin-top:12px;
+  color:#d6e7ef;
+  font-size:13px;
+  line-height:1.55;
+}
+.quiz-actions{
+  display:flex;
+  gap:8px;
+  margin-top:12px;
+}
+.quiz-actions .action-btn{flex:1;}
+
+/* 响应式：手机 */
+@media(max-width:900px){
+  #sidepanel{display:none;}
+  #mobile-menu-btn{display:block;}
+  #mobile-unfold-fab{display:block;}
+  #mobile-drawer{display:block;}
+  #brand h1{font-size:14px;}
+  #brand p{display:none;}
+  #hud-top-right{top:12px;right:12px;}
+  #status-strip{left:12px;right:12px;bottom:calc(74px + var(--safe-bottom));}
+}
+@media(max-width:520px){
+  #mode-tabs{display:none;}
+  #brand p{display:none;}
+  .quiz-options{grid-template-columns:1fr;}
+}
+@media(max-width:900px) and (min-height:600px){
+  #mobile-drawer{max-height:62vh;}
+  .mobile-drawer-content{max-height:46vh;}
 }
 </style>
 </head>
 <body>
-<aside id="left-panel">
-  <header>
-    <h1>工图投影大师<span>Engineering Drawing 3D Projection</span></h1>
-  </header>
 
-  <section class="panel-section">
-    <h3>选择模型</h3>
-    <div class="model-grid">
-      <button class="model-btn active" data-model="step">叠加台阶块<small>三层叠加，训练长对正</small></button>
-      <button class="model-btn" data-model="slottedBlock">开槽垫块<small>矩形槽、内轮廓和虚线</small></button>
-      <button class="model-btn" data-model="notchedBlock">缺口切割块<small>局部切除与投影对应</small></button>
-      <button class="model-btn" data-model="ribBracket">肋板支架<small>底板、立板、三角肋板</small></button>
-      <button class="model-btn" data-model="bearingSeat">轴承座<small>底板、支承板、肋板、圆柱筒</small></button>
-      <button class="model-btn" data-model="dovetailSlide">燕尾槽滑块<small>斜面槽与滑块结构</small></button>
-      <button class="model-btn" data-model="vBlock">V 形定位块<small>V 槽定位面与对称投影</small></button>
-      <button class="model-btn" data-model="compoundSeat">综合支座<small>凸台、槽口、圆柱混合</small></button>
+<header id="topbar">
+  <div id="brand">
+    <div id="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M5 4.5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6.5l-3 2v-2h-1a1.5 1.5 0 0 1-1.5-1.5v-11A1 1 0 0 1 5 4.5zm3.5 2h-2v2h2v-2zm0 4h-2v2h2v-2zm0 4h-2v2h2v-2zm4-8h7v2h-7v-2zm0 4h7v2h-7v-2zm0 4h7v2h-7v-2z"/></svg>
     </div>
-  </section>
-
-  <section class="panel-section">
-    <h3>导入模型</h3>
-    <input type="file" id="obj-file" accept=".obj,text/plain">
-    <button class="import-btn" id="obj-import-btn">导入 OBJ 文件</button>
-    <div class="import-status" id="obj-status">支持本地 OBJ 网格；导入后会自动居中、缩放并生成三视图。</div>
-  </section>
-
-  <section class="panel-section">
-    <h3>投影控制</h3>
-    <button id="unfold-btn" aria-pressed="false">展开三视图</button>
-    <div class="toggle-row"><span>显示投影连线</span><div class="toggle on" id="tog-projlines"></div></div>
-    <div class="toggle-row"><span>显示虚线与中心线</span><div class="toggle on" id="tog-hidden"></div></div>
-    <div class="toggle-row"><span>显示坐标轴</span><div class="toggle on" id="tog-axes"></div></div>
-    <div class="toggle-row"><span>半透明模型</span><div class="toggle" id="tog-transparent"></div></div>
-  </section>
-
-  <section class="panel-section">
-    <h3>显示设置</h3>
-    <div class="slider-group">
-      <label>投影面透明度 <span id="plane-alpha-val">0.16</span></label>
-      <input type="range" id="plane-alpha" min="6" max="42" value="16">
+    <div style="min-width:0">
+      <h1>工图投影大师<span class="tag">v5</span></h1>
+      <p>空间智能 · 工程制图 · 第一角投影</p>
     </div>
-    <div class="slider-group">
-      <label>投影面尺寸 <span id="plane-size-val">7.5</span></label>
-      <input type="range" id="plane-size" min="6" max="11" step="0.5" value="7.5">
-    </div>
-    <div class="slider-group">
-      <label>模型离底面距离 <span id="plane-gap-val">1.4</span></label>
-      <input type="range" id="plane-gap" min="0.4" max="2.2" step="0.1" value="1.4">
-    </div>
-  </section>
-
-  <div class="info-box">
-    <b>操作提示：</b><br>
-    <kbd>左键</kbd>旋转视角<br>
-    <kbd>滚轮</kbd>缩放<br>
-    <kbd>右键</kbd>平移<br>
-    <kbd>空格</kbd>展开或合并三视图<br>
-    第一角投影法：长对正、宽相等、高平齐
   </div>
-</aside>
+  <div id="mode-tabs" role="tablist">
+    <button class="mode-tab active" data-mode="explore" role="tab" aria-selected="true">自由探索</button>
+    <button class="mode-tab" data-mode="quiz" role="tab" aria-selected="false">空间测评</button>
+  </div>
+  <button id="mobile-menu-btn" aria-label="打开菜单">
+    <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+  </button>
+</header>
 
-<main id="viewport">
-  <div id="view-label">三维透视 · 第一角投影</div>
-  <div id="status-strip">H 水平投影面已下移，模型底面与底面投影之间保留清晰距离。</div>
-  <button id="mobile-unfold-fab" aria-pressed="false">展开三视图</button>
-</main>
+<div id="workspace">
+  <aside id="sidepanel">
+    <div id="sidepanel-scroll">
+      <section class="panel-section">
+        <div class="panel-title">
+          <div class="dot"></div>
+          <h3>模型</h3>
+        </div>
+        <div class="model-grid">
+          <button class="model-btn active" data-model="step"><span class="name">叠加台阶块</span><span class="desc">三层叠加，训练长对正</span></button>
+          <button class="model-btn" data-model="slottedBlock"><span class="name">开槽导块</span><span class="desc">真实矩形导槽与槽底虚线</span></button>
+          <button class="model-btn" data-model="throughHolePlate"><span class="name">通孔板</span><span class="desc">竖直通孔、圆与中心线</span></button>
+          <button class="model-btn" data-model="ribBracket"><span class="name">肋板支架</span><span class="desc">底板、立板、三角肋板</span></button>
+          <button class="model-btn" data-model="bearingSeat"><span class="name">轴承座</span><span class="desc">经典综合组合体</span></button>
+          <button class="model-btn" data-model="dovetailSlide"><span class="name">燕尾槽滑块</span><span class="desc">斜面投影训练</span></button>
+          <button class="model-btn" data-model="vBlock"><span class="name">V形定位块</span><span class="desc">V槽与对称中心线</span></button>
+          <button class="model-btn" data-model="compoundSeat"><span class="name">综合支座</span><span class="desc">凸台、槽口、圆柱混合</span></button>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <div class="panel-title">
+          <div class="dot"></div>
+          <h3>导入</h3>
+        </div>
+        <input type="file" id="obj-file" accept=".obj,.stl,text/plain,model/stl">
+        <div class="import-row">
+          <button class="action-btn ghost-btn" id="obj-import-btn">导入 OBJ / STL</button>
+        </div>
+        <div class="import-hint" id="obj-status">支持本地网格，自动居中缩放并生成三视图（含消隐虚线）。</div>
+      </section>
+
+      <section class="panel-section">
+        <div class="panel-title">
+          <div class="dot"></div>
+          <h3>投影</h3>
+        </div>
+        <button class="action-btn primary-btn" id="unfold-btn" aria-pressed="false">展开三视图</button>
+        <div style="margin-top:12px"></div>
+        <div class="toggle-row"><span class="label">投影连线</span><div class="toggle on" id="tog-projlines"></div></div>
+        <div class="toggle-row"><span class="label">虚线与中心线</span><div class="toggle on" id="tog-hidden"></div></div>
+        <div class="toggle-row"><span class="label">坐标轴</span><div class="toggle on" id="tog-axes"></div></div>
+        <div class="toggle-row"><span class="label">半透明模型</span><div class="toggle" id="tog-transparent"></div></div>
+      </section>
+
+      <section class="panel-section">
+        <div class="panel-title">
+          <div class="dot"></div>
+          <h3>显示</h3>
+        </div>
+        <div class="slider-group">
+          <label>投影面透明度<span class="value" id="plane-alpha-val">0.16</span></label>
+          <input type="range" id="plane-alpha" min="6" max="42" value="16">
+        </div>
+        <div class="slider-group">
+          <label>投影面尺寸<span class="value" id="plane-size-val">7.5</span></label>
+          <input type="range" id="plane-size" min="6" max="11" step="0.5" value="7.5">
+        </div>
+        <div class="slider-group">
+          <label>模型离底面距离<span class="value" id="plane-gap-val">1.4</span></label>
+          <input type="range" id="plane-gap" min="0.4" max="2.2" step="0.1" value="1.4">
+        </div>
+      </section>
+
+      <div class="help-card">
+        <b>操作</b><br>
+        <kbd>左键</kbd>旋转<br>
+        <kbd>滚轮</kbd>缩放<br>
+        <kbd>右键</kbd>平移<br>
+        <kbd>空格</kbd>展开/合并<br>
+        第一角投影：长对正 · 宽相等 · 高平齐
+      </div>
+    </div>
+  </aside>
+
+  <main id="viewport">
+    <div id="hud-top-right">
+      <div class="hud-chip"><span class="dot"></span><span id="hud-mode">三维透视 · 第一角</span></div>
+    </div>
+    <div id="status-strip">v5：融合手机界面、OBJ/STL 导入、消隐虚线、展开合并与三视图递进推理训练。</div>
+    <button id="mobile-unfold-fab" aria-pressed="false">展开三视图</button>
+
+    <div id="quiz-overlay" aria-hidden="true">
+      <div class="quiz-card" role="dialog" aria-modal="true" aria-labelledby="quiz-title">
+        <div class="quiz-header">
+          <div class="quiz-title">
+            <h2 id="quiz-title">L1 · 三视图递进推理</h2>
+            <p>先给一个视图，候选很多；再给第二个视图，候选减少；给出第三个视图后，答案收缩到唯一实体。</p>
+          </div>
+          <div class="quiz-progress">
+            <div class="quiz-pill" id="quiz-stage-pill">第 1 / 3 步</div>
+            <div class="progress-bar"><div class="progress-fill" id="quiz-progress-fill" style="width:33%"></div></div>
+          </div>
+        </div>
+        <div class="quiz-question">
+          <div class="quiz-qtext" id="quiz-question-text">只看正面图：哪些实体可能成立？</div>
+          <div class="quiz-stage">
+            <span>已给出的视图</span>
+            <div class="quiz-view-tags">
+              <div class="quiz-view-tag on" id="quiz-tag-front">正面图</div>
+              <div class="quiz-view-tag" id="quiz-tag-top">俯视图</div>
+              <div class="quiz-view-tag" id="quiz-tag-side">侧面图</div>
+            </div>
+          </div>
+          <div class="quiz-options">
+            <button class="quiz-option" data-answer="cylinder">圆柱体</button>
+            <button class="quiz-option" data-answer="rect">方柱 / 长方体</button>
+            <button class="quiz-option" data-answer="tri">三角板</button>
+            <button class="quiz-option" data-answer="sphere">球体</button>
+          </div>
+          <div class="quiz-feedback" id="quiz-feedback">从一个矩形正面图开始，圆柱侧放、方柱、三角板侧视都可能混淆。</div>
+        </div>
+        <div class="quiz-actions">
+          <button class="action-btn ghost-btn" id="quiz-close">关闭</button>
+          <button class="action-btn ghost-btn" id="quiz-reset">重置题目</button>
+          <button class="action-btn primary-btn" id="quiz-next-view">给出下一个视图</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="mobile-drawer-scrim"></div>
+<div id="mobile-drawer" aria-hidden="true">
+  <div class="mobile-drawer-inner">
+    <div class="mobile-drawer-grabbar"><div class="grab"></div></div>
+    <div class="mobile-drawer-tabs">
+      <button class="mobile-drawer-tab active" data-tab="models">模型</button>
+      <button class="mobile-drawer-tab" data-tab="controls">控制</button>
+      <button class="mobile-drawer-tab" data-tab="settings">显示</button>
+    </div>
+    <div class="mobile-drawer-content" id="mobile-content-models">
+      <div style="padding:2px 0 6px 0">
+        <div class="model-grid">
+          <button class="model-btn active" data-model="step"><span class="name">叠加台阶块</span><span class="desc">三层叠加，训练长对正</span></button>
+          <button class="model-btn" data-model="slottedBlock"><span class="name">开槽导块</span><span class="desc">真实矩形导槽与槽底虚线</span></button>
+          <button class="model-btn" data-model="throughHolePlate"><span class="name">通孔板</span><span class="desc">竖直通孔、圆与中心线</span></button>
+          <button class="model-btn" data-model="ribBracket"><span class="name">肋板支架</span><span class="desc">底板、立板、三角肋板</span></button>
+          <button class="model-btn" data-model="bearingSeat"><span class="name">轴承座</span><span class="desc">经典综合组合体</span></button>
+          <button class="model-btn" data-model="dovetailSlide"><span class="name">燕尾槽滑块</span><span class="desc">斜面投影训练</span></button>
+          <button class="model-btn" data-model="vBlock"><span class="name">V形定位块</span><span class="desc">V槽与对称中心线</span></button>
+          <button class="model-btn" data-model="compoundSeat"><span class="name">综合支座</span><span class="desc">凸台、槽口、圆柱混合</span></button>
+        </div>
+      </div>
+      <button class="action-btn ghost-btn" id="obj-import-btn-mobile">导入 OBJ / STL</button>
+      <input type="file" id="obj-file-mobile" style="display:none" accept=".obj,.stl,text/plain,model/stl">
+    </div>
+    <div class="mobile-drawer-content" id="mobile-content-controls" style="display:none">
+      <button class="action-btn primary-btn" id="unfold-btn-mobile" aria-pressed="false" style="margin:2px 0 12px 0">展开三视图</button>
+      <div class="panel-section" style="margin-bottom:0">
+        <div class="toggle-row"><span class="label">投影连线</span><div class="toggle on" id="tog-projlines-m"></div></div>
+        <div class="toggle-row"><span class="label">虚线与中心线</span><div class="toggle on" id="tog-hidden-m"></div></div>
+        <div class="toggle-row"><span class="label">坐标轴</span><div class="toggle on" id="tog-axes-m"></div></div>
+        <div class="toggle-row"><span class="label">半透明模型</span><div class="toggle" id="tog-transparent-m"></div></div>
+      </div>
+    </div>
+    <div class="mobile-drawer-content" id="mobile-content-settings" style="display:none">
+      <div class="panel-section" style="margin-bottom:0">
+        <div class="slider-group">
+          <label>投影面透明度<span class="value" id="plane-alpha-val-m">0.16</span></label>
+          <input type="range" id="plane-alpha-m" min="6" max="42" value="16">
+        </div>
+        <div class="slider-group">
+          <label>投影面尺寸<span class="value" id="plane-size-val-m">7.5</span></label>
+          <input type="range" id="plane-size-m" min="6" max="11" step="0.5" value="7.5">
+        </div>
+        <div class="slider-group">
+          <label>模型离底面距离<span class="value" id="plane-gap-val-m">1.4</span></label>
+          <input type="range" id="plane-gap-m" min="0.4" max="2.2" step="0.1" value="1.4">
+        </div>
+      </div>
+      <div class="help-card" style="margin-top:12px">
+        <b>操作</b><br>
+        <kbd>单指</kbd>旋转 · <kbd>双指</kbd>缩放<br>
+        第一角投影：长对正 · 宽相等 · 高平齐
+      </div>
+    </div>
+  </div>
+</div>
 
 <script type="importmap">
 {"imports":{

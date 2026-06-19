@@ -4,13 +4,32 @@
 
 `Projection-master/`
 
-- Git branch: `main`
+- Git branch: `feature/v5-integrated-spatial-quiz`
 - Snapshot tag: `snapshot-2026-06-19-current`
 - Strengths:
-  - Minimal runnable package: `index.html`, `projection-master.js`, local start script.
-  - Built-in engineering drawing objects.
-  - OBJ import.
+  - v5 integrated package: `index.html`, `projection-master.js`, local start script.
+  - Built-in engineering drawing objects from the v2/v3/v4 line.
+  - OBJ / STL import.
+  - Hidden-line projection rendering.
+  - Mobile and desktop responsive interface.
+  - Mobile floating unfold/merge button.
   - First-angle projection unfold/merge.
+  - Spatial quiz mode: one view -> two views -> three views, candidates gradually reduce to a unique answer.
+
+## v5 Integration
+
+v5 consolidates the strongest pieces from the version family:
+
+- From current stable package: small runnable structure and Git-managed deployment folder.
+- From v2: hidden-line rendering idea and OBJ/STL import direction.
+- From v3-codex: spatial-intelligence task framing.
+- From v4: mobile-responsive shell, drawer controls, polished UI, OBJ/STL import, hidden-line rendering and quiz overlay scaffold.
+
+v5 adds a working first quiz interaction:
+
+1. Show one view: three candidates remain possible.
+2. Show two views: candidates reduce.
+3. Show three views: candidates reduce to one answer.
 
 ## Source Versions To Consolidate
 
