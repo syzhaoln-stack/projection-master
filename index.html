@@ -214,11 +214,32 @@ input[type=range]::-webkit-slider-thumb{
   pointer-events:none;
   backdrop-filter:blur(10px);
 }
+#mobile-unfold-fab{
+  display:none;
+  position:absolute;
+  left:50%;
+  bottom:18px;
+  transform:translateX(-50%);
+  z-index:7;
+  min-width:168px;
+  min-height:44px;
+  padding:0 18px;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:999px;
+  background:linear-gradient(135deg,var(--cyan),var(--amber));
+  color:#10202a;
+  font-size:14px;
+  font-weight:800;
+  box-shadow:0 14px 32px rgba(0,0,0,.34);
+  cursor:pointer;
+}
+#mobile-unfold-fab:active{transform:translateX(-50%) scale(.98)}
 @media (max-width:760px){
   body{flex-direction:column}
   #left-panel{width:100%;min-width:0;height:auto;max-height:46vh;border-right:0;border-bottom:1px solid var(--line)}
   #viewport{height:54vh}
-  #status-strip{left:12px;right:12px;bottom:10px;max-width:none}
+  #status-strip{left:12px;right:12px;bottom:72px;max-width:none}
+  #mobile-unfold-fab{display:block}
 }
 </style>
 </head>
@@ -287,6 +308,7 @@ input[type=range]::-webkit-slider-thumb{
 <main id="viewport">
   <div id="view-label">三维透视 · 第一角投影</div>
   <div id="status-strip">H 水平投影面已下移，模型底面与底面投影之间保留清晰距离。</div>
+  <button id="mobile-unfold-fab" aria-pressed="false">展开三视图</button>
 </main>
 
 <script type="importmap">

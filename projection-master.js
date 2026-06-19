@@ -778,17 +778,30 @@ function setupToggle(id, key, onChange) {
 
 function bindControls() {
   const unfoldBtn = document.getElementById('unfold-btn');
+  const mobileUnfoldBtn = document.getElementById('mobile-unfold-fab');
 
-  unfoldBtn.addEventListener('click', () => {
+  function syncUnfoldButtons() {
+    const text = state.isUnfolded ? '合并三视图' : '展开三视图';
+    [unfoldBtn, mobileUnfoldBtn].forEach(btn => {
+      if (!btn) return;
+      btn.textContent = text;
+      btn.setAttribute('aria-pressed', String(state.isUnfolded));
+    });
+  }
+
+  function toggleUnfold() {
     const target = state.isUnfolded ? 0 : 1;
     state.transitionActive = true;
     state.transitionFrom = state.unfoldProgress;
     state.transitionTo = target;
     state.transitionStart = performance.now();
     state.isUnfolded = target === 1;
-    unfoldBtn.textContent = state.isUnfolded ? '合并三视图' : '展开三视图';
-    unfoldBtn.setAttribute('aria-pressed', String(state.isUnfolded));
-  });
+    syncUnfoldButtons();
+  }
+
+  unfoldBtn?.addEventListener('click', toggleUnfold);
+  mobileUnfoldBtn?.addEventListener('click', toggleUnfold);
+  syncUnfoldButtons();
 
   setupToggle('tog-projlines', 'showProjLines', () => updateUnfold(state.unfoldProgress));
   setupToggle('tog-hidden', 'showHidden', () => drawProjections());
@@ -831,7 +844,7 @@ function bindControls() {
   document.addEventListener('keydown', e => {
     if (e.code === 'Space') {
       e.preventDefault();
-      unfoldBtn.click();
+      toggleUnfold();
     }
   });
 }
