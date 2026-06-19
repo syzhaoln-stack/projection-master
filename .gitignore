@@ -1,0 +1,23 @@
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor and IDE folders
+.vscode/
+.idea/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Local dependency/cache folders
+node_modules/
+.cache/
+dist/
+build/
+
+# Local environment files
+.env
+.env.*
