@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // ===== 基础设置 =====
 const viewport = document.getElementById('viewport');
@@ -59,7 +60,7 @@ const state = {
   transparentModel: false,
   planeAlpha: 0.16,
   planeSize: 7.5,
-  planeGap: 1.4,
+  planeGap: 1.6,
   importedGeometry: null,
   importedName: '',
   mode: 'explore'
@@ -70,7 +71,12 @@ const projectionGroup = new THREE.Group();
 const axesGroup = new THREE.Group();
 const projLinesGroup = new THREE.Group();
 const floorGroup = new THREE.Group();
-scene.add(floorGroup, projectionGroup, modelGroup, axesGroup, projLinesGroup);
+const focusGroup = new THREE.Group();   // 局部三视图聚焦框标记
+scene.add(floorGroup, projectionGroup, modelGroup, axesGroup, projLinesGroup, focusGroup);
+
+// 局部三视图：聚焦区域（null=整体）
+let focusBox = null;
+const raycaster = new THREE.Raycaster();
 
 const COL = {
   cyan: 0x5ed0e6,
@@ -140,6 +146,23 @@ function addProfilePrism(group, name, color, outer, depth, opts = {}) {
   const mesh = new THREE.Mesh(geo, makeMat(color));
   mesh.position.set(x, y, z); mesh.rotation.set(rotX, rotY, 0); mesh.castShadow = true; mesh.receiveShadow = true;
   group.add(mesh); return mesh;
+}
+
+// 两点之间的圆柱（桥梁索/吊杆/塔腿/拱肋分段通用），y-up 坐标系
+const _cbUp = new THREE.Vector3(0, 1, 0);
+function addCylinderBetween(group, name, a, b, radius, color, seg = 12) {
+  const av = new THREE.Vector3(a[0], a[1], a[2]);
+  const bv = new THREE.Vector3(b[0], b[1], b[2]);
+  const dir = new THREE.Vector3().subVectors(bv, av);
+  const len = dir.length();
+  if (len < 1e-6) return null;
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, len, seg), makeMat(color));
+  mesh.name = name;
+  mesh.quaternion.setFromUnitVectors(_cbUp, dir.clone().normalize());
+  mesh.position.copy(av).addScaledVector(dir, 0.5);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  group.add(mesh);
+  return mesh;
 }
 
 function clearGroup(group) {
@@ -264,19 +287,195 @@ const MODELS = {
   }
 };
 
+// ===== 桥梁模型（参数化，y-up；x=跨向 y=高 z=横向）=====
+function buildCableStayed(kind) {
+  const g = new THREE.Group();
+  const L = 7.0, W = 1.4, yd = 1.0, ytop = yd + 2.3;
+  addBox(g, 'girder', 0, yd, 0, L, 0.22, W, COL.steel);
+  addBox(g, 'deck', 0, yd + 0.16, 0, L, 0.07, W * 0.94, 0x9fb4c2);
+  [-W / 2 + 0.08, W / 2 - 0.08].forEach(z => addBox(g, 'edge_girder', 0, yd + 0.03, z, L, 0.16, 0.1, 0x70889a));
+  const towerX = [-L / 4, L / 4];
+  towerX.forEach(tx => {
+    [-1, 1].forEach(s => {
+      const zc = s * (W / 2 + 0.06);
+      addCylinderBetween(g, 'tower', [tx, 0, zc], [tx, ytop, zc * 0.32], 0.1, 0x7c8c98, 14);
+    });
+    addCylinderBetween(g, 'tower_beam', [tx, ytop - 0.25, (W / 2 + 0.06) * 0.32], [tx, ytop - 0.25, -(W / 2 + 0.06) * 0.32], 0.07, 0x6f8998, 10);
+    addBox(g, 'pier', tx, yd / 2 - 0.05, 0, 0.6, yd - 0.1, W * 0.9, 0x8a9aa6);
+  });
+  const nCables = 6;
+  towerX.forEach(tx => {
+    [-1, 1].forEach(dir => {
+      [-1, 1].forEach(s => {
+        const z = s * (W / 2 - 0.05);
+        for (let i = 1; i <= nCables; i++) {
+          const d = (L / 4 * 0.86) * i / nCables;
+          const deckX = tx + dir * d;
+          const topY = kind === 'harp' ? yd + 0.7 + (ytop - yd - 0.85) * i / nCables : ytop - 0.18;
+          addCylinderBetween(g, 'stay_cable', [tx, topY, z * 0.32], [deckX, yd + 0.14, z], 0.022, COL.amber, 6);
+          addBox(g, 'anchor', deckX, yd + 0.12, z, 0.18, 0.12, 0.12, 0x9fb0ba);
+        }
+      });
+    });
+  });
+  return g;
+}
+
+Object.assign(MODELS, {
+  beamBridge: {
+    name: '梁桥（简支/连续）',
+    note: '桥墩+主梁+桥面板，入门级：识别墩、梁、桥面的位置关系。',
+    centerAxes: [{ from: [0, 0, 0], to: [0, 1.9, 0] }],
+    build() {
+      const g = new THREE.Group();
+      const L = 6.6, W = 1.5, yd = 1.1;
+      addBox(g, 'girder', 0, yd, 0, L, 0.34, W, COL.steel);
+      addBox(g, 'deck', 0, yd + 0.22, 0, L, 0.1, W * 0.96, 0x9fb4c2);
+      [-W / 2 + 0.1, W / 2 - 0.1].forEach(z => addBox(g, 'edge_girder', 0, yd + 0.02, z, L, 0.18, 0.12, 0x70889a));
+      [-2.1, 0, 2.1].forEach(x => {
+        addBox(g, 'pier', x, yd / 2 - 0.05, 0, 0.5, yd - 0.1, W * 0.8, 0x8a9aa6);
+        addBox(g, 'pier_cap', x, yd - 0.05, 0, 0.82, 0.16, W * 0.96, 0x7c8c98);
+      });
+      return g;
+    }
+  },
+  archBridge: {
+    name: '拱桥（提篮/系杆拱）',
+    note: '拱肋+吊杆+系梁+桥面：识别拱肋、吊杆、主梁的空间位置（构件空间识别）。',
+    centerAxes: [{ from: [0, 0, 0], to: [0, 2.9, 0] }],
+    build() {
+      const g = new THREE.Group();
+      const L = 6.6, W = 1.5, yd = 1.0, rise = 1.7, a = L / 2 - 0.2;
+      addBox(g, 'tie_girder', 0, yd, 0, L, 0.26, W, COL.steel);
+      addBox(g, 'deck', 0, yd + 0.18, 0, L, 0.08, W * 0.94, 0x9fb4c2);
+      const archY = x => yd + 0.12 + rise * (1 - (x / a) * (x / a));
+      const lean = y => 1 - (y - yd) / rise * 0.5;
+      const N = 16;
+      [-1, 1].forEach(side => {
+        const zB = side * (W / 2 - 0.04);
+        for (let i = 0; i < N; i++) {
+          const x0 = -a + 2 * a * i / N, x1 = -a + 2 * a * (i + 1) / N;
+          const y0 = archY(x0), y1 = archY(x1);
+          addCylinderBetween(g, 'arch_rib', [x0, y0, zB * lean(y0)], [x1, y1, zB * lean(y1)], 0.07, COL.blue, 10);
+        }
+      });
+      [-0.85, 0.85].forEach(x => {
+        const y = archY(x), zt = (W / 2 - 0.04) * lean(y);
+        addCylinderBetween(g, 'arch_brace', [x, y, zt], [x, y, -zt], 0.05, 0x6f8998, 8);
+      });
+      const H = 7;
+      [-1, 1].forEach(side => {
+        const zB = side * (W / 2 - 0.04);
+        for (let i = 1; i <= H; i++) {
+          const x = -a * 0.82 + 2 * a * 0.82 * i / (H + 1);
+          const y = archY(x);
+          addCylinderBetween(g, 'hanger', [x, y, zB * lean(y)], [x, yd + 0.14, zB], 0.025, COL.cyan, 6);
+        }
+      });
+      [-a + 0.1, a - 0.1].forEach(x => addBox(g, 'pier', x, yd / 2 - 0.05, 0, 0.5, yd - 0.1, W * 0.8, 0x8a9aa6));
+      return g;
+    }
+  },
+  cableStayedFan: {
+    name: '斜拉桥（扇形）',
+    note: '塔+拉索+主梁，扇形索面：判断荷载经主梁→拉索→塔的传递（传力路径）。',
+    centerAxes: [{ from: [0, 0, 0], to: [0, 3.4, 0] }],
+    build() { return buildCableStayed('fan'); }
+  },
+  cableStayedHarp: {
+    name: '斜拉桥（竖琴）',
+    note: '塔+平行拉索+主梁，竖琴式索面：对比扇形与竖琴的索-塔几何关系。',
+    centerAxes: [{ from: [0, 0, 0], to: [0, 3.4, 0] }],
+    build() { return buildCableStayed('harp'); }
+  },
+  suspension: {
+    name: '悬索桥（主缆/吊杆）',
+    note: '主缆抛物线+吊杆+桥塔+加劲梁：结构体系心理旋转与传力路径训练。',
+    centerAxes: [{ from: [0, 0, 0], to: [0, 3.3, 0] }],
+    build() {
+      const g = new THREE.Group();
+      const L = 7.0, W = 1.4, yd = 1.0, ytop = yd + 2.2, sag = 1.5;
+      const tx = L * 0.28;
+      addBox(g, 'girder', 0, yd, 0, L, 0.2, W, COL.steel);
+      addBox(g, 'deck', 0, yd + 0.15, 0, L, 0.07, W * 0.94, 0x9fb4c2);
+      [-tx, tx].forEach(x => {
+        [-1, 1].forEach(s => { const zc = s * (W / 2 + 0.03); addCylinderBetween(g, 'tower', [x, 0, zc], [x, ytop, zc], 0.1, 0x7c8c98, 14); });
+        addCylinderBetween(g, 'tower_beam', [x, ytop - 0.18, W / 2 + 0.03], [x, ytop - 0.18, -(W / 2 + 0.03)], 0.07, 0x6f8998, 10);
+        addBox(g, 'pier', x, yd / 2 - 0.05, 0, 0.6, yd - 0.1, W * 0.95, 0x8a9aa6);
+      });
+      const cableY = u => ytop - sag * (1 - u * u);
+      [-1, 1].forEach(s => {
+        const z = s * (W / 2 + 0.03);
+        const N = 18; let prev = null;
+        for (let i = 0; i <= N; i++) {
+          const x = -tx + 2 * tx * i / N, u = x / tx, p = [x, cableY(u), z];
+          if (prev) addCylinderBetween(g, 'main_cable', prev, p, 0.035, COL.amber, 6);
+          prev = p;
+        }
+        addCylinderBetween(g, 'main_cable', [-tx, ytop, z], [-L / 2, yd + 0.1, z], 0.035, COL.amber, 6);
+        addCylinderBetween(g, 'main_cable', [tx, ytop, z], [L / 2, yd + 0.1, z], 0.035, COL.amber, 6);
+      });
+      const H = 9;
+      [-1, 1].forEach(s => {
+        const z = s * (W / 2 + 0.03);
+        for (let i = 1; i <= H; i++) {
+          const x = -tx + 2 * tx * i / (H + 1), u = x / tx;
+          addCylinderBetween(g, 'hanger', [x, cableY(u), z], [x, yd + 0.13, z], 0.02, COL.cyan, 6);
+        }
+      });
+      return g;
+    }
+  },
+  jointDetail: {
+    name: '节点构造（吊杆-横梁-主梁）',
+    note: '局部节点：主梁、横梁、吊杆与节点板的空间连接（节点构造空间重构）。',
+    centerAxes: [{ from: [0, 0.1, 0], to: [0, 2.9, 0] }, { from: [-2.1, 0.6, 0], to: [2.1, 0.6, 0] }],
+    build() {
+      const g = new THREE.Group();
+      addBox(g, 'main_girder', 0, 0.6, 0, 4.0, 0.5, 0.5, COL.steel);
+      addBox(g, 'cross_beam', 0, 0.6, 0, 0.5, 0.45, 2.6, 0x6f8998);
+      addBox(g, 'gusset', 0, 1.04, 0, 0.7, 0.52, 0.08, 0x95aab8);
+      addCylinder(g, 'hanger', 0, 1.95, 0, 0.07, 1.7, COL.cyan, 18);
+      addTriPrism(g, 'stiffener', 0x8eaabc, [[-0.4, -0.3], [0.4, -0.3], [-0.4, 0.3]], 0.1, 0, 0.98, 0.45);
+      addTriPrism(g, 'stiffener', 0x8eaabc, [[-0.4, -0.3], [0.4, -0.3], [-0.4, 0.3]], 0.1, 0, 0.98, -0.45);
+      return g;
+    }
+  }
+});
+
 // ===== 投影核心 =====
 const projPlanes = { front: null, top: null, side: null };
 const projTextures = { front: null, top: null, side: null };
 const projCanvases = { front: null, top: null, side: null };
-const DEPTH_RES = 512; // 消隐深度图分辨率
+// ===== 三视图：正交相机渲染到贴图（稳定正确，支持任意复杂度） =====
+const PROJ_RES = 1024;           // 每个视图渲染分辨率
+const PROJ_BG = 0x0e1a2c;        // 视图底色
+const EDGE_THRESHOLD = 24;       // 特征边阈值（度）：低于此夹角的面间边不画
+const projTargets = { front: null, top: null, side: null };
+const projCams = { front: null, top: null, side: null };
+let projScene = null;            // 离屏线框场景（只含当前模型的线/遮挡体/中心线）
+let projResourcesReady = false;
 
-// 视图设置：第一角投影
+// 第一角投影各视图的取景朝向与镜像校正（flip 经截图核验后微调）
 const VIEW = {
-  front: { dir: new THREE.Vector3(0, 0, 1), depth: (p) => p.z },
-  top: { dir: new THREE.Vector3(0, 1, 0), depth: (p) => p.y },
-  side: { dir: new THREE.Vector3(-1, 0, 0), depth: (p) => -p.x }
+  front: { eye: new THREE.Vector3(0, 0, 1),  up: new THREE.Vector3(0, 1, 0),  flipX: false, flipY: false },
+  top:   { eye: new THREE.Vector3(0, 1, 0),  up: new THREE.Vector3(0, 0, -1), flipX: false, flipY: false },
+  side:  { eye: new THREE.Vector3(1, 0, 0),  up: new THREE.Vector3(0, 1, 0),  flipX: true,  flipY: false }
 };
-const FEATURE_ANGLE = THREE.MathUtils.degToRad(22); // 硬边阈值
+
+function ensureProjResources() {
+  if (projResourcesReady) return;
+  projScene = new THREE.Scene();
+  ['front', 'top', 'side'].forEach(v => {
+    const rt = new THREE.WebGLRenderTarget(PROJ_RES, PROJ_RES, { samples: 4 });
+    rt.texture.colorSpace = THREE.SRGBColorSpace;
+    rt.texture.minFilter = THREE.LinearFilter;
+    rt.texture.magFilter = THREE.LinearFilter;
+    projTargets[v] = rt;
+    projCams[v] = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 400);
+  });
+  projResourcesReady = true;
+}
 
 function getPlaneLayout(t = state.unfoldProgress) {
   const S = state.planeSize;
@@ -346,237 +545,259 @@ function createProjectionPlanes() {
 }
 
 function makeProjectionMaterial(view) {
+  ensureProjResources();
+  const tex = projTargets[view].texture;
+  const cfg = VIEW[view];
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(cfg.flipX ? -1 : 1, cfg.flipY ? -1 : 1);
+  tex.offset.set(cfg.flipX ? 1 : 0, cfg.flipY ? 1 : 0);
   return new THREE.MeshBasicMaterial({
-    map: createCanvasTexture(view),
+    map: tex,
     transparent: true,
-    opacity: 0.92,
+    opacity: 0.96,
     side: THREE.DoubleSide,
     depthWrite: false
   });
 }
 
-function qp(p) { return `${Math.round(p.x*1000)},${Math.round(p.y*1000)},${Math.round(p.z*1000)}`; }
-
-function buildProjectionMesh() {
-  modelGroup.updateMatrixWorld(true);
-  const tris = [];
-  const edgeMap = new Map();
-
-  modelGroup.traverse(child => {
-    if (!child.isMesh) return;
-    const g = child.geometry;
-    const pos = g.attributes.position;
-    const idx = g.index;
-    const mw = child.matrixWorld;
-    const nTri = idx ? idx.count / 3 : pos.count / 3;
-    for (let i = 0; i < nTri; i++) {
-      const i0 = idx ? idx.getX(i*3) : i*3;
-      const i1 = idx ? idx.getX(i*3+1) : i*3+1;
-      const i2 = idx ? idx.getX(i*3+2) : i*3+2;
-      const v0 = new THREE.Vector3().fromBufferAttribute(pos,i0).applyMatrix4(mw);
-      const v1 = new THREE.Vector3().fromBufferAttribute(pos,i1).applyMatrix4(mw);
-      const v2 = new THREE.Vector3().fromBufferAttribute(pos,i2).applyMatrix4(mw);
-      const e01 = new THREE.Vector3().subVectors(v1,v0);
-      const e12 = new THREE.Vector3().subVectors(v2,v1);
-      const n = new THREE.Vector3().crossVectors(e01,e12).normalize();
-      if (!Number.isFinite(n.x + n.y + n.z)) continue;
-      const tri = { v0, v1, v2, n };
-      tris.push(tri);
-      [[v0,v1],[v1,v2],[v2,v0]].forEach(([a,b]) => {
-        const ka = qp(a), kb = qp(b);
-        const key = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
-        const e = edgeMap.get(key) || { a, b, ns: [] };
-        e.ns.push(n);
-        edgeMap.set(key, e);
-      });
-    }
+// 反向外壳剪影材质：为光滑曲面（圆柱/桥索/塔）补外轮廓线，任意几何通用
+function makeSilhouetteMaterial(thickness) {
+  return new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: { uColor: { value: new THREE.Color(0xeaf6fb) }, uT: { value: thickness } },
+    vertexShader: `
+      uniform float uT;
+      void main(){
+        vec3 p = position + normalize(normal) * uT;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 uColor;
+      void main(){ gl_FragColor = vec4(uColor, 1.0); }`
   });
-  return { tris, edges: Array.from(edgeMap.values()) };
 }
 
-function shouldDrawEdge(e, viewDir) {
-  if (e.ns.length !== 2) return true;
-  const d0 = e.ns[0].dot(viewDir);
-  const d1 = e.ns[1].dot(viewDir);
-  if (d0 * d1 < 0) return true; // 轮廓边
-  if (Math.abs(e.ns[0].angleTo(e.ns[1])) > FEATURE_ANGLE) return true; // 硬边
-  return false;
+const _projDisposables = [];
+function clearProjScene() {
+  if (!projScene) return;
+  while (projScene.children.length) projScene.remove(projScene.children[0]);
+  _projDisposables.forEach(d => { try { d.dispose && d.dispose(); } catch (e) {} });
+  _projDisposables.length = 0;
 }
 
-function buildDepthBuffer(tris, view, W, H, scale, bounds, S) {
-  const depth = VIEW[view].depth;
-  const buf = new Float32Array(DEPTH_RES * DEPTH_RES);
-  for (let i = 0; i < buf.length; i++) buf[i] = -Infinity;
+// 构建离屏线框场景：剪影 + 遮挡体 + 可见实线 + 隐藏虚线 + 中心线
+// 三视图取景边界：局部聚焦时用 focusBox，否则整体
+function getProjBounds() {
+  return focusBox ? focusBox.clone() : getModelBounds();
+}
 
-  for (const t of tris) {
-    const a = projectPoint(t.v0, view, W, H, scale, bounds, S);
-    const b = projectPoint(t.v1, view, W, H, scale, bounds, S);
-    const c = projectPoint(t.v2, view, W, H, scale, bounds, S);
+function buildProjScene() {
+  ensureProjResources();
+  clearProjScene();
+  modelGroup.updateMatrixWorld(true);
 
-    const sx = DEPTH_RES / W;
-    const sy = DEPTH_RES / H;
-    const ax = a.x * sx, ay = a.y * sy, ad = depth(t.v0);
-    const bx = b.x * sx, by = b.y * sy, bd = depth(t.v1);
-    const cx = c.x * sx, cy = c.y * sy, cd = depth(t.v2);
+  const box = getProjBounds();
+  const size = new THREE.Vector3(); box.getSize(size);
+  const ext = Math.max(size.x, size.y, size.z) || 1;
+  const dash = ext * 0.02;
 
-    let minx = Math.max(0, Math.floor(Math.min(ax, bx, cx)));
-    let maxx = Math.min(DEPTH_RES - 1, Math.ceil(Math.max(ax, bx, cx)));
-    let miny = Math.max(0, Math.floor(Math.min(ay, by, cy)));
-    let maxy = Math.min(DEPTH_RES - 1, Math.ceil(Math.max(ay, by, cy)));
-    const area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
-    if (Math.abs(area) < 1e-12) continue;
-    const inv = 1 / area;
+  // 收集每个 mesh 的世界空间几何
+  const worldGeos = [];
+  modelGroup.traverse(child => {
+    if (!child.isMesh || !child.geometry) return;
+    const g = child.geometry.clone();
+    g.applyMatrix4(child.matrixWorld);
+    worldGeos.push(g);
+  });
+  if (!worldGeos.length) return;
 
-    for (let y = miny; y <= maxy; y++) {
-      for (let x = minx; x <= maxx; x++) {
-        const px = x + 0.5, py = y + 0.5;
-        const w0 = ((bx - px) * (cy - py) - (cx - px) * (by - py)) * inv;
-        const w1 = ((cx - px) * (ay - py) - (ax - px) * (cy - py)) * inv;
-        const w2 = 1 - w0 - w1;
-        if (w0 < -1e-4 || w1 < -1e-4 || w2 < -1e-4) continue;
-        const zd = w0 * ad + w1 * bd + w2 * cd;
-        const idx = y * DEPTH_RES + x;
-        if (zd > buf[idx]) buf[idx] = zd;
-      }
+  // 遮挡体（底色实绘：盖住剪影内部、只留外轮廓白边；并写深度供消隐）
+  // polygonOffset 推后，让边线压在前不闪烁
+  const occMat = new THREE.MeshBasicMaterial({ color: PROJ_BG });
+  occMat.polygonOffset = true; occMat.polygonOffsetFactor = 1; occMat.polygonOffsetUnits = 1;
+  _projDisposables.push(occMat);
+  // 剪影（外轮廓）
+  const silMat = makeSilhouetteMaterial(ext * 0.004);
+  _projDisposables.push(silMat);
+  // 可见实线
+  const visMat = new THREE.LineBasicMaterial({ color: 0xeaf6fb });
+  _projDisposables.push(visMat);
+  // 隐藏虚线（仅在被遮挡处绘制）
+  const hidMat = new THREE.LineDashedMaterial({ color: 0x8aa0b4, dashSize: dash, gapSize: dash * 0.72, transparent: true, opacity: 0.92 });
+  hidMat.depthFunc = THREE.GreaterDepth;
+  _projDisposables.push(hidMat);
+
+  worldGeos.forEach(g => {
+    _projDisposables.push(g);
+    const sil = new THREE.Mesh(g, silMat); sil.renderOrder = 0; projScene.add(sil);
+    const occ = new THREE.Mesh(g, occMat); occ.renderOrder = 1; projScene.add(occ);
+    const eg = new THREE.EdgesGeometry(g, EDGE_THRESHOLD);
+    _projDisposables.push(eg);
+    if (state.showHidden) {
+      const hid = new THREE.LineSegments(eg, hidMat); hid.renderOrder = 2;
+      hid.computeLineDistances();
+      projScene.add(hid);
     }
+    const vis = new THREE.LineSegments(eg, visMat); vis.renderOrder = 3; projScene.add(vis);
+  });
+
+  // 中心线（链式点划线，置顶不消隐）
+  const centerSegs = computeCenterLines(box);
+  if (centerSegs.length) {
+    const cMat = new THREE.LineDashedMaterial({
+      color: 0xf0b454, dashSize: ext * 0.05, gapSize: ext * 0.022,
+      transparent: true, opacity: 0.85, depthTest: false
+    });
+    _projDisposables.push(cMat);
+    const pts = [];
+    centerSegs.forEach(([a, b]) => { pts.push(a, b); });
+    const cGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    _projDisposables.push(cGeo);
+    const cLines = new THREE.LineSegments(cGeo, cMat); cLines.renderOrder = 4;
+    cLines.computeLineDistances();
+    projScene.add(cLines);
   }
-  return buf;
 }
 
-function drawGrid(ctx, W, H) {
-  ctx.save();
-  ctx.strokeStyle = 'rgba(94,208,230,.10)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 12; i++) {
-    const p = (i / 12) * W;
-    ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, H); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(W, p); ctx.stroke();
+// 中心线：优先用模型自带特征轴（圆柱/孔），否则取竖直对称中心线
+function computeCenterLines(box) {
+  const segs = [];
+  const size = new THREE.Vector3(); box.getSize(size);
+  const pad = Math.max(size.x, size.y, size.z) * 0.08;
+
+  const def = MODELS[state.currentModel];
+  const axes = def && def.centerAxes;
+  if (axes && axes.length) {
+    axes.forEach(ax => {
+      const a = new THREE.Vector3(ax.from[0], ax.from[1], ax.from[2]);
+      const b = new THREE.Vector3(ax.to[0], ax.to[1], ax.to[2]);
+      const d = new THREE.Vector3().subVectors(b, a).normalize().multiplyScalar(pad);
+      segs.push([a.clone().sub(d), b.clone().add(d)]);
+    });
+    return segs;
   }
-  ctx.restore();
+  // 默认竖直对称中心线（多数模型关于 x=0 对称）
+  segs.push([
+    new THREE.Vector3(0, box.min.y - pad, 0),
+    new THREE.Vector3(0, box.max.y + pad, 0)
+  ]);
+  return segs;
 }
 
-function drawCenterLine(ctx, view, W, H, scale, bounds, S, boundsBox) {
-  const center = new THREE.Vector3(0, boundsBox.min.y + (boundsBox.max.y - boundsBox.min.y) / 2, 0);
-  // 简单对称中心线（可选扩展）
-  // 为避免过度绘制，本版仅在轴承座/通孔板等模型中画十字线示意
-}
+// 三正交相机渲染到 RenderTarget
+// 整体模式：与投影面 1:1（世界坐标 ↔ 平面），三视图与三维模型、彼此严格对齐
+// 局部模式：聚焦放大到 focusBox（细部用，不要求与整体同比例）
+function renderProjViews() {
+  ensureProjResources();
+  const S = state.planeSize;
+  const half = S / 2;
+  const fcY = S / 2 - state.planeGap;            // 与 getPlaneLayout 的 V/W 面竖直中心一致
 
-function projectPoint(p, view, W, H, scale, bounds, S) {
-  const cx = W / 2, cy = H / 2;
-  const frontCenterY = (S || state.planeSize) / 2 - state.planeGap;
-  let localX, localY;
-  if (view === 'front') { localX = p.x; localY = p.y - frontCenterY; }
-  else if (view === 'top') { localX = p.x; localY = -p.z; }
-  else { localX = p.z; localY = p.y - frontCenterY; } // 侧视：外翻后与世界z同向
-  return { x: cx + localX * scale, y: cy - localY * scale };
-}
+  const fullBox = getModelBounds();
+  const fullSize = new THREE.Vector3(); fullBox.getSize(fullSize);
+  const fc = new THREE.Vector3(); fullBox.getCenter(fc);
+  const dist = Math.max(fullSize.x, fullSize.y, fullSize.z, S) * 2 + 4;  // 仅影响裁剪
 
-function sampleEdgeVisibility(a, b, view, depthBuf, W, H, scale, bounds, S) {
-  const N = 28;
-  const depthFn = VIEW[view].depth;
-  const sx = DEPTH_RES / W, sy = DEPTH_RES / H;
-  const eps = Math.max(1e-3, (S || state.planeSize) * 0.012);
-
-  let prevOk = null;
-  const segments = [];
-  let current = null;
-
-  for (let i = 0; i <= N; i++) {
-    const t = i / N;
-    const p = new THREE.Vector3().lerpVectors(a, b, t);
-    const pd = projectPoint(p, view, W, H, scale, bounds, S);
-    const xi = Math.max(0, Math.min(DEPTH_RES - 1, Math.round(pd.x * sx)));
-    const yi = Math.max(0, Math.min(DEPTH_RES - 1, Math.round(pd.y * sy)));
-    const zdepth = depthBuf[yi * DEPTH_RES + xi];
-    const visible = (zdepth === -Infinity) || (depthFn(p) >= zdepth - eps);
-
-    if (visible !== prevOk) {
-      if (current) segments.push(current);
-      current = { visible, pts: [pd] };
-    } else {
-      if (!current) current = { visible, pts: [pd] };
-      else current.pts.push(pd);
-    }
-    prevOk = visible;
+  // 各视图的取景半宽与“看向点”（其余轴用整体模型中心保证完整入框）
+  let frames;
+  if (focusBox) {
+    const c = new THREE.Vector3(); focusBox.getCenter(c);
+    const sz = new THREE.Vector3(); focusBox.getSize(sz);
+    const h = (Math.max(sz.x, sz.y, sz.z) || 1) * 0.62;
+    frames = {
+      front: { half: h, look: new THREE.Vector3(c.x, c.y, fc.z) },
+      top:   { half: h, look: new THREE.Vector3(c.x, fc.y, c.z) },
+      side:  { half: h, look: new THREE.Vector3(fc.x, c.y, c.z) }
+    };
+  } else {
+    frames = {
+      front: { half, look: new THREE.Vector3(0, fcY, fc.z) },
+      top:   { half, look: new THREE.Vector3(0, fc.y, 0) },
+      side:  { half, look: new THREE.Vector3(fc.x, fcY, 0) }
+    };
   }
-  if (current) segments.push(current);
-  return segments;
+
+  const prevTarget = renderer.getRenderTarget();
+  const prevClear = new THREE.Color(); renderer.getClearColor(prevClear);
+  const prevAlpha = renderer.getClearAlpha();
+  renderer.setClearColor(PROJ_BG, 1);
+
+  ['front', 'top', 'side'].forEach(view => {
+    const cfg = VIEW[view];
+    const cam = projCams[view];
+    const f = frames[view];
+    cam.left = -f.half; cam.right = f.half; cam.top = f.half; cam.bottom = -f.half;
+    cam.near = 0.01; cam.far = dist * 2;
+    cam.up.copy(cfg.up);
+    cam.position.copy(f.look).addScaledVector(cfg.eye, dist);
+    cam.lookAt(f.look);
+    cam.updateProjectionMatrix();
+
+    renderer.setRenderTarget(projTargets[view]);
+    renderer.render(projScene, cam);
+  });
+
+  renderer.setRenderTarget(prevTarget);
+  renderer.setClearColor(prevClear, prevAlpha);
 }
 
 function drawProjections() {
-  const { tris, edges } = buildProjectionMesh();
-  const boundsBox = getModelBounds();
+  buildProjScene();
+  renderProjViews();
+}
 
-  ['front', 'top', 'side'].forEach(view => {
-    const canvas = projCanvases[view];
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width, H = canvas.height;
-    const S = state.planeSize;
-    const scale = W / S;
-    const bgAlpha = Math.min(0.42, state.planeAlpha * 1.85);
+// ===== 局部三视图：点选构件聚焦 =====
+function updateFocusMarker() {
+  clearGroup(focusGroup);
+  if (!focusBox) return;
+  const helper = new THREE.Box3Helper(focusBox, new THREE.Color(0xf0b454));
+  if (helper.material) { helper.material.transparent = true; helper.material.opacity = 0.9; helper.material.depthTest = false; }
+  helper.renderOrder = 5;
+  focusGroup.add(helper);
+}
 
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = `rgba(18, 28, 44, ${bgAlpha})`;
-    ctx.fillRect(0, 0, W, H);
-    drawGrid(ctx, W, H);
+function setFocusAtPoint(p) {
+  const box = getModelBounds();
+  const size = new THREE.Vector3(); box.getSize(size);
+  const ext = Math.max(size.x, size.y, size.z) || 1;
+  const h = ext * 0.2;
+  focusBox = new THREE.Box3(
+    new THREE.Vector3(p.x - h, p.y - h, p.z - h),
+    new THREE.Vector3(p.x + h, p.y + h, p.z + h)
+  );
+  updateFocusMarker();
+  drawProjections();
+  setStatus(`局部三视图：已对聚焦区域出图（黄框）。点击空白处恢复整体三视图。`);
+}
 
-    const depthBuf = buildDepthBuffer(tris, view, W, H, scale, boundsBox, S);
-    const viewDir = VIEW[view].dir.clone();
+function clearFocus(announce) {
+  if (!focusBox && !announce) return;
+  focusBox = null;
+  updateFocusMarker();
+  drawProjections();
+  if (announce) setStatus('已恢复整体三视图。提示：点击模型上任意构件，可对其局部出三视图。');
+}
 
-    const visibleRuns = [];
-    const hiddenRuns = [];
-    for (const e of edges) {
-      if (!shouldDrawEdge(e, viewDir)) continue;
-      const segs = sampleEdgeVisibility(e.a, e.b, view, depthBuf, W, H, scale, boundsBox, S);
-      for (const s of segs) {
-        if (s.pts.length < 2) continue;
-        (s.visible ? visibleRuns : hiddenRuns).push(s.pts);
-      }
-    }
-
-    // 虚线先画（在后面）
-    if (state.showHidden) {
-      ctx.save();
-      ctx.setLineDash([11, 7]);
-      ctx.strokeStyle = 'rgba(145,165,185,.85)';
-      ctx.lineWidth = 2.0;
-      ctx.lineCap = 'butt';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      hiddenRuns.forEach(r => {
-        ctx.moveTo(r[0].x, r[0].y);
-        for (let i = 1; i < r.length; i++) ctx.lineTo(r[i].x, r[i].y);
-      });
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // 实线后画（在上面）
-    ctx.save();
-    ctx.setLineDash([]);
-    ctx.strokeStyle = '#eaf6fb';
-    ctx.lineWidth = 3.2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    visibleRuns.forEach(r => {
-      ctx.moveTo(r[0].x, r[0].y);
-      for (let i = 1; i < r.length; i++) ctx.lineTo(r[i].x, r[i].y);
-    });
-    ctx.stroke();
-    ctx.restore();
-
-    // 可选：中心线（示例）
-    if (state.showHidden) {
-      ctx.save();
-      ctx.setLineDash([16, 4, 3, 4]);
-      ctx.strokeStyle = 'rgba(240,180,84,.65)';
-      ctx.lineWidth = 1.5;
-      ctx.restore();
-    }
-
-    projTextures[view].needsUpdate = true;
+function bindFocusPicking() {
+  const dom = renderer.domElement;
+  let down = null;
+  dom.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  dom.addEventListener('pointerup', e => {
+    if (!down) return;
+    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+    const dt = performance.now() - down.t;
+    down = null;
+    if (moved > 6 || dt > 450) return;      // 拖拽/长按 → 视为轨道操作，不聚焦
+    if (state.mode === 'quiz') return;
+    const rect = dom.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    raycaster.setFromCamera(ndc, camera);
+    const hits = raycaster.intersectObjects(modelGroup.children, true);
+    if (hits.length) setFocusAtPoint(hits[0].point);
+    else clearFocus(true);
   });
 }
 
@@ -745,6 +966,7 @@ function normalizeModelInPlace(group) {
 
 function rebuildModel() {
   clearGroup(modelGroup);
+  focusBox = null; clearGroup(focusGroup);   // 换模型时复位局部聚焦
   const isImported = state.currentModel === 'imported' && state.importedGeometry;
   const def = isImported ? null : (MODELS[state.currentModel] || MODELS.step);
   let model, statusText;
@@ -760,10 +982,18 @@ function rebuildModel() {
   modelGroup.add(model);
   updateModelTransparency();
   modelGroup.updateMatrixWorld(true);
+  applyClearance();   // 据模型尺寸 + 统一距离设定投影面，并重建投影面/地面/坐标轴
+  setStatus(statusText);
+}
+
+// 投影面尺寸 = 模型最大尺寸 + 2×距离 → 三个投影面与模型间距一起随 planeGap 调整
+function applyClearance() {
+  const b = getModelBounds(); const s = new THREE.Vector3(); b.getSize(s);
+  const ext = Math.max(s.x, s.y, s.z) || 1;
+  state.planeSize = ext + 2 * state.planeGap;
   buildFloorReference();
   buildAxes();
   createProjectionPlanes();
-  setStatus(statusText);
 }
 
 function updateModelTransparency() {
@@ -783,31 +1013,65 @@ function bindModelButtons() {
   modelButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       modelButtons.forEach(b => b.classList.remove('active'));
-      modelButtons.forEach(b => { if (b.dataset.model === btn.dataset.model) b.classList.add('active'); });
-      state.currentModel = btn.dataset.model;
-      rebuildModel();
+      btn.classList.add('active');
+      if (btn.dataset.url) {
+        loadAssetFromUrl(btn.dataset.url, btn.dataset.name || btn.textContent.trim(), btn.dataset.zup === '1');
+      } else {
+        state.currentModel = btn.dataset.model;
+        rebuildModel();
+      }
     });
   });
 }
 
 const objLoader = new OBJLoader();
 const stlLoader = new STLLoader();
+const gltfLoader = new GLTFLoader();
+
+// 按扩展名解析为统一几何（OBJ / STL / GLB / GLTF），ext 可省略由 url/name 推断
+async function parseModelData(data, ext) {
+  if (ext === 'stl') {
+    return extractGeometryFromParsed(stlLoader.parse(data));  // data: ArrayBuffer
+  }
+  if (ext === 'obj') {
+    return extractGeometryFromParsed(objLoader.parse(data));  // data: text
+  }
+  if (ext === 'glb' || ext === 'gltf') {
+    const gltf = await gltfLoader.parseAsync(data, '');        // data: ArrayBuffer
+    return extractGeometryFromParsed(gltf.scene);
+  }
+  throw new Error('仅支持 OBJ / STL / GLB / GLTF。');
+}
+
+// 加载内置/网络桥梁资产；zUp=true 时绕 X 校正为 y-up（工程/CAD 资产多为 z 轴向上）
+async function loadAssetFromUrl(url, name, zUp) {
+  try {
+    setStatus(`正在加载资产 ${name}…`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const ext = (url.split('.').pop() || '').toLowerCase();
+    const data = (ext === 'obj') ? await res.text() : await res.arrayBuffer();
+    const geom = await parseModelData(data, ext);
+    if (!geom) throw new Error('未找到可显示的网格。');
+    if (zUp) { geom.rotateX(-Math.PI / 2); geom.computeVertexNormals(); }
+    state.importedGeometry = geom;
+    state.importedName = name;
+    state.currentModel = 'imported';
+    rebuildModel();
+    const tris = Math.round(geom.attributes.position.count / 3);
+    setStatus(`已加载桥梁资产 ${name}（约 ${tris} 个三角面${zUp ? '，已校正 Z→Y 轴向' : ''}，已居中缩放，三视图已生成）。`);
+  } catch (e) {
+    console.error(e);
+    setStatus(`资产加载失败：${e.message || e}`);
+  }
+}
 
 async function handleFileSelect(file, statusEl) {
   const ext = (file.name.split('.').pop() || '').toLowerCase();
   try {
     if (statusEl) statusEl.innerHTML = `正在读取 <strong>${file.name}</strong>…`;
-    let parsed;
-    if (ext === 'stl') {
-      const buffer = await file.arrayBuffer();
-      parsed = stlLoader.parse(buffer);
-    } else if (ext === 'obj') {
-      const text = await file.text();
-      parsed = objLoader.parse(text);
-    } else {
-      throw new Error('仅支持 OBJ / STL。');
-    }
-    const geom = extractGeometryFromParsed(parsed);
+    const data = (ext === 'obj') ? await file.text() : await file.arrayBuffer();
+    const geom = await parseModelData(data, ext);
     if (!geom) throw new Error('未找到可显示的网格。');
     state.importedGeometry = geom;
     state.importedName = file.name;
@@ -903,12 +1167,9 @@ function bindControls() {
   setupToggle('tog-axes', 'showAxes', () => { axesGroup.visible = state.showAxes; }, 'tog-axes-m');
   setupToggle('tog-transparent', 'transparentModel', updateModelTransparency, 'tog-transparent-m');
 
-  bindSlider('plane-alpha', 'plane-alpha-val', 'plane-alpha-m', 'plane-alpha-val-m', 'planeAlpha',
-    (v) => (v/100).toFixed(2), createProjectionPlanes);
-  bindSlider('plane-size', 'plane-size-val', 'plane-size-m', 'plane-size-val-m', 'planeSize',
-    (v) => v.toFixed(1).replace(/\.0$/,''), () => { buildFloorReference(); createProjectionPlanes(); });
+  // 唯一参数：模型与三个投影面的统一距离（增大则三面一起外推，避免模型遮挡投影）
   bindSlider('plane-gap', 'plane-gap-val', 'plane-gap-m', 'plane-gap-val-m', 'planeGap',
-    (v) => v.toFixed(1), () => { buildFloorReference(); buildAxes(); createProjectionPlanes(); });
+    (v) => v.toFixed(1), applyClearance);
 
   document.addEventListener('keydown', (e) => {
     if (e.code === 'Space') { e.preventDefault(); toggleUnfold(); }
@@ -1115,9 +1376,10 @@ bindObjImport();
 bindControls();
 bindMobileUI();
 bindQuizUI();
+bindFocusPicking();
 
 onResize();
 rebuildModel();
 animate();
 
-setStatus('v5：手机/PC 双适配、OBJ/STL 导入、消隐虚线、展开合并和三视图递进推理训练已就绪。');
+setStatus('v7：仿 CAD 工作台 — 正交三视图（含中心线/消隐）、桥梁参数化模型与 OBJ 资产导入；点击模型上的构件可对局部出三视图。');
