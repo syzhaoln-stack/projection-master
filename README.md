@@ -1,4 +1,8 @@
-# Projection Master v6
+# Projection Master v7 · 工图投影大师
+
+开发者：赵诗宇（大连交通大学） · szhao@djtu.edu.cn
+
+在线访问：https://syzhaoln-stack.github.io/projection-master/
 
 Do not open `index.html` by double-clicking it directly. This page uses JavaScript ES modules and Three.js imports, so it should be served through a local web server.
 

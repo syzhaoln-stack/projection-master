@@ -185,6 +185,21 @@ body{
 }
 .rib-hint b{color:var(--accent);font-weight:700;}
 .rib-hint code{font-family:var(--mono);background:var(--panel-3);padding:1px 5px;border-radius:4px;color:var(--text-2);}
+/* 快捷资产选择（Ribbon 文件页：三类各预览数个，更多展开模型树） */
+.rib-group-row.quick-col{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:3px;padding-top:1px;}
+.quick-chip,.quick-more{
+  display:flex;align-items:center;gap:7px;
+  border:1px solid var(--line);border-radius:6px;background:#fff;
+  color:var(--text);font:inherit;font-size:11.5px;font-weight:600;
+  padding:4px 10px;cursor:pointer;white-space:nowrap;text-align:left;line-height:1.3;
+  transition:background var(--tx),border-color var(--tx),transform var(--tx);
+}
+.quick-chip::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--accent);opacity:.65;flex-shrink:0;}
+.quick-chip:hover{background:var(--accent-soft);border-color:#bcd9f5;}
+.quick-chip:active{transform:translateY(1px);}
+.quick-chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+.quick-more{justify-content:center;color:var(--accent);border-style:dashed;font-weight:700;}
+.quick-more:hover{background:var(--accent-soft);}
 
 /* ============ 工作区：树 | 视口 | 属性 ============ */
 #workspace{flex:1;display:flex;position:relative;min-height:0;background:var(--bg-app);}
@@ -553,20 +568,42 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     <!-- 文件 -->
     <div class="rib-panel active" data-rib-panel="file">
       <div class="rib-group">
-        <div class="rib-group-row">
-          <button class="rib-cmd primary" id="obj-import-btn" title="导入本地 OBJ / STL 网格">
+        <div class="rib-group-row quick-col">
+          <button class="quick-chip" data-model="cableStayedFan">斜拉桥·扇形</button>
+          <button class="quick-chip" data-model="suspension">悬索桥</button>
+          <button class="quick-chip" data-model="archBridge">拱桥（提篮）</button>
+          <button class="quick-more" data-cat="bridge">更多桥型 ▾</button>
+        </div>
+        <div class="rib-group-label">桥梁结构</div>
+      </div>
+      <div class="rib-group">
+        <div class="rib-group-row quick-col">
+          <button class="quick-chip" data-url="assets/cable_stayed_fan.obj">斜拉桥 资产</button>
+          <button class="quick-chip" data-url="assets/basket_arch.obj">提篮拱 资产</button>
+          <button class="quick-chip" data-url="assets/baybridge.stl">海湾大桥 资产</button>
+          <button class="quick-more" data-cat="bridge-asset">更多资产 ▾</button>
+        </div>
+        <div class="rib-group-label">桥梁资产·OBJ/STL</div>
+      </div>
+      <div class="rib-group">
+        <div class="rib-group-row quick-col">
+          <button class="quick-chip" data-model="step">叠加台阶块</button>
+          <button class="quick-chip" data-model="throughHolePlate">通孔板</button>
+          <button class="quick-chip" data-model="bearingSeat">轴承座</button>
+          <button class="quick-more" data-cat="solids">更多 ▾</button>
+        </div>
+        <div class="rib-group-label">机械组合体</div>
+      </div>
+      <div class="rib-group">
+        <div class="rib-group-row" style="flex-direction:column;align-items:stretch;gap:5px;">
+          <button class="rib-cmd primary" id="obj-import-btn" title="导入本地 OBJ / STL / GLB / GLTF 网格">
             <span class="ico"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/></svg></span>
             <span class="cap">导入模型</span>
           </button>
           <input type="file" id="obj-file" accept=".obj,.stl,.glb,.gltf,text/plain,model/stl,model/gltf-binary" style="display:none">
+          <div class="rib-hint" id="obj-status" style="font-size:10px;max-width:148px;line-height:1.4;">支持 OBJ/STL/GLB/GLTF，自动生成三视图</div>
         </div>
-        <div class="rib-group-label">导入</div>
-      </div>
-      <div class="rib-group">
-        <div class="rib-group-row">
-          <div class="rib-hint" id="obj-status">支持本地 <b>OBJ / STL / GLB / GLTF</b> 网格，自动居中缩放并生成三视图（含消隐虚线）。从左侧<b>模型树</b>选择内置模型或桥梁资产即可开始。</div>
-        </div>
-        <div class="rib-group-label">说明</div>
+        <div class="rib-group-label">导入本地模型</div>
       </div>
     </div>
 
@@ -789,8 +826,8 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       <div class="prop-section">
         <div class="prop-section-title">投影面</div>
         <div class="slider-block">
-          <label>模型与投影面距离<span class="val" id="plane-gap-val">1.6</span></label>
-          <input type="range" id="plane-gap" min="0.4" max="4.0" step="0.1" value="1.6">
+          <label>模型与投影面距离<span class="val" id="plane-gap-val">3.5</span></label>
+          <input type="range" id="plane-gap" min="0.4" max="6.0" step="0.1" value="3.5">
         </div>
         <div class="help-block" style="margin:6px 13px 2px;">投影面尺寸已随模型<b>自适应</b>，三视图与模型保持 1:1 对齐。</div>
       </div>
@@ -817,6 +854,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     <span class="caret">命令:</span>
     <span id="status-strip">v7：正交三视图（含中心线/消隐）· 桥梁参数化模型与 OBJ 资产导入 · 点击构件出局部三视图。</span>
   </div>
+  <div class="status-cell std" title="开发者：赵诗宇（大连交通大学）szhao@djtu.edu.cn">开发者 赵诗宇 · 大连交通大学 · szhao@djtu.edu.cn</div>
   <div class="status-cell std">第一角投影</div>
   <div class="status-cell"><span class="dot"></span>就绪</div>
 </footer>
@@ -859,6 +897,33 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
   // 选模型后在窄屏自动收起树面板
   document.querySelectorAll('.model-btn').forEach(b => {
     b.addEventListener('click', () => { if (window.innerWidth <= 960) tree.classList.remove('open'); });
+  });
+
+  // Ribbon 快捷资产：点击 chip → 触发模型树中对应模型（复用其加载/高亮逻辑）
+  const chips = Array.from(document.querySelectorAll('.quick-chip'));
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      let sel = null;
+      if (chip.dataset.model) sel = document.querySelector(`.model-btn[data-model="${chip.dataset.model}"]`);
+      else if (chip.dataset.url) sel = document.querySelector(`.model-btn[data-url="${chip.dataset.url}"]`);
+      if (sel) {
+        sel.click();
+        chips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+      }
+    });
+  });
+  // 「更多」→ 展开模型树（窄屏弹出抽屉；并把对应分组展开滚动到视野）
+  document.querySelectorAll('.quick-more').forEach(m => {
+    m.addEventListener('click', () => {
+      const cat = m.dataset.cat;
+      const grp = document.querySelector(`.tree-group-head[data-group="${cat}"]`);
+      if (grp) {
+        grp.parentElement.classList.add('open');
+        if (window.innerWidth > 960) grp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      if (window.innerWidth <= 960) { tree.classList.add('open'); props.classList.remove('open'); }
+    });
   });
 })();
 </script>

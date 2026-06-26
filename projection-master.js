@@ -60,7 +60,7 @@ const state = {
   transparentModel: false,
   planeAlpha: 0.16,
   planeSize: 7.5,
-  planeGap: 1.6,
+  planeGap: 3.5,
   importedGeometry: null,
   importedName: '',
   mode: 'explore'
