@@ -32,7 +32,8 @@
   --ok-soft:#e6f3e7;
   --warn:#c2410c;
   --warn-soft:#fbeadf;
-  --viewport-bg:#212a36;   /* 深色 model space */
+  --danger-soft:#fae8e8;
+  --viewport-bg:#f3f6f9;   /* 浅色模型空间，便于教材截图和远距离观察 */
   --shadow-sm:0 1px 2px rgba(20,30,45,.10);
   --shadow-md:0 4px 14px -6px rgba(20,30,45,.28);
   --shadow-lg:0 14px 40px -12px rgba(20,30,45,.40);
@@ -288,17 +289,28 @@ body{
   position:absolute;top:10px;left:12px;z-index:8;pointer-events:none;
   display:flex;align-items:center;gap:7px;
   padding:5px 10px;border-radius:var(--radius-sm);
-  background:rgba(20,28,40,.62);border:1px solid rgba(255,255,255,.10);
-  color:#cfe0f0;font-size:11px;font-weight:600;backdrop-filter:blur(6px);
+  background:rgba(255,255,255,.88);border:1px solid rgba(111,126,143,.28);
+  color:#344454;font-size:11px;font-weight:600;backdrop-filter:blur(6px);
+  box-shadow:0 2px 10px rgba(31,52,72,.08);
 }
 .vp-corner .dot{width:6px;height:6px;border-radius:99px;background:#5fb0ff;}
 .vp-hint{
   position:absolute;left:12px;bottom:14px;z-index:9;pointer-events:none;
   padding:5px 11px;border-radius:var(--radius-sm);
-  background:rgba(20,28,40,.62);border:1px solid rgba(255,255,255,.10);
-  color:#cfe0f0;font-size:11px;backdrop-filter:blur(6px);max-width:62%;
+  background:rgba(255,255,255,.88);border:1px solid rgba(111,126,143,.28);
+  color:#344454;font-size:11px;backdrop-filter:blur(6px);max-width:62%;
+  box-shadow:0 2px 10px rgba(31,52,72,.08);
 }
-.vp-hint b{color:var(--amber,#f0b454);font-weight:700;}
+.vp-hint b{color:#9a5b00;font-weight:700;}
+.vp-component{
+  position:absolute;left:12px;top:46px;z-index:9;pointer-events:none;
+  max-width:min(360px,65%);padding:8px 11px;border-radius:var(--radius-sm);
+  background:rgba(255,252,244,.94);border:1px solid rgba(194,119,20,.40);
+  color:#4a443b;font-size:11px;line-height:1.5;backdrop-filter:blur(6px);
+  box-shadow:0 3px 14px rgba(55,65,75,.10);
+}
+.vp-component[hidden]{display:none;}
+.vp-component strong{display:block;color:#985a00;font-size:12px;margin-bottom:1px;}
 /* 关键操作：展开/合并三视图悬浮按钮（视口底部居中，始终可见、最醒目） */
 .unfold-fab{
   position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:12;
@@ -381,6 +393,20 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
   background:#fff;color:var(--text-2);font-family:var(--mono);font-size:10px;font-weight:700;
   box-shadow:0 1px 0 var(--line);
 }
+.task-actions{display:flex;gap:6px;padding:0 13px 8px;flex-wrap:wrap;}
+.task-actions[hidden]{display:none;}
+.task-btn{
+  flex:1;min-width:72px;border:1px solid var(--line);border-radius:var(--radius-sm);
+  background:#fff;color:var(--text-2);font:inherit;font-size:11.5px;font-weight:700;
+  padding:7px 8px;cursor:pointer;transition:background var(--tx),border-color var(--tx),transform var(--tx);
+}
+.task-btn:hover{background:var(--accent-soft);border-color:#bcd9f5;}
+.task-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.task-btn.correct{background:var(--ok-soft);border-color:#74b579;color:#27652c;}
+.task-btn.wrong{background:var(--danger-soft);border-color:#df9b9b;color:#9d3030;}
+.task-feedback{margin:0 13px 8px;padding:8px 9px;border-radius:var(--radius-sm);font-size:11px;line-height:1.55;background:var(--panel-2);color:var(--muted);}
+.task-feedback[data-tone="success"]{background:var(--ok-soft);color:#27652c;}
+.task-feedback[data-tone="error"]{background:var(--danger-soft);color:#9d3030;}
 
 /* ============ 命令行 / 状态栏 ============ */
 #statusbar{
@@ -477,8 +503,12 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
   transition:background var(--tx),border-color var(--tx),transform var(--tx);
 }
 .quiz-option:hover{background:var(--accent-soft);border-color:#bcd9f5;transform:translateY(-1px);}
+.quiz-option.selected{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent) inset;}
 .quiz-option.correct{border-color:#a8d3aa;background:var(--ok-soft);}
-.quiz-option.disabled{opacity:.4;}
+.quiz-option.wrong{border-color:#df9b9b;background:var(--danger-soft);}
+.quiz-option.missed{border-style:dashed;border-color:#d5a450;}
+.quiz-option:disabled{cursor:default;transform:none;}
+.quiz-option:disabled:hover{transform:none;}
 .candidate-body{display:flex;align-items:center;gap:9px;min-width:0;}
 .candidate-copy{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .candidate-copy b{font-size:12px;line-height:1.2;color:var(--text);}
@@ -493,6 +523,8 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 .candidate-sphere::before{content:"";position:absolute;left:9px;top:5px;width:23px;height:23px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff 0 10%,#e89aa6 30%,#b9a8e0 72%);border:1px solid #d49aa6;}
 
 .quiz-feedback{min-height:30px;margin-top:11px;color:var(--text-2);font-size:12.5px;line-height:1.55;}
+.quiz-feedback[data-tone="success"]{color:#27652c;}
+.quiz-feedback[data-tone="error"]{color:#9d3030;}
 .quiz-footer{display:flex;gap:8px;padding:11px 14px;background:var(--panel-2);border-top:1px solid var(--line-soft);}
 .dlg-btn{
   flex:1;border:1px solid var(--line);border-radius:var(--radius-sm);
@@ -503,7 +535,8 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 .dlg-btn:active{transform:translateY(1px);}
 .dlg-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
 .dlg-btn.primary:hover{background:var(--accent-2);}
-.dlg-btn.primary:disabled{background:#a9bdd2;border-color:#a9bdd2;cursor:default;}
+.dlg-btn:disabled{opacity:.58;cursor:default;}
+.dlg-btn.primary:disabled{background:#a9bdd2;border-color:#a9bdd2;}
 
 /* ============ 响应式 ============ */
 #panel-toggle-l,#panel-toggle-r{display:none;}
@@ -590,18 +623,19 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
           <button class="quick-chip" data-model="step">叠加台阶块</button>
           <button class="quick-chip" data-model="throughHolePlate">通孔板</button>
           <button class="quick-chip" data-model="bearingSeat">轴承座</button>
+          <button class="quick-chip" data-url="assets/step_bearing_block.step">STEP轴承座</button>
           <button class="quick-more" data-cat="solids">更多 ▾</button>
         </div>
         <div class="rib-group-label">机械组合体</div>
       </div>
       <div class="rib-group">
         <div class="rib-group-row" style="flex-direction:column;align-items:stretch;gap:5px;">
-          <button class="rib-cmd primary" id="obj-import-btn" title="导入本地 OBJ / STL / GLB / GLTF 网格">
+          <button class="rib-cmd primary" id="obj-import-btn" title="导入本地 STEP / OBJ / STL / GLB / GLTF 模型">
             <span class="ico"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/></svg></span>
             <span class="cap">导入模型</span>
           </button>
-          <input type="file" id="obj-file" accept=".obj,.stl,.glb,.gltf,text/plain,model/stl,model/gltf-binary" style="display:none">
-          <div class="rib-hint" id="obj-status" style="font-size:10px;max-width:148px;line-height:1.4;">支持 OBJ/STL/GLB/GLTF，自动生成三视图</div>
+          <input type="file" id="obj-file" accept=".step,.stp,.obj,.stl,.glb,.gltf,application/step,model/step,text/plain,model/stl,model/gltf-binary" style="display:none">
+          <div class="rib-hint" id="obj-status" style="font-size:10px;max-width:148px;line-height:1.4;">支持 STEP/OBJ/STL/GLB/GLTF，自动生成三视图</div>
         </div>
         <div class="rib-group-label">导入本地模型</div>
       </div>
@@ -703,6 +737,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
           <button class="model-btn" data-model="throughHolePlate"><span class="leaf-ico"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/><circle cx="12" cy="12" r="3"/></svg></span><span><span class="name">通孔板</span><span class="desc">竖直通孔、圆与中心线</span></span></button>
           <button class="model-btn" data-model="ribBracket"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 20V8h4v12M8 12l8-4v12M4 20h16"/></svg></span><span><span class="name">肋板支架</span><span class="desc">底板、立板、三角肋板</span></span></button>
           <button class="model-btn" data-model="bearingSeat"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M6 18v-5a6 6 0 0 1 12 0v5"/><circle cx="12" cy="13" r="2"/></svg></span><span><span class="name">轴承座</span><span class="desc">经典综合组合体</span></span></button>
+          <button class="model-btn" data-url="assets/step_bearing_block.step" data-name="STEP轴承座样件" data-zup="1"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M6 18v-5a6 6 0 0 1 12 0v5"/><circle cx="12" cy="13" r="2"/></svg></span><span><span class="name">STEP轴承座样件</span><span class="desc">浏览器内解析并生成三视图</span></span></button>
           <button class="model-btn" data-model="dovetailSlide"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M8 18l2-9h4l2 9"/></svg></span><span><span class="name">燕尾槽滑块</span><span class="desc">斜面投影训练</span></span></button>
           <button class="model-btn" data-model="vBlock"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4zM8 6l4 6 4-6"/></svg></span><span><span class="name">V形定位块</span><span class="desc">V槽与对称中心线</span></span></button>
           <button class="model-btn" data-model="compoundSeat"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M7 18v-4h10v4M9 14v-3h6v3M11 11V8h2v3"/></svg></span><span><span class="name">综合支座</span><span class="desc">凸台、槽口、圆柱混合</span></span></button>
@@ -717,7 +752,11 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     <button id="panel-toggle-l" aria-label="模型树"><svg viewBox="0 0 24 24"><path d="M4 5h7l2 2h7v12H4z"/></svg></button>
     <button id="panel-toggle-r" aria-label="属性"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M9 6v0m6 6v0m-3 6v0"/></svg></button>
     <div class="vp-corner"><span class="dot"></span><span id="hud-mode">三维透视 · 第一角</span></div>
-    <div class="vp-hint">💡 点击模型上的构件 → 对<b>局部</b>出三视图；点击空白处恢复整体</div>
+    <div class="vp-component" id="component-info" hidden>
+      <strong id="component-info-name">桥梁构件</strong>
+      <span id="component-info-role"></span>
+    </div>
+    <div class="vp-hint">💡 点击模型构件 → <b>高亮并生成该构件三视图</b>；点击空白处恢复整体</div>
 
     <!-- 关键操作：展开/合并三视图（最外层、始终可见） -->
     <button id="unfold-btn" class="unfold-fab" aria-pressed="false" title="展开 / 合并第一角三视图（空格）">
@@ -736,7 +775,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
           <div class="quiz-pill" id="quiz-stage-pill">第 1 / 3 步</div>
         </div>
         <div class="quiz-body">
-          <p class="quiz-intro">先给一个视图，候选很多；再给第二个视图，候选减少；给出第三个视图后，答案收缩到唯一实体。</p>
+          <p class="quiz-intro">每一步先独立选择所有可能实体并提交判断；系统随后解释排除依据，再开放下一个视图。</p>
           <div class="progress-bar"><div class="progress-fill" id="quiz-progress-fill" style="width:33%"></div></div>
 
           <div class="quiz-question">
@@ -779,38 +818,39 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
               </div>
             </div>
             <div class="quiz-options">
-              <button class="quiz-option" data-answer="cylinder">
+              <button class="quiz-option" data-answer="cylinder" aria-pressed="false">
                 <span class="candidate-body">
                   <span class="candidate-icon candidate-cylinder" aria-hidden="true"></span>
                   <span class="candidate-copy"><b>圆柱体</b><small>侧放时正面可呈矩形</small></span>
                 </span>
               </button>
-              <button class="quiz-option" data-answer="rect">
+              <button class="quiz-option" data-answer="rect" aria-pressed="false">
                 <span class="candidate-body">
                   <span class="candidate-icon candidate-rect" aria-hidden="true"></span>
                   <span class="candidate-copy"><b>方柱 / 长方体</b><small>三向轮廓均为直边</small></span>
                 </span>
               </button>
-              <button class="quiz-option" data-answer="tri">
+              <button class="quiz-option" data-answer="tri" aria-pressed="false">
                 <span class="candidate-body">
                   <span class="candidate-icon candidate-tri" aria-hidden="true"></span>
                   <span class="candidate-copy"><b>三角板</b><small>某些方向会混淆</small></span>
                 </span>
               </button>
-              <button class="quiz-option" data-answer="sphere">
+              <button class="quiz-option" data-answer="sphere" aria-pressed="false">
                 <span class="candidate-body">
                   <span class="candidate-icon candidate-sphere" aria-hidden="true"></span>
                   <span class="candidate-copy"><b>球体</b><small>各向投影近似圆</small></span>
                 </span>
               </button>
             </div>
-            <div class="quiz-feedback" id="quiz-feedback">从一个矩形正面图开始，圆柱侧放、方柱、三角板侧视都可能混淆。</div>
+            <div class="quiz-feedback" id="quiz-feedback" aria-live="polite">请先独立选择所有仍可能成立的实体，再提交判断。</div>
           </div>
         </div>
         <div class="quiz-footer">
           <button class="dlg-btn" id="quiz-close">关闭</button>
           <button class="dlg-btn" id="quiz-reset">重置题目</button>
-          <button class="dlg-btn primary" id="quiz-next-view">给出下一个视图</button>
+          <button class="dlg-btn primary" id="quiz-submit" disabled>提交判断</button>
+          <button class="dlg-btn" id="quiz-next-view" disabled>提交后进入下一步</button>
         </div>
       </div>
     </div>
@@ -833,6 +873,20 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       </div>
 
       <div class="prop-section">
+        <div class="prop-section-title">桥梁主动任务</div>
+        <div class="help-block" id="bridge-task-prompt">从三维模型中识别目标构件，再判断哪个正交视图最能表达其空间特征。</div>
+        <div class="task-actions">
+          <button class="task-btn primary" id="bridge-task-start">开始斜拉桥任务</button>
+        </div>
+        <div class="task-actions" id="bridge-task-view-actions" hidden aria-label="选择最能表达斜拉索倾斜特征的视图">
+          <button class="task-btn" data-task-view="front">正面图</button>
+          <button class="task-btn" data-task-view="top">俯视图</button>
+          <button class="task-btn" data-task-view="side">侧面图</button>
+        </div>
+        <div class="task-feedback" id="bridge-task-feedback" data-tone="info" aria-live="polite">任务尚未开始。</div>
+      </div>
+
+      <div class="prop-section">
         <div class="prop-section-title">当前状态</div>
         <div class="prop-row"><span class="label">投影制式</span><span class="val">第一角</span></div>
         <div class="prop-row"><span class="label">渲染</span><span class="val">透视</span></div>
@@ -852,7 +906,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 <footer id="statusbar">
   <div id="cmd-prompt">
     <span class="caret">命令:</span>
-    <span id="status-strip">v7：正交三视图（含中心线/消隐）· 桥梁参数化模型与 OBJ 资产导入 · 点击构件出局部三视图。</span>
+    <span id="status-strip">v7：正交三视图（含中心线/消隐）· STEP/OBJ/STL/GLB/GLTF 模型导入 · 点击构件高亮并生成对应三视图。</span>
   </div>
   <div class="status-cell std" title="开发者：赵诗宇（大连交通大学）szhao@djtu.edu.cn">开发者 赵诗宇 · 大连交通大学 · szhao@djtu.edu.cn</div>
   <div class="status-cell std">第一角投影</div>

@@ -15,6 +15,7 @@ desktop.ini
 # Local dependency/cache folders
 node_modules/
 .cache/
+.playwright-cli/
 dist/
 build/
 
