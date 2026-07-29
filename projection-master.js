@@ -22,6 +22,7 @@ import {
   summarizePractice
 } from './learning-logic.js';
 import { QUESTION_BANK } from './question-bank.js?v=7.0.1';
+import { createBasicProjectionLab } from './basic-projection-lab.js?v=8.0.0';
 
 // ===== 基础设置 =====
 const viewport = document.getElementById('viewport');
@@ -105,6 +106,9 @@ const projLinesGroup = new THREE.Group();
 const floorGroup = new THREE.Group();
 const focusGroup = new THREE.Group();   // 局部三视图聚焦框标记
 scene.add(floorGroup, projectionGroup, modelGroup, axesGroup, projLinesGroup, focusGroup);
+
+let labController = null;
+let exploreRestoreState = null;
 
 // 语义构件选择：真实构件包围盒（null=整体）
 let focusBox = null;
@@ -204,6 +208,10 @@ function clearGroup(group) {
     const child = group.children[0];
     if (child.children?.length) clearGroup(child);
     if (child.geometry) child.geometry.dispose();
+    if (child.userData?.ownedTexture) {
+      child.userData.ownedTexture.dispose();
+      child.userData.ownedTexture = null;
+    }
     if (child.material) {
       if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
       else child.material.dispose();
@@ -909,6 +917,7 @@ function bindFocusPicking() {
     const dt = performance.now() - down.t;
     down = null;
     if (moved > 6 || dt > 450) return;      // 拖拽/长按 → 视为轨道操作，不聚焦
+    if (state.mode === 'lab') return;
     const rect = dom.getBoundingClientRect();
     if (state.mode === 'quiz' && handlePracticePointerHit(e, rect)) return;
     if (state.mode === 'quiz') return;
@@ -1030,6 +1039,7 @@ function addAxisLabel(text, color, position) {
   ctx.fillText(text, 48, 52);
   const texture = new THREE.CanvasTexture(canvas);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+  sprite.userData.ownedTexture = texture;
   sprite.position.copy(position);
   sprite.scale.set(0.35, 0.35, 0.35);
   axesGroup.add(sprite);
@@ -1177,7 +1187,7 @@ function resetBridgeTask() {
 }
 
 function startBridgeTask() {
-  if (state.mode === 'quiz') document.querySelector('.mode-tab[data-mode="explore"]')?.click();
+  if (state.mode !== 'explore') document.querySelector('.mode-tab[data-mode="explore"]')?.click();
 
   bridgeTaskState.active = true;
   bridgeTaskState.stage = 'pick';
@@ -1784,17 +1794,108 @@ function finishPracticeQuestion() {
   practiceIndex = -1;
 }
 
-function restorePracticeState() {
-  if (!practiceRestoreState) return;
+function getObjectPath(object, root) {
+  if (!object || !root) return null;
+  const path = [];
+  let current = object;
+  while (current && current !== root) {
+    const parent = current.parent;
+    if (!parent) return null;
+    const index = parent.children.indexOf(current);
+    if (index < 0) return null;
+    path.unshift(index);
+    current = parent;
+  }
+  return current === root ? path : null;
+}
+
+function resolveObjectPath(root, path) {
+  if (!root || !Array.isArray(path)) return null;
+  return path.reduce((current, index) => current?.children?.[index] || null, root);
+}
+
+function captureBridgeTaskSnapshot() {
+  return {
+    active: bridgeTaskState.active,
+    stage: bridgeTaskState.stage,
+    prompt: document.getElementById('bridge-task-prompt')?.textContent || '',
+    feedback: document.getElementById('bridge-task-feedback')?.textContent || '',
+    feedbackTone: document.getElementById('bridge-task-feedback')?.dataset.tone || 'info',
+    viewActionsHidden: document.getElementById('bridge-task-view-actions')?.hidden ?? true,
+    startText: document.getElementById('bridge-task-start')?.textContent || '',
+    viewButtons: Array.from(document.querySelectorAll('[data-task-view]')).map(button => ({
+      view: button.dataset.taskView,
+      correct: button.classList.contains('correct'),
+      wrong: button.classList.contains('wrong'),
+      disabled: button.disabled
+    }))
+  };
+}
+
+function applyBridgeTaskSnapshot(snapshot) {
+  if (!snapshot) return;
+  bridgeTaskState.active = Boolean(snapshot.active);
+  bridgeTaskState.stage = snapshot.stage || 'idle';
+  const prompt = document.getElementById('bridge-task-prompt');
+  const feedback = document.getElementById('bridge-task-feedback');
+  const viewActions = document.getElementById('bridge-task-view-actions');
+  const start = document.getElementById('bridge-task-start');
+  if (prompt) prompt.textContent = snapshot.prompt;
+  if (feedback) {
+    feedback.textContent = snapshot.feedback;
+    feedback.dataset.tone = snapshot.feedbackTone;
+  }
+  if (viewActions) viewActions.hidden = snapshot.viewActionsHidden;
+  if (start) start.textContent = snapshot.startText;
+  (snapshot.viewButtons || []).forEach(saved => {
+    const button = document.querySelector(`[data-task-view="${saved.view}"]`);
+    if (!button) return;
+    button.classList.toggle('correct', saved.correct);
+    button.classList.toggle('wrong', saved.wrong);
+    button.disabled = saved.disabled;
+  });
+}
+
+function captureProductState() {
+  const settledUnfoldProgress = state.transitionActive ? state.transitionTo : state.unfoldProgress;
+  return {
+    currentModel: state.currentModel,
+    showProjLines: state.showProjLines,
+    showHidden: state.showHidden,
+    showAxes: state.showAxes,
+    transparentModel: state.transparentModel,
+    planeAlpha: state.planeAlpha,
+    planeSize: state.planeSize,
+    planeGap: state.planeGap,
+    importedGeometry: state.importedGeometry,
+    importedName: state.importedName,
+    isUnfolded: settledUnfoldProgress >= 0.5,
+    unfoldProgress: settledUnfoldProgress,
+    transitionActive: false,
+    isTiled: state.isTiled,
+    selectedComponentPath: getObjectPath(selectedComponent, modelGroup),
+    bridgeTask: captureBridgeTaskSnapshot(),
+    statusText: statusStrip?.textContent || '',
+    cameraPosition: camera.position.toArray(),
+    cameraUp: camera.up.toArray(),
+    controlsTarget: controls.target.toArray()
+  };
+}
+
+function applyProductState(snapshot) {
+  if (!snapshot) return false;
   const {
     cameraPosition,
     cameraUp,
     controlsTarget,
     isTiled: restoreTiled,
+    returnMode: _returnMode,
+    selectedComponentPath,
+    bridgeTask,
+    statusText,
     ...restoredState
-  } = practiceRestoreState;
-  Object.assign(state, restoredState, { isTiled: false });
-  practiceRestoreState = null;
+  } = snapshot;
+  Object.assign(state, restoredState, { isTiled: false, transitionActive: false });
   rebuildModel();
   if (cameraPosition) camera.position.fromArray(cameraPosition);
   if (cameraUp) camera.up.fromArray(cameraUp);
@@ -1803,59 +1904,147 @@ function restorePracticeState() {
   controls.update();
   Object.values(projPlanes).forEach(plane => { if (plane) plane.visible = true; });
   updateUnfold(state.unfoldProgress);
-  if (restoreTiled && state.mode === 'explore') setTiledMode(true);
-  else {
+  bridgeTaskState.active = false;
+  const restoredComponent = resolveObjectPath(modelGroup, selectedComponentPath);
+  if (restoredComponent?.isMesh) setFocusComponent(restoredComponent);
+  applyBridgeTaskSnapshot(bridgeTask);
+  [
+    ['tog-projlines', 'tog-projlines-m', 'showProjLines'],
+    ['tog-hidden', 'tog-hidden-m', 'showHidden'],
+    ['tog-axes', 'tog-axes-m', 'showAxes'],
+    ['tog-transparent', 'tog-transparent-m', 'transparentModel']
+  ].forEach(([desktopId, mobileId, key]) => {
+    document.getElementById(desktopId)?.classList.toggle('on', state[key]);
+    document.getElementById(mobileId)?.classList.toggle('on', state[key]);
+  });
+  ['plane-gap', 'plane-gap-m'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.value = String(state.planeGap);
+  });
+  ['plane-gap-val', 'plane-gap-val-m'].forEach(id => {
+    const output = document.getElementById(id);
+    if (output) output.textContent = state.planeGap.toFixed(1);
+  });
+  const unfoldText = state.isUnfolded ? '合并三视图' : '展开三视图';
+  ['unfold-btn', 'unfold-btn-mobile', 'mobile-unfold-fab'].forEach(id => {
+    const button = document.getElementById(id);
+    if (!button) return;
+    const label = button.querySelector('span');
+    if (label) label.textContent = unfoldText;
+    else button.textContent = unfoldText;
+    button.setAttribute('aria-pressed', String(state.isUnfolded));
+  });
+  if (statusText) setStatus(statusText);
+  mountRenderer();
+  onResize();
+  return Boolean(restoreTiled);
+}
+
+function setProductEnvironmentVisible(visible) {
+  [floorGroup, projectionGroup, modelGroup, focusGroup]
+    .forEach(group => { group.visible = visible; });
+  axesGroup.visible = visible && state.showAxes;
+  projLinesGroup.visible = visible && state.showProjLines;
+}
+
+function syncModeUI(mode) {
+  const modeTabs = Array.from(document.querySelectorAll('.mode-tab'));
+  const quizOverlay = document.getElementById('quiz-overlay');
+  modeTabs.forEach(tab => {
+    const active = tab.dataset.mode === mode;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  document.body.classList.toggle('mode-lab', mode === 'lab');
+  document.body.classList.toggle('mode-quiz', mode === 'quiz');
+  ['ribbon', 'tree-panel', 'props-panel', 'mobile-drawer'].forEach(id => {
+    const element = document.getElementById(id);
+    if (element) element.inert = mode === 'quiz';
+  });
+  quizOverlay.style.display = mode === 'quiz' ? 'block' : 'none';
+  quizOverlay.setAttribute('aria-hidden', mode === 'quiz' ? 'false' : 'true');
+}
+
+function setAppMode(nextMode, options = {}) {
+  if (!['lab', 'explore', 'quiz'].includes(nextMode) || nextMode === state.mode) return;
+  const previousMode = state.mode;
+
+  if (previousMode === 'explore' && nextMode === 'lab' && !options.productStateReady) {
+    exploreRestoreState = captureProductState();
+  }
+  if (nextMode === 'quiz' && !practiceRestoreState) {
+    const productState = previousMode === 'lab' && exploreRestoreState
+      ? exploreRestoreState
+      : captureProductState();
+    practiceRestoreState = { ...productState, returnMode: previousMode };
+  }
+  if (state.isTiled && nextMode !== 'explore') setTiledMode(false);
+  if (previousMode === 'lab') labController?.leave();
+
+  state.mode = nextMode;
+  syncModeUI(nextMode);
+
+  if (nextMode === 'lab') {
+    setProductEnvironmentVisible(false);
+    labController?.enter();
+    hudMode.textContent = '教材实验 · 点线面投影';
+    mountRenderer();
+    onResize();
+    return;
+  }
+
+  setProductEnvironmentVisible(true);
+  if (nextMode === 'quiz') {
+    bridgeTaskState.active = false;
+    hudMode.textContent = '空间练习 · 预测与核对';
+    practiceIndex = 0;
+    practiceRecords = [];
+    renderPracticeQuestion();
+    setStatus('空间练习：先观察真实模型和三视图，再作出预测并用图学证据核对。');
+    mountRenderer();
+    onResize();
+    return;
+  }
+
+  hudMode.textContent = '三维透视 · 第一角';
+  let restoreTiled = false;
+  if (!options.productStateReady && previousMode === 'lab' && exploreRestoreState) {
+    restoreTiled = applyProductState(exploreRestoreState);
+  } else {
     mountRenderer();
     onResize();
   }
+  if (restoreTiled) setTiledMode(true);
 }
 
-function exitPractice(modeTabs) {
-  modeTabs.find(tab => tab.dataset.mode === 'explore')?.click();
+function exitPractice(targetMode = null) {
+  const snapshot = practiceRestoreState;
+  const returnMode = targetMode || snapshot?.returnMode || 'explore';
+  practiceRestoreState = null;
+
+  const productSnapshot = returnMode === 'explore' && snapshot?.returnMode === 'lab' && exploreRestoreState
+    ? exploreRestoreState
+    : snapshot;
+  if (returnMode === 'lab' && snapshot?.returnMode === 'explore' && productSnapshot) {
+    exploreRestoreState = { ...productSnapshot };
+  }
+  const restoreTiled = applyProductState(productSnapshot);
+  setAppMode(returnMode, { productStateReady: true });
+  if (returnMode === 'explore' && restoreTiled) setTiledMode(true);
 }
 
 function bindQuizUI() {
   const modeTabs = Array.from(document.querySelectorAll('.mode-tab'));
-  const quizOverlay = document.getElementById('quiz-overlay');
   modeTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const nextMode = tab.dataset.mode;
       if (nextMode === state.mode) return;
-      if (nextMode === 'quiz' && !practiceRestoreState) {
-        practiceRestoreState = {
-          currentModel: state.currentModel,
-          showHidden: state.showHidden,
-          isUnfolded: state.isUnfolded,
-          unfoldProgress: state.unfoldProgress,
-          transitionActive: false,
-          isTiled: state.isTiled,
-          cameraPosition: camera.position.toArray(),
-          cameraUp: camera.up.toArray(),
-          controlsTarget: controls.target.toArray()
-        };
-      }
-      if (nextMode === 'quiz' && state.isTiled) setTiledMode(false);
-      modeTabs.forEach(item => item.classList.toggle('active', item === tab));
-      modeTabs.forEach(item => item.setAttribute('aria-selected', item === tab ? 'true' : 'false'));
-      state.mode = nextMode;
-      if (state.mode === 'quiz') {
-        quizOverlay.style.display = 'block';
-        quizOverlay.setAttribute('aria-hidden', 'false');
-        hudMode.textContent = '空间练习 · 预测与核对';
-        practiceIndex = 0;
-        practiceRecords = [];
-        renderPracticeQuestion();
-        setStatus('空间练习：先观察真实模型和三视图，再作出预测并用图学证据核对。');
-      } else {
-        quizOverlay.style.display = 'none';
-        quizOverlay.setAttribute('aria-hidden', 'true');
-        hudMode.textContent = '三维透视 · 第一角';
-        restorePracticeState();
-      }
+      if (state.mode === 'quiz' && nextMode !== 'quiz') exitPractice(nextMode);
+      else setAppMode(nextMode);
     });
   });
 
-  document.getElementById('quiz-close')?.addEventListener('click', () => exitPractice(modeTabs));
+  document.getElementById('quiz-close')?.addEventListener('click', () => exitPractice());
   document.getElementById('quiz-hint')?.addEventListener('click', () => {
     const question = currentPracticeQuestion();
     if (!question) return;
@@ -1873,7 +2062,7 @@ function bindQuizUI() {
     } else finishPracticeQuestion();
   });
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && state.mode === 'quiz') exitPractice(modeTabs);
+    if (event.key === 'Escape' && state.mode === 'quiz') exitPractice();
   });
 }
 
@@ -1895,10 +2084,27 @@ function updateTiledProjectionCards() {
     renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
     const context = canvas.getContext('2d');
     const imageData = context.createImageData(width, height);
+    const orientation = VIEW[key];
     for (let y = 0; y < height; y += 1) {
-      const sourceOffset = y * width * 4;
-      const destinationOffset = (height - y - 1) * width * 4;
-      imageData.data.set(pixels.subarray(sourceOffset, sourceOffset + width * 4), destinationOffset);
+      const destinationY = orientation.flipY ? y : height - y - 1;
+      const sourceRowOffset = y * width * 4;
+      const destinationRowOffset = destinationY * width * 4;
+      if (!orientation.flipX) {
+        imageData.data.set(
+          pixels.subarray(sourceRowOffset, sourceRowOffset + width * 4),
+          destinationRowOffset
+        );
+        continue;
+      }
+      for (let x = 0; x < width; x += 1) {
+        const destinationX = orientation.flipX ? width - x - 1 : x;
+        const sourceOffset = sourceRowOffset + x * 4;
+        const destinationOffset = (destinationY * width + destinationX) * 4;
+        imageData.data[destinationOffset] = pixels[sourceOffset];
+        imageData.data[destinationOffset + 1] = pixels[sourceOffset + 1];
+        imageData.data[destinationOffset + 2] = pixels[sourceOffset + 2];
+        imageData.data[destinationOffset + 3] = pixels[sourceOffset + 3];
+      }
     }
     context.putImageData(imageData, 0, 0);
     image.src = canvas.toDataURL('image/png');
@@ -1968,6 +2174,7 @@ function bindTiledViewUI() {
 }
 
 function getRendererHost() {
+  if (state.mode === 'lab') return document.getElementById('lab-canvas-host') || viewport;
   if (state.isTiled) return document.getElementById('model-pane') || viewport;
   return viewport;
 }
@@ -2015,6 +2222,8 @@ function animate() {
 // ===== 启动 =====
 window.addEventListener('resize', onResize);
 
+labController = createBasicProjectionLab({ THREE, scene, camera, controls, setStatus });
+
 bindModelButtons();
 bindObjImport();
 bindControls();
@@ -2026,6 +2235,7 @@ bindTiledViewUI();
 
 onResize();
 rebuildModel();
+setAppMode('lab');
 animate();
 
-setStatus('v7：正交三视图（含中心线/消隐）· STEP/OBJ/STL/GLB/GLTF 模型导入 · 点击构件高亮并生成对应三视图。');
+setStatus('教材实验：从投影形成开始，依次观察点、线、面的三面投影及其空间关系。');

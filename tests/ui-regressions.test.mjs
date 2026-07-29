@@ -33,15 +33,31 @@ test('tiled mode mounts the renderer through one host function and updates the t
   assert.match(PROJECTION_MASTER, /function mountRenderer\(\)/);
   assert.match(PROJECTION_MASTER, /button\.querySelector\('\.cap'\)/);
   assert.doesNotMatch(PROJECTION_MASTER, /button\.querySelector\('span'\)\.textContent = enabled/);
+  assert.match(PROJECTION_MASTER, /const orientation = VIEW\[key\]/);
+  assert.match(PROJECTION_MASTER, /orientation\.flipX \? width - x - 1 : x/);
 });
 
 test('spacebar unfolds projections only in free exploration mode', () => {
   assert.match(PROJECTION_MASTER, /e\.code === 'Space' && state\.mode === 'explore'/);
 });
 
-test('practice mode snapshots and restores tiled and camera state', () => {
+test('practice mode snapshots and restores tiled, camera and return mode state', () => {
+  assert.match(PROJECTION_MASTER, /function captureProductState\(\)/);
+  assert.match(PROJECTION_MASTER, /function applyProductState\(snapshot\)/);
   assert.match(PROJECTION_MASTER, /isTiled: state\.isTiled/);
   assert.match(PROJECTION_MASTER, /cameraPosition: camera\.position\.toArray\(\)/);
   assert.match(PROJECTION_MASTER, /controlsTarget: controls\.target\.toArray\(\)/);
-  assert.match(PROJECTION_MASTER, /if \(restoreTiled && state\.mode === 'explore'\) setTiledMode\(true\)/);
+  assert.match(PROJECTION_MASTER, /returnMode: previousMode/);
+  assert.match(PROJECTION_MASTER, /if \(returnMode === 'explore' && restoreTiled\) setTiledMode\(true\)/);
+});
+
+test('textbook lab is an independent mode that reuses the single renderer canvas', () => {
+  assert.match(INDEX_HTML, /data-mode="lab"/);
+  assert.match(INDEX_HTML, /id="lab-shell"/);
+  assert.match(INDEX_HTML, /data-lab-lesson="point"/);
+  assert.match(INDEX_HTML, /data-lab-lesson="line"/);
+  assert.match(INDEX_HTML, /data-lab-lesson="plane"/);
+  assert.match(PROJECTION_MASTER, /createBasicProjectionLab/);
+  assert.match(PROJECTION_MASTER, /state\.mode === 'lab'.*lab-canvas-host/);
+  assert.match(PROJECTION_MASTER, /setProductEnvironmentVisible\(false\)/);
 });
