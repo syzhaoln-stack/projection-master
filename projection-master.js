@@ -12,11 +12,16 @@ import {
 } from './model-import.js';
 import {
   BRIDGE_VIEW_TASK,
-  evaluateQuizSelection,
+  createPracticeRecord,
+  directionAngleDegrees,
+  evaluateQuestionAnswer,
   getComponentInfo,
+  getHotspotHit,
   getQuizOptionState,
-  isBridgeTaskTarget
+  isBridgeTaskTarget,
+  summarizePractice
 } from './learning-logic.js';
+import { QUESTION_BANK } from './question-bank.js?v=7.0.1';
 
 // ===== 基础设置 =====
 const viewport = document.getElementById('viewport');
@@ -82,7 +87,10 @@ const state = {
   planeGap: 3.5,
   importedGeometry: null,
   importedName: '',
-  mode: 'explore'
+  mode: 'explore',
+  isTiled: false,
+  activeMatchedView: null,
+  matchedViewEnteredAt: 0
 };
 
 const bridgeTaskState = {
@@ -771,6 +779,7 @@ function renderProjViews() {
 function drawProjections() {
   buildProjScene();
   renderProjViews();
+  if (state.isTiled) updateTiledProjectionCards();
 }
 
 // ===== 语义构件选择：高亮真实构件，并单独生成其三视图 =====
@@ -900,8 +909,9 @@ function bindFocusPicking() {
     const dt = performance.now() - down.t;
     down = null;
     if (moved > 6 || dt > 450) return;      // 拖拽/长按 → 视为轨道操作，不聚焦
-    if (state.mode === 'quiz') return;
     const rect = dom.getBoundingClientRect();
+    if (state.mode === 'quiz' && handlePracticePointerHit(e, rect)) return;
+    if (state.mode === 'quiz') return;
     const ndc = new THREE.Vector2(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
       -((e.clientY - rect.top) / rect.height) * 2 + 1
@@ -1434,7 +1444,9 @@ function bindControls() {
     const text = state.isUnfolded ? '合并三视图' : '展开三视图';
     [unfoldBtn, unfoldBtnM, unfoldFab].forEach(btn => {
       if (!btn) return;
-      btn.textContent = text;
+      const label = btn.querySelector('span');
+      if (label) label.textContent = text;
+      else btn.textContent = text;
       btn.setAttribute('aria-pressed', String(state.isUnfolded));
     });
   };
@@ -1452,7 +1464,7 @@ function bindControls() {
     (v) => v.toFixed(1), applyClearance);
 
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') { e.preventDefault(); toggleUnfold(); }
+    if (e.code === 'Space' && state.mode !== 'quiz') { e.preventDefault(); toggleUnfold(); }
   });
 }
 
@@ -1504,168 +1516,441 @@ function bindMobileUI() {
   });
 }
 
-// ===== 空间智能测评：由一个视图逐步收缩候选 =====
-const QUIZ_STEPS = [
-  {
-    views: ['front'],
-    question: '只看正面图：哪些实体可能成立？',
-    possible: ['cylinder', 'rect', 'tri'],
-    explanation: '一个矩形正面图只约束了轮廓；圆柱侧放、方柱和三角板侧视仍可能混淆，球体则不会投影为矩形。'
-  },
-  {
-    views: ['front', 'top'],
-    question: '加入俯视图后：哪些候选还可能成立？',
-    possible: ['cylinder', 'rect'],
-    explanation: '俯视图补充了深度信息，三角板的斜面轮廓不再匹配；圆柱侧放和方柱仍可能成立。'
-  },
-  {
-    views: ['front', 'top', 'side'],
-    question: '再加入侧面图：唯一成立的是哪一个？',
-    possible: ['rect'],
-    explanation: '侧面图补齐了曲面特征约束，圆柱不再匹配；三个视图共同把答案收缩为方柱 / 长方体。'
-  }
+// ===== 空间练习：题库驱动，模型和真实三视图始终作为判断证据 =====
+let practiceIndex = 0;
+let practiceSelected = new Set();
+let practiceAnswered = false;
+let practiceHintUsed = false;
+let practiceStartedAt = 0;
+let practiceAttempts = 0;
+let practiceRecords = [];
+let practiceRestoreState = null;
+let practiceInteraction = null;
+
+const TILED_VIEW_ORDER = [
+  { key: 'front', label: '主视图', direction: [0, 0, 1] },
+  { key: 'top', label: '俯视图', direction: [0, 1, 0] },
+  { key: 'side', label: '左视图', direction: [1, 0, 0] }
 ];
 
-const QUIZ_LABELS = {
-  cylinder: '圆柱体',
-  rect: '方柱 / 长方体',
-  tri: '三角板',
-  sphere: '球体'
-};
+function currentPracticeQuestion() {
+  return QUESTION_BANK[practiceIndex];
+}
 
-let quizStep = 0;
-let quizSelected = new Set();
-let quizAnswered = false;
+function isChoiceQuestion(question) {
+  return question?.type === 'single' || question?.type === 'multiple';
+}
 
-function updateQuizOptionUI() {
-  const step = QUIZ_STEPS[quizStep];
-  document.querySelectorAll('.quiz-option[data-answer]').forEach(btn => {
-    const optionState = getQuizOptionState(btn.dataset.answer, quizSelected, step.possible, quizAnswered);
-    btn.classList.toggle('selected', optionState.selected);
-    btn.classList.toggle('correct', optionState.correct);
-    btn.classList.toggle('wrong', optionState.wrong);
-    btn.classList.toggle('missed', optionState.missed);
-    btn.disabled = optionState.disabled;
-    btn.setAttribute('aria-pressed', String(quizSelected.has(btn.dataset.answer)));
+function currentCameraDirectionArray() {
+  return camera.position.clone().sub(controls.target).normalize().toArray();
+}
+
+function setPracticeFeedback(text, tone = 'info') {
+  const feedback = document.getElementById('quiz-feedback');
+  if (!feedback) return;
+  feedback.textContent = text;
+  feedback.dataset.tone = tone;
+}
+
+function updatePracticeInteractionUI() {
+  const question = currentPracticeQuestion();
+  const root = document.getElementById('quiz-interaction');
+  const status = document.getElementById('quiz-interaction-status');
+  if (!root || !status || !question) return;
+  root.hidden = isChoiceQuestion(question);
+  if (isChoiceQuestion(question)) return;
+
+  if (question.type === 'rotate-to-view') {
+    const angle = directionAngleDegrees(currentCameraDirectionArray(), question.targetDirection);
+    const ready = angle <= question.toleranceDegrees;
+    root.dataset.type = 'rotate';
+    status.textContent = ready ? `已对正 ${question.targetView === 'front' ? '主视方向' : '目标方向'}（偏差 ${angle.toFixed(1)}°）。` : `继续旋转模型（距目标 ${angle.toFixed(1)}°）。`;
+    root.classList.toggle('ready', ready);
+  } else if (question.type === 'click-model') {
+    root.dataset.type = 'model';
+    root.classList.remove('ready');
+    status.textContent = practiceInteraction?.componentName ? `已选择构件：${getComponentInfo(practiceInteraction.componentName).label}。可重新点击更换。` : '请在三维模型上短按目标构件；拖动仍用于旋转模型。';
+  } else {
+    root.dataset.type = 'projection';
+    root.classList.remove('ready');
+    status.textContent = practiceInteraction?.view ? `已在${practiceInteraction.view === 'front' ? '主视图' : practiceInteraction.view === 'top' ? '俯视图' : '左视图'}选择位置。可重新点击更换。` : '请在右侧对应三视图中点击指定位置。';
+  }
+}
+
+function updatePracticeSubmitState() {
+  const question = currentPracticeQuestion();
+  const submit = document.getElementById('quiz-submit');
+  const next = document.getElementById('quiz-next-view');
+  if (submit) submit.disabled = practiceAnswered || (isChoiceQuestion(question) ? practiceSelected.size === 0 : !practiceInteraction);
+  if (next) next.disabled = !practiceAnswered;
+}
+
+function handlePracticePointerHit(event, rect) {
+  const question = currentPracticeQuestion();
+  if (!question || practiceAnswered || isChoiceQuestion(question) || question.type === 'rotate-to-view') return false;
+  const ndc = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+
+  if (question.type === 'click-model') {
+    const nearby = findNearbyThinComponent(event.clientX, event.clientY, rect);
+    const hits = raycaster.intersectObjects(modelGroup.children, true);
+    const object = nearby || hits[0]?.object;
+    if (!object) {
+      setPracticeFeedback('未命中构件；请在模型表面短按后重试。');
+      return true;
+    }
+    practiceInteraction = { componentName: object.name };
+    updatePracticeInteractionUI();
+    updatePracticeSubmitState();
+    setPracticeFeedback(`已选择“${getComponentInfo(object.name).label}”，请提交核对。`);
+    return true;
+  }
+
+  const planeHits = raycaster.intersectObjects(Object.values(projPlanes).filter(Boolean), false);
+  const hit = planeHits[0];
+  if (!hit?.uv) {
+    setPracticeFeedback('请点击三视图图面中的目标位置。');
+    return true;
+  }
+  const view = Object.entries(projPlanes).find(([, plane]) => plane === hit.object)?.[0];
+  practiceInteraction = { view, u: hit.uv.x, v: hit.uv.y };
+  updatePracticeInteractionUI();
+  updatePracticeSubmitState();
+  const matched = getHotspotHit(practiceInteraction, question.hotspots);
+  setPracticeFeedback(matched ? '已选择图上位置，请提交核对。' : '已选择图上位置；请检查视图和线/特征位置后提交。');
+  return true;
+}
+
+function setPracticeModeModel(question) {
+  state.currentModel = question.modelId;
+  state.showHidden = Boolean(question.showHidden);
+  state.isUnfolded = true;
+  state.unfoldProgress = 1;
+  state.transitionActive = false;
+  rebuildModel();
+  Object.entries(projPlanes).forEach(([view, plane]) => {
+    if (plane) plane.visible = question.views.includes(view);
+  });
+  updateUnfold(1);
+
+  if (question.focusComponent) {
+    const target = modelGroup.getObjectByName(question.focusComponent);
+    if (target) setFocusComponent(target);
+  }
+}
+
+function updatePracticeOptionUI() {
+  const question = currentPracticeQuestion();
+  document.querySelectorAll('.quiz-option[data-answer]').forEach(button => {
+    const optionState = getQuizOptionState(button.dataset.answer, practiceSelected, question.answer, practiceAnswered);
+    button.classList.toggle('selected', optionState.selected);
+    button.classList.toggle('correct', optionState.correct);
+    button.classList.toggle('wrong', optionState.wrong);
+    button.classList.toggle('missed', optionState.missed);
+    button.disabled = practiceAnswered;
+    button.setAttribute('aria-pressed', String(practiceSelected.has(button.dataset.answer)));
   });
 
   const submit = document.getElementById('quiz-submit');
   const next = document.getElementById('quiz-next-view');
-  if (submit) submit.disabled = quizAnswered || quizSelected.size === 0;
-  if (next) next.disabled = !quizAnswered;
+  if (isChoiceQuestion(question)) {
+    if (submit) submit.disabled = practiceAnswered || practiceSelected.size === 0;
+  }
+  if (next) next.disabled = !practiceAnswered;
 }
 
-function renderQuizStep() {
-  const step = QUIZ_STEPS[quizStep];
-  const question = document.getElementById('quiz-question-text');
+function renderPracticeQuestion() {
+  const question = currentPracticeQuestion();
+  const optionRoot = document.getElementById('quiz-options');
   const feedback = document.getElementById('quiz-feedback');
-  const pill = document.getElementById('quiz-stage-pill');
-  const progress = document.getElementById('quiz-progress-fill');
+  const evidence = document.getElementById('quiz-evidence');
+  const reflection = document.getElementById('quiz-reflection');
+  const reflectionPrompt = document.getElementById('quiz-reflection-prompt');
+  const reflectionSelect = document.getElementById('quiz-reflection-select');
+  const summary = document.getElementById('quiz-summary');
   const next = document.getElementById('quiz-next-view');
-  quizSelected = new Set();
-  quizAnswered = false;
-  question.textContent = step.question;
-  feedback.textContent = '请先独立选择所有仍可能成立的实体，再提交判断。';
+
+  practiceSelected = new Set();
+  practiceInteraction = null;
+  practiceAnswered = false;
+  practiceHintUsed = false;
+  practiceAttempts = 0;
+  practiceStartedAt = performance.now();
+
+  document.getElementById('quiz-question-text').textContent = question.prompt;
+  document.getElementById('quiz-skill').textContent = question.skill;
+  document.getElementById('quiz-difficulty').textContent = `难度 ${question.difficulty}`;
+  document.getElementById('quiz-stage-pill').textContent = `第 ${practiceIndex + 1} / ${QUESTION_BANK.length} 题`;
+  document.getElementById('quiz-progress-fill').style.width = `${((practiceIndex + 1) / QUESTION_BANK.length) * 100}%`;
+  next.textContent = practiceIndex === QUESTION_BANK.length - 1 ? '查看练习小结' : '下一题';
+  feedback.textContent = '先观察模型与真实三视图，选择后再提交判断。';
   feedback.dataset.tone = 'info';
-  pill.textContent = `第 ${quizStep + 1} / ${QUIZ_STEPS.length} 步`;
-  progress.style.width = `${((quizStep + 1) / QUIZ_STEPS.length) * 100}%`;
-  next.textContent = quizStep === QUIZ_STEPS.length - 1 ? '提交后重新挑战' : '提交后进入下一步';
+  evidence.hidden = true;
+  evidence.textContent = '';
+  reflection.hidden = true;
+  reflectionPrompt.textContent = question.reflection;
+  reflectionSelect.value = '';
+  summary.hidden = true;
 
   ['front', 'top', 'side'].forEach(view => {
-    const tag = document.getElementById(`quiz-tag-${view}`);
-    const card = document.getElementById(`quiz-view-${view}`);
-    tag?.classList.toggle('on', step.views.includes(view));
-    card?.classList.toggle('revealed', step.views.includes(view));
+    document.getElementById(`quiz-tag-${view}`)?.classList.toggle('on', question.views.includes(view));
   });
 
-  updateQuizOptionUI();
+  optionRoot.replaceChildren(...(isChoiceQuestion(question) ? question.options.map(option => {
+    const button = document.createElement('button');
+    button.className = 'quiz-option';
+    button.dataset.answer = option.id;
+    button.type = 'button';
+    button.setAttribute('aria-pressed', 'false');
+    button.textContent = option.label;
+    button.addEventListener('click', () => {
+      if (practiceAnswered) return;
+      if (question.type === 'single') practiceSelected = new Set([option.id]);
+      else if (practiceSelected.has(option.id)) practiceSelected.delete(option.id);
+      else practiceSelected.add(option.id);
+      feedback.textContent = practiceSelected.size ? '已选择答案。请根据三维模型和投影线核对后提交。' : '请至少选择一个答案。';
+      updatePracticeOptionUI();
+    });
+    return button;
+  }) : []));
+
+  setPracticeModeModel(question);
+  updatePracticeInteractionUI();
+  updatePracticeOptionUI();
+  updatePracticeSubmitState();
 }
 
-function submitQuizAnswer() {
-  if (quizAnswered || quizSelected.size === 0) return;
-  const step = QUIZ_STEPS[quizStep];
-  const result = evaluateQuizSelection(quizSelected, step.possible);
+function submitPracticeAnswer() {
+  const question = currentPracticeQuestion();
+  const response = isChoiceQuestion(question) ? practiceSelected : (question.type === 'rotate-to-view' ? { direction: currentCameraDirectionArray() } : practiceInteraction);
+  if (practiceAnswered || (isChoiceQuestion(question) ? practiceSelected.size === 0 : !response)) return;
   const feedback = document.getElementById('quiz-feedback');
-  quizAnswered = true;
-  updateQuizOptionUI();
+  const evidence = document.getElementById('quiz-evidence');
+  const reflection = document.getElementById('quiz-reflection');
+  const result = evaluateQuestionAnswer(question, response);
+  practiceAnswered = true;
+  practiceAttempts += 1;
+  if (!isChoiceQuestion(question)) practiceInteraction = response;
+  updatePracticeOptionUI();
+  updatePracticeInteractionUI();
+  updatePracticeSubmitState();
 
+  if (question.revealHiddenAfterSubmit) {
+    state.showHidden = true;
+    document.getElementById('tog-hidden')?.classList.add('on');
+    drawProjections();
+  }
+
+  evidence.hidden = false;
+  evidence.textContent = `图学证据：${question.evidence}`;
+  reflection.hidden = false;
   if (result.exact) {
-    feedback.textContent = `判断正确。${step.explanation}`;
+    feedback.textContent = '判断正确。请说明你用到的图学依据，再进入下一题。';
     feedback.dataset.tone = 'success';
   } else {
     const details = [];
-    if (result.missing.length) details.push(`遗漏：${result.missing.map(answer => QUIZ_LABELS[answer]).join('、')}`);
-    if (result.unexpected.length) details.push(`应排除：${result.unexpected.map(answer => QUIZ_LABELS[answer]).join('、')}`);
-    feedback.textContent = `本次判断还需修正（${details.join('；')}）。${step.explanation}`;
+    if (result.missing?.length) details.push('未命中目标');
+    if (result.unexpected?.length) details.push('选择了不符合的对象');
+    feedback.textContent = `本次判断需要修正（${details.join('；') || '未满足题目条件'}）。请用上面的证据回到模型和投影中核对。`;
     feedback.dataset.tone = 'error';
   }
+}
 
-  const next = document.getElementById('quiz-next-view');
-  next.textContent = quizStep === QUIZ_STEPS.length - 1 ? '重新挑战' : '进入下一步';
+function finishPracticeQuestion() {
+  if (!practiceAnswered) return;
+  const question = currentPracticeQuestion();
+  const response = isChoiceQuestion(question) ? practiceSelected : practiceInteraction;
+  practiceRecords.push(createPracticeRecord(question, response, 0, {
+    endedAt: Math.round(performance.now() - practiceStartedAt),
+    attempts: practiceAttempts,
+    hintUsed: practiceHintUsed,
+    reflection: document.getElementById('quiz-reflection-select')?.value || null
+  }));
+
+  if (practiceIndex < QUESTION_BANK.length - 1) {
+    practiceIndex += 1;
+    renderPracticeQuestion();
+    return;
+  }
+
+  const summary = summarizePractice(practiceRecords);
+  const summaryEl = document.getElementById('quiz-summary');
+  summaryEl.hidden = false;
+  summaryEl.textContent = `本轮完成 ${summary.completed} 题，正确 ${summary.correct} 题。提示使用 ${summary.hintsUsed} 次。建议回顾出现错误的图学关系，再重新练习。`;
+  document.getElementById('quiz-next-view').textContent = '重新练习';
+  practiceIndex = -1;
+}
+
+function restorePracticeState() {
+  if (!practiceRestoreState) return;
+  Object.assign(state, practiceRestoreState);
+  practiceRestoreState = null;
+  rebuildModel();
+  Object.values(projPlanes).forEach(plane => { if (plane) plane.visible = true; });
+  updateUnfold(state.unfoldProgress);
+}
+
+function exitPractice(modeTabs) {
+  document.getElementById('quiz-overlay').style.display = 'none';
+  document.getElementById('quiz-overlay').setAttribute('aria-hidden', 'true');
+  restorePracticeState();
+  modeTabs.find(tab => tab.dataset.mode === 'explore')?.click();
 }
 
 function bindQuizUI() {
   const modeTabs = Array.from(document.querySelectorAll('.mode-tab'));
   const quizOverlay = document.getElementById('quiz-overlay');
-  modeTabs.forEach(t => {
-    t.addEventListener('click', () => {
-      modeTabs.forEach(x => x.classList.toggle('active', x === t));
-      modeTabs.forEach(x => x.setAttribute('aria-selected', x === t ? 'true' : 'false'));
-      state.mode = t.dataset.mode;
+  modeTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      modeTabs.forEach(item => item.classList.toggle('active', item === tab));
+      modeTabs.forEach(item => item.setAttribute('aria-selected', item === tab ? 'true' : 'false'));
+      state.mode = tab.dataset.mode;
       if (state.mode === 'quiz') {
+        if (!practiceRestoreState) {
+          practiceRestoreState = {
+            currentModel: state.currentModel,
+            showHidden: state.showHidden,
+            isUnfolded: state.isUnfolded,
+            unfoldProgress: state.unfoldProgress,
+            transitionActive: false
+          };
+        }
         quizOverlay.style.display = 'block';
         quizOverlay.setAttribute('aria-hidden', 'false');
-        hudMode.textContent = '空间测评 · 三视图递进推理';
-        quizStep = 0;
-        renderQuizStep();
-        setStatus('测评模式：先给一个视图，再逐步增加视图，观察候选实体如何收缩。');
+        hudMode.textContent = '空间练习 · 预测与核对';
+        practiceIndex = 0;
+        practiceRecords = [];
+        renderPracticeQuestion();
+        setStatus('空间练习：先观察真实模型和三视图，再作出预测并用图学证据核对。');
       } else {
         quizOverlay.style.display = 'none';
         quizOverlay.setAttribute('aria-hidden', 'true');
         hudMode.textContent = '三维透视 · 第一角';
+        restorePracticeState();
       }
     });
   });
 
-  document.getElementById('quiz-close')?.addEventListener('click', () => {
-    modeTabs.find(t => t.dataset.mode === 'explore')?.click();
+  document.getElementById('quiz-close')?.addEventListener('click', () => exitPractice(modeTabs));
+  document.getElementById('quiz-hint')?.addEventListener('click', () => {
+    const question = currentPracticeQuestion();
+    if (!question) return;
+    practiceHintUsed = true;
+    const feedback = document.getElementById('quiz-feedback');
+    feedback.textContent = `提示：${question.hint}`;
+    feedback.dataset.tone = 'info';
   });
-
-  document.getElementById('quiz-reset')?.addEventListener('click', () => {
-    quizStep = 0;
-    renderQuizStep();
-  });
-
+  document.getElementById('quiz-submit')?.addEventListener('click', submitPracticeAnswer);
   document.getElementById('quiz-next-view')?.addEventListener('click', () => {
-    if (!quizAnswered) return;
-    quizStep = quizStep < QUIZ_STEPS.length - 1 ? quizStep + 1 : 0;
-    renderQuizStep();
+    if (practiceIndex === -1) {
+      practiceIndex = 0;
+      practiceRecords = [];
+      renderPracticeQuestion();
+    } else finishPracticeQuestion();
   });
-
-  document.getElementById('quiz-submit')?.addEventListener('click', submitQuizAnswer);
-
-  document.querySelectorAll('.quiz-option[data-answer]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (quizAnswered) return;
-      const answer = btn.dataset.answer;
-      const feedback = document.getElementById('quiz-feedback');
-      if (quizSelected.has(answer)) quizSelected.delete(answer);
-      else quizSelected.add(answer);
-      feedback.textContent = quizSelected.size
-        ? `已选择 ${quizSelected.size} 个候选。确认后点击“提交判断”。`
-        : '请至少选择一个候选，再提交判断。';
-      feedback.dataset.tone = 'info';
-      updateQuizOptionUI();
-    });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && state.mode === 'quiz') exitPractice(modeTabs);
   });
-
-  renderQuizStep();
 }
 
-// ===== 主循环 =====
+function updateTiledProjectionCards() {
+  TILED_VIEW_ORDER.forEach(({ key }) => {
+    const image = document.querySelector(`[data-tiled-image="${key}"]`);
+    let canvas = projCanvases[key];
+    const target = projTargets[key];
+    if (!image || !target) return;
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      projCanvases[key] = canvas;
+    }
+    canvas.width = target.width;
+    canvas.height = target.height;
+    const width = target.width;
+    const height = target.height;
+    const pixels = new Uint8Array(width * height * 4);
+    renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
+    const context = canvas.getContext('2d');
+    const imageData = context.createImageData(width, height);
+    for (let y = 0; y < height; y += 1) {
+      const sourceOffset = y * width * 4;
+      const destinationOffset = (height - y - 1) * width * 4;
+      imageData.data.set(pixels.subarray(sourceOffset, sourceOffset + width * 4), destinationOffset);
+    }
+    context.putImageData(imageData, 0, 0);
+    image.src = canvas.toDataURL('image/png');
+  });
+}
+
+function updateViewMatchFeedback() {
+  if (!state.isTiled) return;
+  const direction = currentCameraDirectionArray();
+  const match = TILED_VIEW_ORDER.find(view => directionAngleDegrees(direction, view.direction) <= 9) || null;
+  if (match?.key !== state.activeMatchedView) {
+    state.activeMatchedView = match?.key || null;
+    if (match) state.matchedViewEnteredAt = performance.now();
+  }
+  document.querySelectorAll('[data-tiled-card]').forEach(card => {
+    const active = card.dataset.tiledCard === state.activeMatchedView;
+    card.classList.toggle('matched', active);
+    card.classList.toggle('sparkle', active && performance.now() - state.matchedViewEnteredAt < 900);
+  });
+}
+
+function setStandardCameraView(viewKey) {
+  const config = VIEW[viewKey];
+  if (!config) return;
+  const distance = camera.position.distanceTo(controls.target);
+  camera.position.copy(controls.target).addScaledVector(config.eye, distance);
+  camera.up.copy(config.up);
+  camera.lookAt(controls.target);
+  controls.update();
+  updateViewMatchFeedback();
+}
+
+function setTiledMode(enabled) {
+  state.isTiled = enabled;
+  const viewportEl = document.getElementById('viewport');
+  const modelPane = document.getElementById('model-pane');
+  const button = document.getElementById('tile-btn');
+  if (enabled && state.mode === 'quiz') document.querySelector('.mode-tab[data-mode="explore"]')?.click();
+  if (enabled && modelPane && !modelPane.contains(renderer.domElement)) modelPane.appendChild(renderer.domElement);
+  if (!enabled && !viewportEl.contains(renderer.domElement)) viewportEl.insertBefore(renderer.domElement, viewportEl.firstChild);
+  viewportEl?.classList.toggle('tiled-mode', enabled);
+  if (button) {
+    button.classList.toggle('on', enabled);
+    button.setAttribute('aria-pressed', String(enabled));
+    button.querySelector('span').textContent = enabled ? '退出平铺对照' : '平铺三视图';
+  }
+  if (enabled) {
+    state.isUnfolded = false;
+    state.unfoldProgress = 0;
+    state.transitionActive = false;
+    updateUnfold(0);
+    drawProjections();
+    updateTiledProjectionCards();
+    updateViewMatchFeedback();
+    setStatus('平铺对照：左侧可自由旋转三维模型；右侧按第一角画法显示三视图。');
+  } else {
+    state.activeMatchedView = null;
+    document.querySelectorAll('[data-tiled-card]').forEach(card => card.classList.remove('matched', 'sparkle'));
+  }
+  onResize();
+}
+
+function bindTiledViewUI() {
+  document.getElementById('tile-btn')?.addEventListener('click', () => setTiledMode(!state.isTiled));
+  document.querySelectorAll('[data-standard-view]').forEach(button => {
+    button.addEventListener('click', () => setStandardCameraView(button.dataset.standardView));
+  });
+}
 function onResize() {
-  const w = viewport.clientWidth;
-  const h = viewport.clientHeight;
+  const tiledHost = document.getElementById('model-pane');
+  const host = state.isTiled && tiledHost ? tiledHost : viewport;
+  const w = host.clientWidth;
+  const h = host.clientHeight;
   camera.aspect = w / Math.max(h, 1);
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
@@ -1685,6 +1970,12 @@ function animate() {
     }
   }
   controls.update();
+  updateViewMatchFeedback();
+  if (state.mode === 'quiz' && currentPracticeQuestion()?.type === 'rotate-to-view' && !practiceAnswered) {
+    practiceInteraction = { direction: currentCameraDirectionArray() };
+    updatePracticeInteractionUI();
+    updatePracticeSubmitState();
+  }
   renderer.render(scene, camera);
 }
 
@@ -1698,6 +1989,7 @@ bindMobileUI();
 bindQuizUI();
 bindFocusPicking();
 bindBridgeTaskUI();
+bindTiledViewUI();
 
 onResize();
 rebuildModel();

@@ -21,7 +21,7 @@ export const COMPONENT_INFO = {
   main_girder: { label: '主梁', role: '节点中的纵向承重构件，与横梁共同支承桥面。' },
   cross_beam: { label: '横梁', role: '横向联系主梁，并把桥面荷载分配至纵向承重体系。' },
   pier: { label: '桥墩', role: '把上部结构反力传递至基础。' },
-  pier_cap: { label: '盖梁', role: '承接支座反力，并把荷载分配给墩柱。' },
+  pier_cap: { label: '盖梁', role: '承接支座反力，并把荷载分配至墩柱。' },
   arch_rib: { label: '拱肋', role: '以轴向受压为主，将荷载传向拱脚。' },
   arch_brace: { label: '拱肋横撑', role: '连接两片拱肋，增强横向稳定与整体性。' },
   hanger: { label: '吊杆', role: '受拉连接桥面与拱肋或主缆，传递竖向荷载。' },
@@ -39,6 +39,8 @@ export const BRIDGE_VIEW_TASK = {
   targetComponent: 'stay_cable',
   expectedView: 'front'
 };
+
+export const INTERACTION_TYPES = new Set(['rotate-to-view', 'click-model', 'click-projection', 'mark-dimension']);
 
 export function getComponentInfo(name) {
   const key = String(name || '').trim().toLowerCase();
@@ -69,11 +71,95 @@ export function evaluateQuizSelection(selectedAnswers, expectedAnswers) {
   const expected = asSet(expectedAnswers);
   const missing = [...expected].filter(answer => !selected.has(answer));
   const unexpected = [...selected].filter(answer => !expected.has(answer));
+  return { exact: missing.length === 0 && unexpected.length === 0, missing, unexpected };
+}
+
+export function directionAngleDegrees(actual, target) {
+  const a = actual || [];
+  const b = target || [];
+  const aLength = Math.hypot(a[0] || 0, a[1] || 0, a[2] || 0);
+  const bLength = Math.hypot(b[0] || 0, b[1] || 0, b[2] || 0);
+  if (!aLength || !bLength) return Infinity;
+  const dot = ((a[0] || 0) * (b[0] || 0) + (a[1] || 0) * (b[1] || 0) + (a[2] || 0) * (b[2] || 0)) / (aLength * bLength);
+  return Math.acos(Math.min(1, Math.max(-1, dot))) * 180 / Math.PI;
+}
+
+export function isPointInHotspot(point, hotspot) {
+  if (!point || !hotspot || !Number.isFinite(point.u) || !Number.isFinite(point.v)) return false;
+  if (hotspot.shape === 'circle') {
+    return Math.hypot(point.u - hotspot.u, point.v - hotspot.v) <= hotspot.radius;
+  }
+  if (hotspot.shape === 'rect') {
+    return point.u >= hotspot.u && point.u <= hotspot.u + hotspot.width
+      && point.v >= hotspot.v && point.v <= hotspot.v + hotspot.height;
+  }
+  return false;
+}
+
+export function getHotspotHit(point, hotspots = []) {
+  return hotspots.find(hotspot => isPointInHotspot(point, hotspot)) || null;
+}
+
+export function evaluateInteractionAnswer(question, response = {}) {
+  if (question.type === 'rotate-to-view') {
+    const angle = directionAngleDegrees(response.direction, question.targetDirection);
+    return { exact: angle <= (question.toleranceDegrees ?? 9), angle, missing: [], unexpected: [] };
+  }
+  if (question.type === 'click-model') {
+    const selected = String(response.componentName || '').toLowerCase();
+    const accepted = new Set((question.targetComponents || []).map(name => String(name).toLowerCase()));
+    return { exact: accepted.has(selected), missing: accepted.has(selected) ? [] : ['target-component'], unexpected: selected ? [selected] : [] };
+  }
+  if (question.type === 'click-projection' || question.type === 'mark-dimension') {
+    const sameView = response.view === question.targetView;
+    const hotspot = getHotspotHit(response, question.hotspots);
+    const targetIds = new Set(question.answer || []);
+    const hitId = hotspot?.id || null;
+    return {
+      exact: sameView && Boolean(hitId) && targetIds.has(hitId),
+      hitId,
+      missing: sameView && hitId && targetIds.has(hitId) ? [] : ['target-hotspot'],
+      unexpected: hitId && !targetIds.has(hitId) ? [hitId] : []
+    };
+  }
+  return { exact: false, missing: ['unsupported-question-type'], unexpected: [] };
+}
+
+export function evaluateQuestionAnswer(question, response) {
+  if (INTERACTION_TYPES.has(question.type)) return evaluateInteractionAnswer(question, response);
+  return evaluateQuizSelection(response, question.answer);
+}
+
+export function createPracticeRecord(question, response, startedAt, options = {}) {
+  const evaluation = evaluateQuestionAnswer(question, response);
+  const endedAt = options.endedAt ?? Date.now();
+  const selectedAnswers = response instanceof Set || Array.isArray(response) ? [...asSet(response)] : [];
   return {
-    exact: missing.length === 0 && unexpected.length === 0,
-    missing,
-    unexpected
+    questionId: question.id,
+    skill: question.skill,
+    difficulty: question.difficulty,
+    type: question.type,
+    correct: evaluation.exact,
+    selectedAnswers,
+    interaction: selectedAnswers.length ? null : (response && typeof response === 'object' ? { ...response } : null),
+    responseTimeMs: Math.max(0, endedAt - startedAt),
+    attempts: options.attempts ?? 1,
+    hintUsed: Boolean(options.hintUsed),
+    misconception: evaluation.exact ? null : question.misconception,
+    reflection: options.reflection ?? null
   };
+}
+
+export function summarizePractice(records = []) {
+  const completed = records.length;
+  const correct = records.filter(record => record.correct).length;
+  const misconceptions = records
+    .filter(record => record.misconception)
+    .reduce((summary, record) => {
+      summary[record.misconception] = (summary[record.misconception] || 0) + 1;
+      return summary;
+    }, {});
+  return { completed, correct, accuracy: completed ? correct / completed : 0, hintsUsed: records.filter(record => record.hintUsed).length, misconceptions };
 }
 
 export function isBridgeTaskTarget(componentName) {

@@ -285,6 +285,23 @@ body{
 /* 中：视口 */
 #viewport{flex:1;position:relative;min-width:0;overflow:hidden;background:var(--viewport-bg);}
 #viewport canvas{display:block;width:100%;height:100%;}
+#tiled-layout{display:none;position:absolute;inset:0;z-index:2;background:var(--viewport-bg);}
+#viewport.tiled-mode #tiled-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(340px,.9fr);}
+#viewport.tiled-mode>.vp-corner,#viewport.tiled-mode>.vp-component,#viewport.tiled-mode>.vp-hint,#viewport.tiled-mode>.unfold-fab{z-index:10;}
+#model-pane{min-width:0;min-height:0;position:relative;border-right:1px solid var(--line-strong);background:var(--viewport-bg);}
+#model-pane canvas{display:block;width:100%;height:100%;}
+#three-view-pane{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;padding:42px 12px 12px;background:#eef2f6;min-width:0;min-height:0;}
+.tiled-pane-title{grid-column:1/-1;align-self:start;margin-bottom:-28px;color:var(--text-2);font-size:12px;font-weight:800;letter-spacing:.04em;pointer-events:none;}
+.tiled-view-card{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line-strong);border-radius:var(--radius);background:#fff;box-shadow:var(--shadow-sm);transition:border-color .2s,box-shadow .2s,transform .2s;}
+.tiled-view-card.front{grid-column:1;grid-row:1;}.tiled-view-card.top{grid-column:1;grid-row:2;}.tiled-view-card.side{grid-column:2;grid-row:1 / span 2;}
+.tiled-view-card header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-bottom:1px solid var(--line-soft);font-size:11px;font-weight:800;color:var(--text-2);background:var(--chrome-0);}
+.tiled-view-card img{display:block;width:100%;height:100%;min-height:0;object-fit:contain;background:#fff;image-rendering:auto;}
+.tiled-view-card.matched{border-color:#d39b18;box-shadow:0 0 0 2px rgba(235,181,47,.36),0 0 22px rgba(239,182,36,.45);}
+.tiled-view-card.sparkle::after{content:"✦";position:absolute;right:10px;top:28px;color:#e8b126;font-size:27px;text-shadow:0 0 8px #fff,0 0 16px #efb626;animation:view-sparkle .9s ease-out both;pointer-events:none;}
+.standard-view-actions{position:absolute;left:12px;bottom:12px;z-index:11;display:none;gap:6px;padding:6px;border:1px solid var(--line);border-radius:var(--radius-sm);background:rgba(255,255,255,.92);box-shadow:var(--shadow-sm);}
+#viewport.tiled-mode .standard-view-actions{display:flex;}
+.standard-view-actions button{border:1px solid var(--line);border-radius:4px;background:#fff;padding:4px 7px;color:var(--text-2);font:inherit;font-size:11px;font-weight:700;cursor:pointer;}.standard-view-actions button:hover{background:var(--accent-soft);border-color:#bcd9f5;color:var(--accent);}
+@keyframes view-sparkle{0%{opacity:0;transform:scale(.35) rotate(-18deg)}35%{opacity:1;transform:scale(1.25) rotate(12deg)}100%{opacity:0;transform:scale(1.9) rotate(25deg)}}
 .vp-corner{
   position:absolute;top:10px;left:12px;z-index:8;pointer-events:none;
   display:flex;align-items:center;gap:7px;
@@ -435,16 +452,15 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 #hud-mode{font-weight:600;color:var(--accent);}
 .status-cell.std{color:var(--muted);font-weight:600;letter-spacing:.02em;}
 
-/* ============ 测评弹窗（浅色 CAD 对话框） ============ */
+/* ============ 空间练习：保留模型与真实投影作为证据 ============ */
 #quiz-overlay{
-  position:absolute;inset:0;display:none;z-index:25;
-  background:rgba(40,50,65,.34);backdrop-filter:blur(3px);
+  position:absolute;inset:0;display:none;z-index:25;pointer-events:none;
 }
 .quiz-card{
-  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:min(560px,calc(100vw - 32px));
-  background:var(--panel);border:1px solid var(--line-strong);
-  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden;
+  position:absolute;right:18px;top:18px;width:min(380px,calc(100vw - 36px));max-height:calc(100% - 36px);
+  display:flex;flex-direction:column;pointer-events:auto;
+  background:rgba(250,251,252,.97);border:1px solid var(--line-strong);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:auto;
 }
 .quiz-titlebar{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -458,79 +474,43 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 }
 .quiz-titlebar .qt-ico svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:1.8;}
 .quiz-titlebar h2{font-size:13.5px;font-weight:700;color:var(--text);}
-.quiz-pill{
-  padding:3px 9px;border-radius:5px;background:var(--accent-soft);
-  color:var(--accent);font-size:10.5px;font-weight:800;letter-spacing:.04em;white-space:nowrap;
-}
+.quiz-pill{padding:3px 9px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-size:10.5px;font-weight:800;letter-spacing:.04em;white-space:nowrap;}
 .quiz-body{padding:14px;}
 .quiz-intro{color:var(--muted);font-size:11.5px;line-height:1.55;margin-bottom:10px;}
 .progress-bar{width:100%;height:5px;border-radius:999px;background:var(--panel-3);overflow:hidden;margin-bottom:12px;}
-.progress-fill{height:100%;width:33%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width var(--tx);}
-
+.progress-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width var(--tx);}
 .quiz-question{padding:11px 12px;border-radius:var(--radius);background:var(--panel-2);border:1px solid var(--line-soft);}
-.quiz-qtext{font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;}
-.quiz-stage{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:8px 10px;border:1px solid var(--line-soft);border-radius:var(--radius-sm);
-  background:#fff;margin-bottom:10px;
-}
-.quiz-stage>span{font-size:11.5px;color:var(--muted);}
+.quiz-qmeta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:7px;color:var(--muted);font-size:10.5px;font-weight:700;}
+.quiz-qmeta span{padding:2px 6px;border-radius:999px;background:#fff;border:1px solid var(--line-soft);}
+.quiz-qtext{font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;line-height:1.5;}
+.quiz-stage{padding:8px 10px;border:1px solid var(--line-soft);border-radius:var(--radius-sm);background:#fff;margin-bottom:10px;}
+.quiz-stage>span{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px;}
 .quiz-view-tags{display:flex;gap:6px;flex-wrap:wrap;}
-.quiz-view-tag{
-  padding:3px 9px;border-radius:5px;background:var(--panel-3);color:var(--muted);
-  font-size:11px;font-weight:700;border:1px solid transparent;
-}
+.quiz-view-tag{padding:3px 9px;border-radius:5px;background:var(--panel-3);color:var(--muted);font-size:11px;font-weight:700;border:1px solid transparent;}
 .quiz-view-tag.on{background:var(--accent-soft);color:var(--accent);border-color:#bcd9f5;}
-
-.quiz-view-panel{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
-.quiz-view-card{
-  position:relative;min-height:90px;padding:7px;
-  border:1px dashed var(--line-strong);border-radius:var(--radius-sm);
-  background:#fff;opacity:.5;overflow:hidden;transition:opacity var(--tx),border-color var(--tx),background var(--tx);
-}
-.quiz-view-card.revealed{opacity:1;border-style:solid;border-color:#bcd9f5;background:#f4f9ff;}
-.quiz-view-card .view-name{display:block;font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.06em;margin-bottom:3px;}
-.quiz-view-card svg{display:block;width:100%;height:58px;}
-.quiz-view-card svg *{vector-effect:non-scaling-stroke;}
-.quiz-view-card:not(.revealed) svg{opacity:.18;}
-.quiz-view-card .unknown{position:absolute;inset:24px 7px 7px;display:grid;place-items:center;font-size:24px;font-weight:900;color:var(--line-strong);}
-.quiz-view-card.revealed .unknown{display:none;}
-
-.quiz-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.quiz-option{
-  border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;
-  color:var(--text-2);padding:8px 10px;cursor:pointer;text-align:left;
-  transition:background var(--tx),border-color var(--tx),transform var(--tx);
-}
+.quiz-evidence{margin:0 0 10px;padding:8px 10px;border-left:3px solid var(--accent);background:#f4f9ff;color:var(--text-2);font-size:11.5px;line-height:1.55;}
+.quiz-evidence[hidden]{display:none;}
+.quiz-options{display:grid;grid-template-columns:1fr;gap:7px;}
+.quiz-interaction{margin:0 0 10px;padding:9px 10px;border:1px dashed #9ab8d6;border-radius:var(--radius-sm);background:#f5f9fd;color:var(--text-2);font-size:11.5px;line-height:1.5;}
+.quiz-interaction[hidden]{display:none;}
+.quiz-interaction.ready{border-color:#78b57d;background:var(--ok-soft);color:#27652c;}
+.quiz-option{border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--text-2);padding:9px 10px;cursor:pointer;text-align:left;font:inherit;font-size:12px;font-weight:600;transition:background var(--tx),border-color var(--tx),transform var(--tx);}
 .quiz-option:hover{background:var(--accent-soft);border-color:#bcd9f5;transform:translateY(-1px);}
 .quiz-option.selected{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent) inset;}
 .quiz-option.correct{border-color:#a8d3aa;background:var(--ok-soft);}
 .quiz-option.wrong{border-color:#df9b9b;background:var(--danger-soft);}
 .quiz-option.missed{border-style:dashed;border-color:#d5a450;}
 .quiz-option:disabled{cursor:default;transform:none;}
-.quiz-option:disabled:hover{transform:none;}
-.candidate-body{display:flex;align-items:center;gap:9px;min-width:0;}
-.candidate-copy{display:flex;flex-direction:column;gap:2px;min-width:0;}
-.candidate-copy b{font-size:12px;line-height:1.2;color:var(--text);}
-.candidate-copy small{font-size:10px;line-height:1.25;color:var(--muted);}
-.candidate-icon{flex:0 0 auto;width:44px;height:34px;border-radius:5px;position:relative;overflow:hidden;background:var(--panel-2);border:1px solid var(--line-soft);}
-.candidate-cylinder::before{content:"";position:absolute;left:8px;right:8px;top:8px;bottom:8px;border-radius:999px / 38%;background:linear-gradient(90deg,#cfe6f6,#7fb6e6,#cfe6f6);border:1px solid #6ba6da;}
-.candidate-cylinder::after{content:"";position:absolute;left:8px;top:8px;width:10px;height:18px;border-radius:50%;border:1px solid #4f8fc8;background:#eaf3fb;}
-.candidate-rect::before{content:"";position:absolute;width:22px;height:17px;left:9px;top:11px;background:linear-gradient(135deg,#f4d49a,#e9a86a);border:1px solid #d49757;}
-.candidate-rect::after{content:"";position:absolute;left:16px;top:6px;width:21px;height:17px;background:linear-gradient(135deg,#bcd9f5,#c9bdf0);border:1px solid #9db8da;transform:skewY(-28deg);z-index:-1;}
-.candidate-tri::before{content:"";position:absolute;left:8px;top:6px;width:0;height:0;border-left:24px solid transparent;border-bottom:21px solid #a8d3aa;}
-.candidate-tri::after{content:"";position:absolute;left:8px;top:28px;width:27px;height:1.5px;background:#5e9e63;}
-.candidate-sphere::before{content:"";position:absolute;left:9px;top:5px;width:23px;height:23px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff 0 10%,#e89aa6 30%,#b9a8e0 72%);border:1px solid #d49aa6;}
-
-.quiz-feedback{min-height:30px;margin-top:11px;color:var(--text-2);font-size:12.5px;line-height:1.55;}
+.quiz-feedback{min-height:36px;margin-top:11px;color:var(--text-2);font-size:12px;line-height:1.55;}
 .quiz-feedback[data-tone="success"]{color:#27652c;}
 .quiz-feedback[data-tone="error"]{color:#9d3030;}
+.quiz-reflection{margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);}
+.quiz-reflection label{display:block;color:var(--text-2);font-size:11.5px;font-weight:700;line-height:1.5;margin-bottom:6px;}
+.quiz-reflection select{width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--text);padding:7px 8px;font:inherit;font-size:11.5px;}
+.quiz-summary{margin-top:10px;padding:9px 10px;border-radius:var(--radius-sm);background:var(--ok-soft);color:#27652c;font-size:11.5px;line-height:1.55;}
+.quiz-summary[hidden]{display:none;}
 .quiz-footer{display:flex;gap:8px;padding:11px 14px;background:var(--panel-2);border-top:1px solid var(--line-soft);}
-.dlg-btn{
-  flex:1;border:1px solid var(--line);border-radius:var(--radius-sm);
-  background:#fff;color:var(--text-2);font:inherit;font-size:12.5px;font-weight:600;
-  padding:8px 10px;cursor:pointer;transition:background var(--tx),border-color var(--tx),transform var(--tx);
-}
+.dlg-btn{flex:1;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--text-2);font:inherit;font-size:12px;font-weight:600;padding:8px 8px;cursor:pointer;transition:background var(--tx),border-color var(--tx),transform var(--tx);}
 .dlg-btn:hover{background:var(--chrome-2);}
 .dlg-btn:active{transform:translateY(1px);}
 .dlg-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
@@ -565,6 +545,9 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
   #panel-toggle-l svg,#panel-toggle-r svg{width:18px;height:18px;fill:none;stroke:var(--accent);stroke-width:1.7;}
   .vp-corner{left:54px;}
   #viewcube{right:54px;}
+  #viewport.tiled-mode #tiled-layout{grid-template-columns:1fr;grid-template-rows:minmax(260px,1fr) minmax(260px,1fr);}
+  #viewport.tiled-mode #model-pane{border-right:0;border-bottom:1px solid var(--line-strong);}
+  #three-view-pane{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
 }
 @media(max-width:600px){
   #brand h1{font-size:12.5px;}
@@ -587,7 +570,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
   </div>
   <div id="doc-tabs" role="tablist">
     <button class="mode-tab active" data-mode="explore" role="tab" aria-selected="true">自由探索</button>
-    <button class="mode-tab" data-mode="quiz" role="tab" aria-selected="false">空间测评</button>
+    <button class="mode-tab" data-mode="quiz" role="tab" aria-selected="false">空间练习</button>
   </div>
 </header>
 
@@ -666,13 +649,22 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       </div>
       <div class="rib-group">
         <div class="rib-group-row">
+          <button class="rib-cmd" id="tile-btn" aria-pressed="false" title="左侧自由旋转模型，右侧平铺第一角三视图">
+            <span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="14" y="4" width="7" height="4" rx="1"/><rect x="14" y="10" width="7" height="4" rx="1"/><rect x="14" y="16" width="7" height="4" rx="1"/></svg></span>
+            <span class="cap wrap">平铺三视图</span>
+          </button>
+        </div>
+        <div class="rib-group-label">对照学习</div>
+      </div>
+      <div class="rib-group">
+        <div class="rib-group-row">
           <div class="rib-hint">勾选项即时生效；<b>模型与投影面距离</b>在右侧<b>属性</b>面板调节（投影面尺寸已自适应）。</div>
         </div>
         <div class="rib-group-label">提示</div>
       </div>
-    </div>
 
   </div>
+</div>
 </div>
 
 <!-- ===== 工作区 ===== -->
@@ -749,6 +741,18 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 
   <!-- 中：视口 -->
   <main id="viewport">
+    <div id="tiled-layout" aria-label="第一角三视图平铺对照">
+      <section id="model-pane" aria-label="可自由旋转的三维模型"></section>
+      <section id="three-view-pane" aria-label="第一角三视图">
+        <div class="tiled-pane-title">第一角画法 · 三视图对照</div>
+        <article class="tiled-view-card front" data-tiled-card="front"><header><span>主视图</span><span>前</span></header><img data-tiled-image="front" alt="主视图工程图"></article>
+        <article class="tiled-view-card top" data-tiled-card="top"><header><span>俯视图</span><span>上</span></header><img data-tiled-image="top" alt="俯视图工程图"></article>
+        <article class="tiled-view-card side" data-tiled-card="side"><header><span>左视图</span><span>左</span></header><img data-tiled-image="side" alt="左视图工程图"></article>
+      </section>
+    </div>
+    <div class="standard-view-actions" aria-label="对准标准视图">
+      <button type="button" data-standard-view="front">主视</button><button type="button" data-standard-view="top">俯视</button><button type="button" data-standard-view="side">左视</button>
+    </div>
     <button id="panel-toggle-l" aria-label="模型树"><svg viewBox="0 0 24 24"><path d="M4 5h7l2 2h7v12H4z"/></svg></button>
     <button id="panel-toggle-r" aria-label="属性"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M9 6v0m6 6v0m-3 6v0"/></svg></button>
     <div class="vp-corner"><span class="dot"></span><span id="hud-mode">三维透视 · 第一角</span></div>
@@ -764,95 +768,55 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       <span>展开三视图</span>
     </button>
 
-    <!-- 测评弹窗（保留全部内部 ID / class，JS 绑定） -->
+    <!-- 空间练习：题干在侧栏，三维模型与真实投影始终作为判断证据 -->
     <div id="quiz-overlay" aria-hidden="true">
-      <div class="quiz-card" role="dialog" aria-modal="true" aria-labelledby="quiz-title">
+      <section class="quiz-card" role="dialog" aria-modal="false" aria-labelledby="quiz-title">
         <div class="quiz-titlebar">
           <div class="qt-left">
             <span class="qt-ico"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 6-7"/><path d="M20 12v6H4V6h11"/></svg></span>
-            <h2 id="quiz-title">空间测评 · 三视图递进推理</h2>
+            <h2 id="quiz-title">空间练习 · 预测与核对</h2>
           </div>
-          <div class="quiz-pill" id="quiz-stage-pill">第 1 / 3 步</div>
+          <div class="quiz-pill" id="quiz-stage-pill">第 1 / 6 题</div>
         </div>
         <div class="quiz-body">
-          <p class="quiz-intro">每一步先独立选择所有可能实体并提交判断；系统随后解释排除依据，再开放下一个视图。</p>
-          <div class="progress-bar"><div class="progress-fill" id="quiz-progress-fill" style="width:33%"></div></div>
-
+          <p class="quiz-intro">先观察当前模型和已展开的真实三视图，再作答；提交后用图学证据核对判断。</p>
+          <div class="progress-bar"><div class="progress-fill" id="quiz-progress-fill"></div></div>
           <div class="quiz-question">
-            <div class="quiz-qtext" id="quiz-question-text">只看正面图：哪些实体可能成立？</div>
+            <div class="quiz-qmeta"><span id="quiz-skill">第一角投影展开</span><span id="quiz-difficulty">难度 1</span></div>
+            <div class="quiz-qtext" id="quiz-question-text">展开投影面后，俯视图相对于主视图应位于什么位置？</div>
             <div class="quiz-stage">
-              <span>已给出的视图</span>
+              <span>本题可用的视图</span>
               <div class="quiz-view-tags">
-                <div class="quiz-view-tag on" id="quiz-tag-front">正面图</div>
-                <div class="quiz-view-tag" id="quiz-tag-top">俯视图</div>
-                <div class="quiz-view-tag" id="quiz-tag-side">侧面图</div>
+                <span class="quiz-view-tag" id="quiz-tag-front">正面图</span>
+                <span class="quiz-view-tag" id="quiz-tag-top">俯视图</span>
+                <span class="quiz-view-tag" id="quiz-tag-side">侧面图</span>
               </div>
             </div>
-            <div class="quiz-view-panel" aria-label="逐步给出的三视图图像">
-              <div class="quiz-view-card revealed" id="quiz-view-front">
-                <span class="view-name">正面图</span>
-                <svg viewBox="0 0 120 70" aria-hidden="true">
-                  <rect x="28" y="17" width="64" height="36" rx="1.5" fill="rgba(10,102,194,.10)" stroke="#0a66c2" stroke-width="2"/>
-                  <path d="M28 17H92M28 53H92M28 17V53M92 17V53" stroke="rgba(60,80,110,.35)" stroke-width="1"/>
-                  <path d="M20 58H100" stroke="rgba(194,65,12,.55)" stroke-width="1.4" stroke-dasharray="5 4"/>
-                </svg>
-                <span class="unknown">?</span>
-              </div>
-              <div class="quiz-view-card" id="quiz-view-top">
-                <span class="view-name">俯视图</span>
-                <svg viewBox="0 0 120 70" aria-hidden="true">
-                  <rect x="25" y="23" width="70" height="24" rx="1.5" fill="rgba(194,116,12,.12)" stroke="#c2740c" stroke-width="2"/>
-                  <path d="M25 35H95" stroke="rgba(60,80,110,.38)" stroke-width="1" stroke-dasharray="4 4"/>
-                  <path d="M17 15L25 23M103 15L95 23M17 55L25 47M103 55L95 47" stroke="rgba(10,102,194,.45)" stroke-width="1.2"/>
-                </svg>
-                <span class="unknown">?</span>
-              </div>
-              <div class="quiz-view-card" id="quiz-view-side">
-                <span class="view-name">侧面图</span>
-                <svg viewBox="0 0 120 70" aria-hidden="true">
-                  <rect x="31" y="18" width="58" height="34" rx="1.5" fill="rgba(46,125,50,.12)" stroke="#2e7d32" stroke-width="2"/>
-                  <path d="M31 18L89 52M89 18L31 52" stroke="rgba(60,80,110,.20)" stroke-width="1" stroke-dasharray="4 4"/>
-                  <path d="M25 58H95" stroke="rgba(194,65,12,.55)" stroke-width="1.4" stroke-dasharray="5 4"/>
-                </svg>
-                <span class="unknown">?</span>
-              </div>
+            <div class="quiz-evidence" id="quiz-evidence" hidden></div>
+            <div class="quiz-interaction" id="quiz-interaction" hidden><span id="quiz-interaction-status"></span></div>
+            <div class="quiz-options" id="quiz-options" aria-label="练习选项"></div>
+            <div class="quiz-feedback" id="quiz-feedback" aria-live="polite">请先根据模型与三视图作出判断。</div>
+            <div class="quiz-reflection" id="quiz-reflection" hidden>
+              <label for="quiz-reflection-select" id="quiz-reflection-prompt">核对前，你依据了什么？</label>
+              <select id="quiz-reflection-select">
+                <option value="">请选择判断依据</option>
+                <option value="孔轴线">孔轴线或中心线</option>
+                <option value="隐藏线">可见线与隐藏线</option>
+                <option value="投影面展开">投影面展开方向</option>
+                <option value="视图对应">长对正、高平齐或宽相等</option>
+                <option value="其他">其他依据</option>
+              </select>
             </div>
-            <div class="quiz-options">
-              <button class="quiz-option" data-answer="cylinder" aria-pressed="false">
-                <span class="candidate-body">
-                  <span class="candidate-icon candidate-cylinder" aria-hidden="true"></span>
-                  <span class="candidate-copy"><b>圆柱体</b><small>侧放时正面可呈矩形</small></span>
-                </span>
-              </button>
-              <button class="quiz-option" data-answer="rect" aria-pressed="false">
-                <span class="candidate-body">
-                  <span class="candidate-icon candidate-rect" aria-hidden="true"></span>
-                  <span class="candidate-copy"><b>方柱 / 长方体</b><small>三向轮廓均为直边</small></span>
-                </span>
-              </button>
-              <button class="quiz-option" data-answer="tri" aria-pressed="false">
-                <span class="candidate-body">
-                  <span class="candidate-icon candidate-tri" aria-hidden="true"></span>
-                  <span class="candidate-copy"><b>三角板</b><small>某些方向会混淆</small></span>
-                </span>
-              </button>
-              <button class="quiz-option" data-answer="sphere" aria-pressed="false">
-                <span class="candidate-body">
-                  <span class="candidate-icon candidate-sphere" aria-hidden="true"></span>
-                  <span class="candidate-copy"><b>球体</b><small>各向投影近似圆</small></span>
-                </span>
-              </button>
-            </div>
-            <div class="quiz-feedback" id="quiz-feedback" aria-live="polite">请先独立选择所有仍可能成立的实体，再提交判断。</div>
+            <div class="quiz-summary" id="quiz-summary" hidden></div>
           </div>
         </div>
         <div class="quiz-footer">
-          <button class="dlg-btn" id="quiz-close">关闭</button>
-          <button class="dlg-btn" id="quiz-reset">重置题目</button>
+          <button class="dlg-btn" id="quiz-close">退出练习</button>
+          <button class="dlg-btn" id="quiz-hint">查看提示</button>
           <button class="dlg-btn primary" id="quiz-submit" disabled>提交判断</button>
-          <button class="dlg-btn" id="quiz-next-view" disabled>提交后进入下一步</button>
+          <button class="dlg-btn" id="quiz-next-view" disabled>下一题</button>
         </div>
-      </div>
+      </section>
     </div>
   </main>
 
@@ -982,6 +946,6 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 })();
 </script>
 
-<script type="module" src="projection-master.js"></script>
+<script type="module" src="projection-master.js?v=7.0.1"></script>
 </body>
 </html>
