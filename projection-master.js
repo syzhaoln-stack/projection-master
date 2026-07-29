@@ -3,34 +3,59 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import {
+  getModelExtension,
+  isStepExtension,
+  occtResultToTriangleSoup,
+  STEP_IMPORT_OPTIONS,
+  SUPPORTED_MODEL_EXTENSIONS
+} from './model-import.js';
+import {
+  BRIDGE_VIEW_TASK,
+  createPracticeRecord,
+  directionAngleDegrees,
+  evaluateQuestionAnswer,
+  getComponentInfo,
+  getHotspotHit,
+  getQuizOptionState,
+  isBridgeTaskTarget,
+  summarizePractice
+} from './learning-logic.js';
+import { QUESTION_BANK } from './question-bank.js?v=7.0.1';
+import { createBasicProjectionLab } from './basic-projection-lab.js?v=8.0.0';
 
 // ===== 基础设置 =====
 const viewport = document.getElementById('viewport');
 const statusStrip = document.getElementById('status-strip');
 const hudMode = document.getElementById('hud-mode');
 
+const VIEWPORT_BG = 0xf3f6f9;
 const scene = new THREE.Scene();
-scene.background = null; // 透明，用CSS背景
-scene.fog = new THREE.Fog(0x071022, 18, 46);
+scene.background = new THREE.Color(VIEWPORT_BG);
+scene.fog = null; // 工程模型拉远时仍保持原色和线条对比，不使用距离雾化
 
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 1000);
 camera.position.set(8.6, 6.8, 10.4);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setClearColor(VIEWPORT_BG, 1);
 viewport.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
 controls.target.set(0, 1.45, 0);
+controls.minDistance = 2.2;
+controls.maxDistance = 120;
 
 // 光照
-scene.add(new THREE.HemisphereLight(0xb9d8ec, 0x172231, 1.05));
-const keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xc6d0da, 1.18));
+scene.add(new THREE.AmbientLight(0xffffff, 0.34));
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.18);
 keyLight.position.set(6, 10, 8);
 keyLight.castShadow = true;
 keyLight.shadow.mapSize.set(2048, 2048);
@@ -40,7 +65,7 @@ keyLight.shadow.camera.top = 9;
 keyLight.shadow.camera.bottom = -9;
 scene.add(keyLight);
 
-const rimLight = new THREE.DirectionalLight(0x7bc7ff, 0.58);
+const rimLight = new THREE.DirectionalLight(0xb7d8f3, 0.46);
 rimLight.position.set(-7, 5, -5);
 scene.add(rimLight);
 
@@ -63,7 +88,15 @@ const state = {
   planeGap: 3.5,
   importedGeometry: null,
   importedName: '',
-  mode: 'explore'
+  mode: 'explore',
+  isTiled: false,
+  activeMatchedView: null,
+  matchedViewEnteredAt: 0
+};
+
+const bridgeTaskState = {
+  active: false,
+  stage: 'idle'
 };
 
 const modelGroup = new THREE.Group();
@@ -74,8 +107,13 @@ const floorGroup = new THREE.Group();
 const focusGroup = new THREE.Group();   // 局部三视图聚焦框标记
 scene.add(floorGroup, projectionGroup, modelGroup, axesGroup, projLinesGroup, focusGroup);
 
-// 局部三视图：聚焦区域（null=整体）
+let labController = null;
+let exploreRestoreState = null;
+
+// 语义构件选择：真实构件包围盒（null=整体）
 let focusBox = null;
+let selectedComponent = null;
+let selectedComponentOriginalMaterial = null;
 const raycaster = new THREE.Raycaster();
 
 const COL = {
@@ -170,6 +208,10 @@ function clearGroup(group) {
     const child = group.children[0];
     if (child.children?.length) clearGroup(child);
     if (child.geometry) child.geometry.dispose();
+    if (child.userData?.ownedTexture) {
+      child.userData.ownedTexture.dispose();
+      child.userData.ownedTexture = null;
+    }
     if (child.material) {
       if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
       else child.material.dispose();
@@ -449,7 +491,7 @@ const projTextures = { front: null, top: null, side: null };
 const projCanvases = { front: null, top: null, side: null };
 // ===== 三视图：正交相机渲染到贴图（稳定正确，支持任意复杂度） =====
 const PROJ_RES = 1024;           // 每个视图渲染分辨率
-const PROJ_BG = 0x0e1a2c;        // 视图底色
+const PROJ_BG = 0xf8fafc;        // 浅色工程图底色
 const EDGE_THRESHOLD = 24;       // 特征边阈值（度）：低于此夹角的面间边不画
 const projTargets = { front: null, top: null, side: null };
 const projCams = { front: null, top: null, side: null };
@@ -564,7 +606,7 @@ function makeProjectionMaterial(view) {
 function makeSilhouetteMaterial(thickness) {
   return new THREE.ShaderMaterial({
     side: THREE.BackSide,
-    uniforms: { uColor: { value: new THREE.Color(0xeaf6fb) }, uT: { value: thickness } },
+    uniforms: { uColor: { value: new THREE.Color(0x24394d) }, uT: { value: thickness } },
     vertexShader: `
       uniform float uT;
       void main(){
@@ -594,7 +636,8 @@ function getProjBounds() {
 function buildProjScene() {
   ensureProjResources();
   clearProjScene();
-  modelGroup.updateMatrixWorld(true);
+  const projectionRoot = selectedComponent || modelGroup;
+  projectionRoot.updateMatrixWorld(true);
 
   const box = getProjBounds();
   const size = new THREE.Vector3(); box.getSize(size);
@@ -603,7 +646,7 @@ function buildProjScene() {
 
   // 收集每个 mesh 的世界空间几何
   const worldGeos = [];
-  modelGroup.traverse(child => {
+  projectionRoot.traverse(child => {
     if (!child.isMesh || !child.geometry) return;
     const g = child.geometry.clone();
     g.applyMatrix4(child.matrixWorld);
@@ -620,10 +663,10 @@ function buildProjScene() {
   const silMat = makeSilhouetteMaterial(ext * 0.004);
   _projDisposables.push(silMat);
   // 可见实线
-  const visMat = new THREE.LineBasicMaterial({ color: 0xeaf6fb });
+  const visMat = new THREE.LineBasicMaterial({ color: 0x20364a });
   _projDisposables.push(visMat);
   // 隐藏虚线（仅在被遮挡处绘制）
-  const hidMat = new THREE.LineDashedMaterial({ color: 0x8aa0b4, dashSize: dash, gapSize: dash * 0.72, transparent: true, opacity: 0.92 });
+  const hidMat = new THREE.LineDashedMaterial({ color: 0x718293, dashSize: dash, gapSize: dash * 0.72, transparent: true, opacity: 0.92 });
   hidMat.depthFunc = THREE.GreaterDepth;
   _projDisposables.push(hidMat);
 
@@ -645,7 +688,7 @@ function buildProjScene() {
   const centerSegs = computeCenterLines(box);
   if (centerSegs.length) {
     const cMat = new THREE.LineDashedMaterial({
-      color: 0xf0b454, dashSize: ext * 0.05, gapSize: ext * 0.022,
+      color: 0xa86200, dashSize: ext * 0.05, gapSize: ext * 0.022,
       transparent: true, opacity: 0.85, depthTest: false
     });
     _projDisposables.push(cMat);
@@ -666,7 +709,7 @@ function computeCenterLines(box) {
   const pad = Math.max(size.x, size.y, size.z) * 0.08;
 
   const def = MODELS[state.currentModel];
-  const axes = def && def.centerAxes;
+  const axes = !selectedComponent && def && def.centerAxes;
   if (axes && axes.length) {
     axes.forEach(ax => {
       const a = new THREE.Vector3(ax.from[0], ax.from[1], ax.from[2]);
@@ -744,9 +787,10 @@ function renderProjViews() {
 function drawProjections() {
   buildProjScene();
   renderProjViews();
+  if (state.isTiled) updateTiledProjectionCards();
 }
 
-// ===== 局部三视图：点选构件聚焦 =====
+// ===== 语义构件选择：高亮真实构件，并单独生成其三视图 =====
 function updateFocusMarker() {
   clearGroup(focusGroup);
   if (!focusBox) return;
@@ -756,26 +800,111 @@ function updateFocusMarker() {
   focusGroup.add(helper);
 }
 
-function setFocusAtPoint(p) {
-  const box = getModelBounds();
-  const size = new THREE.Vector3(); box.getSize(size);
-  const ext = Math.max(size.x, size.y, size.z) || 1;
-  const h = ext * 0.2;
-  focusBox = new THREE.Box3(
-    new THREE.Vector3(p.x - h, p.y - h, p.z - h),
-    new THREE.Vector3(p.x + h, p.y + h, p.z + h)
-  );
+function cloneHighlightMaterial(material) {
+  const cloneOne = source => {
+    const clone = source.clone();
+    if (clone.emissive) {
+      clone.emissive.setHex(COL.amber);
+      clone.emissiveIntensity = 0.72;
+    } else if (clone.color) {
+      clone.color.setHex(COL.amber);
+    }
+    clone.needsUpdate = true;
+    return clone;
+  };
+  return Array.isArray(material) ? material.map(cloneOne) : cloneOne(material);
+}
+
+function disposeMaterial(material) {
+  if (Array.isArray(material)) material.forEach(item => item.dispose());
+  else material?.dispose();
+}
+
+function restoreComponentHighlight() {
+  if (!selectedComponent || !selectedComponentOriginalMaterial) return;
+  const highlightedMaterial = selectedComponent.material;
+  selectedComponent.material = selectedComponentOriginalMaterial;
+  const restoredMaterials = Array.isArray(selectedComponent.material) ? selectedComponent.material : [selectedComponent.material];
+  restoredMaterials.forEach(material => {
+    material.transparent = state.transparentModel;
+    material.opacity = state.transparentModel ? 0.54 : 1;
+    material.depthWrite = !state.transparentModel;
+  });
+  selectedComponentOriginalMaterial = null;
+  disposeMaterial(highlightedMaterial);
+}
+
+function updateComponentInfo(info) {
+  const card = document.getElementById('component-info');
+  if (!card) return;
+  card.hidden = !info;
+  if (!info) return;
+  const name = document.getElementById('component-info-name');
+  const role = document.getElementById('component-info-role');
+  if (name) name.textContent = info.label;
+  if (role) role.textContent = info.role;
+}
+
+function setFocusComponent(object) {
+  restoreComponentHighlight();
+  selectedComponent = object;
+  selectedComponentOriginalMaterial = object.material;
+  object.material = cloneHighlightMaterial(object.material);
+
+  focusBox = new THREE.Box3().setFromObject(object);
+  const size = new THREE.Vector3(); focusBox.getSize(size);
+  const pad = Math.max(Math.max(size.x, size.y, size.z) * 0.08, 0.04);
+  focusBox.expandByScalar(pad);
   updateFocusMarker();
   drawProjections();
-  setStatus(`局部三视图：已对聚焦区域出图（黄框）。点击空白处恢复整体三视图。`);
+
+  const info = getComponentInfo(object.name);
+  updateComponentInfo(info);
+  setStatus(`已选择${info.label}：${info.role} 三个投影面已切换为该构件的对应视图。`);
+  handleBridgeTaskComponentSelection(object);
 }
 
 function clearFocus(announce) {
-  if (!focusBox && !announce) return;
+  if (!focusBox && !selectedComponent && !announce) return;
+  restoreComponentHighlight();
+  selectedComponent = null;
   focusBox = null;
   updateFocusMarker();
-  drawProjections();
-  if (announce) setStatus('已恢复整体三视图。提示：点击模型上任意构件，可对其局部出三视图。');
+  updateComponentInfo(null);
+  if (modelGroup.children.length) drawProjections();
+  if (announce) setStatus('已恢复整体三视图。提示：点击模型构件，可高亮并查看该构件的三个对应视图。');
+}
+
+function pointToSegmentDistance(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lengthSq = dx * dx + dy * dy;
+  const t = lengthSq > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq)) : 0;
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+function findNearbyThinComponent(clientX, clientY, rect) {
+  const thinNames = new Set(['stay_cable', 'main_cable', 'hanger']);
+  let nearest = null;
+  let nearestDistance = bridgeTaskState.active && bridgeTaskState.stage === 'pick' ? 12 : 8;
+  modelGroup.updateMatrixWorld(true);
+
+  modelGroup.traverse(object => {
+    if (!object.isMesh || !thinNames.has(object.name)) return;
+    const height = object.geometry?.parameters?.height;
+    if (!Number.isFinite(height)) return;
+    const a = new THREE.Vector3(0, -height / 2, 0).applyMatrix4(object.matrixWorld).project(camera);
+    const b = new THREE.Vector3(0, height / 2, 0).applyMatrix4(object.matrixWorld).project(camera);
+    const ax = rect.left + (a.x + 1) * rect.width / 2;
+    const ay = rect.top + (1 - a.y) * rect.height / 2;
+    const bx = rect.left + (b.x + 1) * rect.width / 2;
+    const by = rect.top + (1 - b.y) * rect.height / 2;
+    const distance = pointToSegmentDistance(clientX, clientY, ax, ay, bx, by);
+    if (distance <= nearestDistance) {
+      nearest = object;
+      nearestDistance = distance;
+    }
+  });
+  return nearest;
 }
 
 function bindFocusPicking() {
@@ -788,15 +917,19 @@ function bindFocusPicking() {
     const dt = performance.now() - down.t;
     down = null;
     if (moved > 6 || dt > 450) return;      // 拖拽/长按 → 视为轨道操作，不聚焦
-    if (state.mode === 'quiz') return;
+    if (state.mode === 'lab') return;
     const rect = dom.getBoundingClientRect();
+    if (state.mode === 'quiz' && handlePracticePointerHit(e, rect)) return;
+    if (state.mode === 'quiz') return;
     const ndc = new THREE.Vector2(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
       -((e.clientY - rect.top) / rect.height) * 2 + 1
     );
     raycaster.setFromCamera(ndc, camera);
+    const nearbyThinComponent = findNearbyThinComponent(e.clientX, e.clientY, rect);
     const hits = raycaster.intersectObjects(modelGroup.children, true);
-    if (hits.length) setFocusAtPoint(hits[0].point);
+    if (nearbyThinComponent) setFocusComponent(nearbyThinComponent);
+    else if (hits.length) setFocusComponent(hits[0].object);
     else clearFocus(true);
   });
 }
@@ -830,7 +963,7 @@ function drawProjectionLines(t, layout) {
   points.forEach(p => {
     addDashedLine(p, new THREE.Vector3(p.x, p.y, layout.backZ), lineMat);
     addDashedLine(p, new THREE.Vector3(p.x, -layout.gap, p.z), lineMat);
-    addDashedLine(p, new THREE.Vector3(layout.sideX, p.y, p.z), lineMat);
+    addDashedLine(p, new THREE.Vector3(layout.side.pos.x, p.y, p.z), lineMat);
   });
 }
 
@@ -860,9 +993,9 @@ function collectTopEdgesSimple() {
 
 function buildFloorReference() {
   clearGroup(floorGroup);
-  const grid = new THREE.GridHelper(9.5, 19, 0x3d5665, 0x263848);
+  const grid = new THREE.GridHelper(9.5, 19, 0xaab8c4, 0xd5dde5);
   grid.position.y = -state.planeGap;
-  grid.material.transparent = true; grid.material.opacity = 0.38;
+  grid.material.transparent = true; grid.material.opacity = 0.72;
   floorGroup.add(grid);
 
   const borderMat = new THREE.LineBasicMaterial({ color: COL.cyan, transparent: true, opacity: 0.6 });
@@ -906,6 +1039,7 @@ function addAxisLabel(text, color, position) {
   ctx.fillText(text, 48, 52);
   const texture = new THREE.CanvasTexture(canvas);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+  sprite.userData.ownedTexture = texture;
   sprite.position.copy(position);
   sprite.scale.set(0.35, 0.35, 0.35);
   axesGroup.add(sprite);
@@ -965,6 +1099,10 @@ function normalizeModelInPlace(group) {
 }
 
 function rebuildModel() {
+  restoreComponentHighlight();
+  selectedComponent = null;
+  selectedComponentOriginalMaterial = null;
+  updateComponentInfo(null);
   clearGroup(modelGroup);
   focusBox = null; clearGroup(focusGroup);   // 换模型时复位局部聚焦
   const isImported = state.currentModel === 'imported' && state.importedGeometry;
@@ -1012,6 +1150,7 @@ function bindModelButtons() {
   modelButtons = Array.from(document.querySelectorAll('.model-btn'));
   modelButtons.forEach(btn => {
     btn.addEventListener('click', () => {
+      resetBridgeTask();
       modelButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       if (btn.dataset.url) {
@@ -1024,12 +1163,162 @@ function bindModelButtons() {
   });
 }
 
+function setBridgeTaskFeedback(message, tone = 'info') {
+  const feedback = document.getElementById('bridge-task-feedback');
+  if (!feedback) return;
+  feedback.textContent = message;
+  feedback.dataset.tone = tone;
+}
+
+function resetBridgeTask() {
+  bridgeTaskState.active = false;
+  bridgeTaskState.stage = 'idle';
+  const prompt = document.getElementById('bridge-task-prompt');
+  const viewActions = document.getElementById('bridge-task-view-actions');
+  const start = document.getElementById('bridge-task-start');
+  if (prompt) prompt.textContent = '从三维模型中识别目标构件，再判断哪个正交视图最能表达其空间特征。';
+  if (viewActions) viewActions.hidden = true;
+  if (start) start.textContent = '开始斜拉桥任务';
+  document.querySelectorAll('[data-task-view]').forEach(button => {
+    button.classList.remove('correct', 'wrong');
+    button.disabled = false;
+  });
+  setBridgeTaskFeedback('任务尚未开始。', 'info');
+}
+
+function startBridgeTask() {
+  if (state.mode !== 'explore') document.querySelector('.mode-tab[data-mode="explore"]')?.click();
+
+  bridgeTaskState.active = true;
+  bridgeTaskState.stage = 'pick';
+  state.currentModel = BRIDGE_VIEW_TASK.model;
+  modelButtons.forEach(button => {
+    button.classList.toggle('active', button.dataset.model === BRIDGE_VIEW_TASK.model);
+  });
+  rebuildModel();
+
+  const prompt = document.getElementById('bridge-task-prompt');
+  const viewActions = document.getElementById('bridge-task-view-actions');
+  const start = document.getElementById('bridge-task-start');
+  if (prompt) prompt.textContent = '第一步：请在三维斜拉桥上点击“把主梁荷载直接传给桥塔”的受拉构件。';
+  if (viewActions) viewActions.hidden = true;
+  if (start) start.textContent = '重新开始';
+  setBridgeTaskFeedback('先在三维模型中作出判断；系统不会提前标出目标构件。', 'info');
+  setStatus('主动任务已开始：请在三维斜拉桥中点击目标受拉构件。');
+}
+
+function handleBridgeTaskComponentSelection(object) {
+  if (!bridgeTaskState.active || bridgeTaskState.stage !== 'pick') return;
+  const info = getComponentInfo(object.name);
+  if (!isBridgeTaskTarget(object.name)) {
+    setBridgeTaskFeedback(`你选择了${info.label}。它的作用是：${info.role} 请继续寻找直接连接主梁与桥塔的受拉构件。`, 'error');
+    return;
+  }
+
+  bridgeTaskState.stage = 'view';
+  const prompt = document.getElementById('bridge-task-prompt');
+  const viewActions = document.getElementById('bridge-task-view-actions');
+  if (prompt) prompt.textContent = '第二步：三视图已切换为所选斜拉索。哪个视图最能直接看出“索随高度发生倾斜”？';
+  if (viewActions) viewActions.hidden = false;
+  setBridgeTaskFeedback('构件判断正确：斜拉索受拉并连接主梁与桥塔。现在根据三个真实投影继续判断。', 'success');
+  if (!state.isUnfolded) document.getElementById('unfold-btn')?.click();
+}
+
+function answerBridgeTaskView(view, button) {
+  if (!bridgeTaskState.active || bridgeTaskState.stage !== 'view') return;
+  document.querySelectorAll('[data-task-view]').forEach(item => item.classList.remove('correct', 'wrong'));
+  if (view === BRIDGE_VIEW_TASK.expectedView) {
+    button.classList.add('correct');
+    bridgeTaskState.stage = 'complete';
+    document.querySelectorAll('[data-task-view]').forEach(item => { item.disabled = true; });
+    setBridgeTaskFeedback('判断正确。正面图保留了桥跨方向与高度方向，因此能直接显示斜拉索的斜率；俯视图会丢失高度信息。', 'success');
+    setStatus('主动任务完成：已从三维构件识别推进到三视图特征判断。');
+  } else {
+    button.classList.add('wrong');
+    setBridgeTaskFeedback(view === 'top'
+      ? '俯视图主要表达桥跨与横向位置，高度被压缩，不能直接显示拉索的竖向倾斜。请再判断。'
+      : '侧面图沿桥跨方向观察，拉索的跨向斜率被压缩。请比较正面图。', 'error');
+  }
+}
+
+function bindBridgeTaskUI() {
+  document.getElementById('bridge-task-start')?.addEventListener('click', startBridgeTask);
+  document.querySelectorAll('[data-task-view]').forEach(button => {
+    button.addEventListener('click', () => answerBridgeTaskView(button.dataset.taskView, button));
+  });
+  resetBridgeTask();
+}
+
 const objLoader = new OBJLoader();
 const stlLoader = new STLLoader();
 const gltfLoader = new GLTFLoader();
+const OCCT_DIST_URL = 'https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/';
+let occtRuntimePromise = null;
 
-// 按扩展名解析为统一几何（OBJ / STL / GLB / GLTF），ext 可省略由 url/name 推断
+function loadOcctScript() {
+  if (typeof globalThis.occtimportjs === 'function') return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-occt-import-js]');
+    if (existing) {
+      existing.addEventListener('load', resolve, { once: true });
+      existing.addEventListener('error', () => reject(new Error('STEP 解析组件加载失败。')), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = `${OCCT_DIST_URL}occt-import-js.js`;
+    script.async = true;
+    script.dataset.occtImportJs = 'true';
+    script.addEventListener('load', resolve, { once: true });
+    script.addEventListener('error', () => script.remove(), { once: true });
+    script.addEventListener('error', () => reject(new Error('STEP 解析组件加载失败，请检查网络连接。')), { once: true });
+    document.head.appendChild(script);
+  });
+}
+
+async function getOcctRuntime() {
+  if (!occtRuntimePromise) {
+    occtRuntimePromise = loadOcctScript()
+      .then(() => {
+        if (typeof globalThis.occtimportjs !== 'function') {
+          throw new Error('STEP 解析组件未正确初始化。');
+        }
+        return globalThis.occtimportjs({
+          locateFile: file => new URL(file, OCCT_DIST_URL).href
+        });
+      })
+      .catch(error => {
+        occtRuntimePromise = null;
+        throw error;
+      });
+  }
+  return occtRuntimePromise;
+}
+
+async function parseStepGeometry(data) {
+  setStatus('正在载入 STEP 解析组件并三角化实体，首次使用可能需要数秒…');
+  const occt = await getOcctRuntime();
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const result = occt.ReadStepFile(bytes, { ...STEP_IMPORT_OPTIONS });
+  const triangleSoup = occtResultToTriangleSoup(result);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(triangleSoup.positions, 3));
+  if (triangleSoup.normals) {
+    geometry.setAttribute('normal', new THREE.BufferAttribute(triangleSoup.normals, 3));
+  } else {
+    geometry.computeVertexNormals();
+  }
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  geometry.userData.stepMeshCount = triangleSoup.meshCount;
+  geometry.userData.stepTriangleCount = triangleSoup.triangleCount;
+  return geometry;
+}
+
+// 按扩展名解析为统一几何；STEP 在浏览器内经 OpenCascade/WASM 三角化后接入同一投影链路
 async function parseModelData(data, ext) {
+  if (isStepExtension(ext)) {
+    return parseStepGeometry(data);
+  }
   if (ext === 'stl') {
     return extractGeometryFromParsed(stlLoader.parse(data));  // data: ArrayBuffer
   }
@@ -1040,26 +1329,27 @@ async function parseModelData(data, ext) {
     const gltf = await gltfLoader.parseAsync(data, '');        // data: ArrayBuffer
     return extractGeometryFromParsed(gltf.scene);
   }
-  throw new Error('仅支持 OBJ / STL / GLB / GLTF。');
+  throw new Error(`仅支持 ${SUPPORTED_MODEL_EXTENSIONS.map(item => item.toUpperCase()).join(' / ')}。`);
 }
 
-// 加载内置/网络桥梁资产；zUp=true 时绕 X 校正为 y-up（工程/CAD 资产多为 z 轴向上）
+// 加载内置/网络资产；STEP 和标记为 zUp 的资产统一校正为 Three.js 的 Y 轴向上
 async function loadAssetFromUrl(url, name, zUp) {
   try {
     setStatus(`正在加载资产 ${name}…`);
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const ext = (url.split('.').pop() || '').toLowerCase();
+    const ext = getModelExtension(url);
     const data = (ext === 'obj') ? await res.text() : await res.arrayBuffer();
     const geom = await parseModelData(data, ext);
     if (!geom) throw new Error('未找到可显示的网格。');
-    if (zUp) { geom.rotateX(-Math.PI / 2); geom.computeVertexNormals(); }
+    const shouldRotateZUp = zUp || isStepExtension(ext);
+    if (shouldRotateZUp) { geom.rotateX(-Math.PI / 2); geom.computeVertexNormals(); }
     state.importedGeometry = geom;
     state.importedName = name;
     state.currentModel = 'imported';
     rebuildModel();
     const tris = Math.round(geom.attributes.position.count / 3);
-    setStatus(`已加载桥梁资产 ${name}（约 ${tris} 个三角面${zUp ? '，已校正 Z→Y 轴向' : ''}，已居中缩放，三视图已生成）。`);
+    setStatus(`已加载模型 ${name}（约 ${tris} 个三角面${shouldRotateZUp ? '，已校正 Z→Y 轴向' : ''}，已居中缩放，三视图已生成）。`);
   } catch (e) {
     console.error(e);
     setStatus(`资产加载失败：${e.message || e}`);
@@ -1067,19 +1357,29 @@ async function loadAssetFromUrl(url, name, zUp) {
 }
 
 async function handleFileSelect(file, statusEl) {
-  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const ext = getModelExtension(file.name);
   try {
+    if (!SUPPORTED_MODEL_EXTENSIONS.includes(ext)) {
+      throw new Error(`不支持 .${ext || '未知'} 文件；请选择 STEP、OBJ、STL、GLB 或 GLTF。`);
+    }
     if (statusEl) statusEl.innerHTML = `正在读取 <strong>${file.name}</strong>…`;
     const data = (ext === 'obj') ? await file.text() : await file.arrayBuffer();
     const geom = await parseModelData(data, ext);
     if (!geom) throw new Error('未找到可显示的网格。');
+    if (isStepExtension(ext)) {
+      // 机械 CAD 文件通常以 Z 轴为竖直方向；平台统一采用 Three.js 的 Y 轴向上。
+      geom.rotateX(-Math.PI / 2);
+      geom.computeVertexNormals();
+    }
     state.importedGeometry = geom;
     state.importedName = file.name;
     state.currentModel = 'imported';
     modelButtons.forEach(b => b.classList.remove('active'));
     rebuildModel();
     const tris = Math.round((geom.index ? geom.index.count : geom.attributes.position.count) / 3);
-    if (statusEl) statusEl.innerHTML = `已导入 <strong>${file.name}</strong>（约 ${tris} 个三角面）。`;
+    const note = isStepExtension(ext) ? '；STEP 实体已在浏览器内三角化并校正为 Y 轴向上' : '';
+    if (statusEl) statusEl.innerHTML = `已导入 <strong>${file.name}</strong>（约 ${tris} 个三角面${note}）。`;
+    setStatus(`已导入 ${file.name}：模型已居中缩放，三视图和消隐线已重新生成。`);
   } catch (e) {
     console.error(e);
     if (statusEl) statusEl.textContent = `导入失败：${e.message || e}`;
@@ -1154,7 +1454,9 @@ function bindControls() {
     const text = state.isUnfolded ? '合并三视图' : '展开三视图';
     [unfoldBtn, unfoldBtnM, unfoldFab].forEach(btn => {
       if (!btn) return;
-      btn.textContent = text;
+      const label = btn.querySelector('span');
+      if (label) label.textContent = text;
+      else btn.textContent = text;
       btn.setAttribute('aria-pressed', String(state.isUnfolded));
     });
   };
@@ -1172,7 +1474,7 @@ function bindControls() {
     (v) => v.toFixed(1), applyClearance);
 
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') { e.preventDefault(); toggleUnfold(); }
+    if (e.code === 'Space' && state.mode === 'explore') { e.preventDefault(); toggleUnfold(); }
   });
 }
 
@@ -1224,128 +1526,671 @@ function bindMobileUI() {
   });
 }
 
-// ===== 空间智能测评：由一个视图逐步收缩候选 =====
-const QUIZ_STEPS = [
-  {
-    views: ['front'],
-    question: '只看正面图：哪些实体可能成立？',
-    feedback: '一个矩形正面图还不够：圆柱侧放、方柱、三角板侧视都可能混淆。',
-    possible: ['cylinder', 'rect', 'tri']
-  },
-  {
-    views: ['front', 'top'],
-    question: '加入俯视图后：哪些候选还可能成立？',
-    feedback: '俯视图给出了深度信息，三角板被排除，但圆柱侧放和方柱仍可能看起来相似。',
-    possible: ['cylinder', 'rect']
-  },
-  {
-    views: ['front', 'top', 'side'],
-    question: '再加入侧面图：唯一成立的是哪一个？',
-    feedback: '三个视图合起来，圆柱的圆/曲面特征不匹配，答案收缩为方柱 / 长方体。',
-    possible: ['rect']
-  }
+// ===== 空间练习：题库驱动，模型和真实三视图始终作为判断证据 =====
+let practiceIndex = 0;
+let practiceSelected = new Set();
+let practiceAnswered = false;
+let practiceHintUsed = false;
+let practiceStartedAt = 0;
+let practiceAttempts = 0;
+let practiceRecords = [];
+let practiceRestoreState = null;
+let practiceInteraction = null;
+
+const TILED_VIEW_ORDER = [
+  { key: 'front', label: '主视图', direction: [0, 0, 1] },
+  { key: 'top', label: '俯视图', direction: [0, 1, 0] },
+  { key: 'side', label: '左视图', direction: [1, 0, 0] }
 ];
 
-const QUIZ_LABELS = {
-  cylinder: '圆柱体',
-  rect: '方柱 / 长方体',
-  tri: '三角板',
-  sphere: '球体'
-};
+function currentPracticeQuestion() {
+  return QUESTION_BANK[practiceIndex];
+}
 
-let quizStep = 0;
+function isChoiceQuestion(question) {
+  return question?.type === 'single' || question?.type === 'multiple';
+}
 
-function renderQuizStep() {
-  const step = QUIZ_STEPS[quizStep];
-  const question = document.getElementById('quiz-question-text');
+function currentCameraDirectionArray() {
+  return camera.position.clone().sub(controls.target).normalize().toArray();
+}
+
+function setPracticeFeedback(text, tone = 'info') {
   const feedback = document.getElementById('quiz-feedback');
-  const pill = document.getElementById('quiz-stage-pill');
-  const progress = document.getElementById('quiz-progress-fill');
+  if (!feedback) return;
+  feedback.textContent = text;
+  feedback.dataset.tone = tone;
+}
+
+function updatePracticeInteractionUI() {
+  const question = currentPracticeQuestion();
+  const root = document.getElementById('quiz-interaction');
+  const status = document.getElementById('quiz-interaction-status');
+  if (!root || !status || !question) return;
+  root.hidden = isChoiceQuestion(question);
+  if (isChoiceQuestion(question)) return;
+
+  if (question.type === 'rotate-to-view') {
+    const angle = directionAngleDegrees(currentCameraDirectionArray(), question.targetDirection);
+    const ready = angle <= question.toleranceDegrees;
+    root.dataset.type = 'rotate';
+    status.textContent = ready ? `已对正 ${question.targetView === 'front' ? '主视方向' : '目标方向'}（偏差 ${angle.toFixed(1)}°）。` : `继续旋转模型（距目标 ${angle.toFixed(1)}°）。`;
+    root.classList.toggle('ready', ready);
+  } else if (question.type === 'click-model') {
+    root.dataset.type = 'model';
+    root.classList.remove('ready');
+    status.textContent = practiceInteraction?.componentName ? `已选择构件：${getComponentInfo(practiceInteraction.componentName).label}。可重新点击更换。` : '请在三维模型上短按目标构件；拖动仍用于旋转模型。';
+  } else {
+    root.dataset.type = 'projection';
+    root.classList.remove('ready');
+    status.textContent = practiceInteraction?.view ? `已在${practiceInteraction.view === 'front' ? '主视图' : practiceInteraction.view === 'top' ? '俯视图' : '左视图'}选择位置。可重新点击更换。` : '请在右侧对应三视图中点击指定位置。';
+  }
+}
+
+function updatePracticeSubmitState() {
+  const question = currentPracticeQuestion();
+  const submit = document.getElementById('quiz-submit');
   const next = document.getElementById('quiz-next-view');
-  question.textContent = step.question;
-  feedback.textContent = step.feedback;
-  pill.textContent = `第 ${quizStep + 1} / ${QUIZ_STEPS.length} 步`;
-  progress.style.width = `${((quizStep + 1) / QUIZ_STEPS.length) * 100}%`;
-  next.textContent = quizStep === QUIZ_STEPS.length - 1 ? '已经唯一' : '给出下一个视图';
-  next.disabled = quizStep === QUIZ_STEPS.length - 1;
+  if (submit) submit.disabled = practiceAnswered || (isChoiceQuestion(question) ? practiceSelected.size === 0 : !practiceInteraction);
+  if (next) next.disabled = !practiceAnswered;
+}
+
+function handlePracticePointerHit(event, rect) {
+  const question = currentPracticeQuestion();
+  if (!question || practiceAnswered || isChoiceQuestion(question) || question.type === 'rotate-to-view') return false;
+  const ndc = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+
+  if (question.type === 'click-model') {
+    const nearby = findNearbyThinComponent(event.clientX, event.clientY, rect);
+    const hits = raycaster.intersectObjects(modelGroup.children, true);
+    const object = nearby || hits[0]?.object;
+    if (!object) {
+      setPracticeFeedback('未命中构件；请在模型表面短按后重试。');
+      return true;
+    }
+    practiceInteraction = { componentName: object.name };
+    updatePracticeInteractionUI();
+    updatePracticeSubmitState();
+    setPracticeFeedback(`已选择“${getComponentInfo(object.name).label}”，请提交核对。`);
+    return true;
+  }
+
+  const planeHits = raycaster.intersectObjects(Object.values(projPlanes).filter(Boolean), false);
+  const hit = planeHits[0];
+  if (!hit?.uv) {
+    setPracticeFeedback('请点击三视图图面中的目标位置。');
+    return true;
+  }
+  const view = Object.entries(projPlanes).find(([, plane]) => plane === hit.object)?.[0];
+  practiceInteraction = { view, u: hit.uv.x, v: hit.uv.y };
+  updatePracticeInteractionUI();
+  updatePracticeSubmitState();
+  const matched = getHotspotHit(practiceInteraction, question.hotspots);
+  setPracticeFeedback(matched ? '已选择图上位置，请提交核对。' : '已选择图上位置；请检查视图和线/特征位置后提交。');
+  return true;
+}
+
+function setPracticeModeModel(question) {
+  state.currentModel = question.modelId;
+  state.showHidden = Boolean(question.showHidden);
+  state.isUnfolded = true;
+  state.unfoldProgress = 1;
+  state.transitionActive = false;
+  rebuildModel();
+  Object.entries(projPlanes).forEach(([view, plane]) => {
+    if (plane) plane.visible = question.views.includes(view);
+  });
+  updateUnfold(1);
+
+  if (question.focusComponent) {
+    const target = modelGroup.getObjectByName(question.focusComponent);
+    if (target) setFocusComponent(target);
+  }
+}
+
+function updatePracticeOptionUI() {
+  const question = currentPracticeQuestion();
+  document.querySelectorAll('.quiz-option[data-answer]').forEach(button => {
+    const optionState = getQuizOptionState(button.dataset.answer, practiceSelected, question.answer, practiceAnswered);
+    button.classList.toggle('selected', optionState.selected);
+    button.classList.toggle('correct', optionState.correct);
+    button.classList.toggle('wrong', optionState.wrong);
+    button.classList.toggle('missed', optionState.missed);
+    button.disabled = practiceAnswered;
+    button.setAttribute('aria-pressed', String(practiceSelected.has(button.dataset.answer)));
+  });
+
+  const submit = document.getElementById('quiz-submit');
+  const next = document.getElementById('quiz-next-view');
+  if (isChoiceQuestion(question)) {
+    if (submit) submit.disabled = practiceAnswered || practiceSelected.size === 0;
+  }
+  if (next) next.disabled = !practiceAnswered;
+}
+
+function renderPracticeQuestion() {
+  const question = currentPracticeQuestion();
+  const optionRoot = document.getElementById('quiz-options');
+  const feedback = document.getElementById('quiz-feedback');
+  const evidence = document.getElementById('quiz-evidence');
+  const reflection = document.getElementById('quiz-reflection');
+  const reflectionPrompt = document.getElementById('quiz-reflection-prompt');
+  const reflectionSelect = document.getElementById('quiz-reflection-select');
+  const summary = document.getElementById('quiz-summary');
+  const next = document.getElementById('quiz-next-view');
+
+  practiceSelected = new Set();
+  practiceInteraction = null;
+  practiceAnswered = false;
+  practiceHintUsed = false;
+  practiceAttempts = 0;
+  practiceStartedAt = performance.now();
+
+  document.getElementById('quiz-question-text').textContent = question.prompt;
+  document.getElementById('quiz-skill').textContent = question.skill;
+  document.getElementById('quiz-difficulty').textContent = `难度 ${question.difficulty}`;
+  document.getElementById('quiz-stage-pill').textContent = `第 ${practiceIndex + 1} / ${QUESTION_BANK.length} 题`;
+  document.getElementById('quiz-progress-fill').style.width = `${((practiceIndex + 1) / QUESTION_BANK.length) * 100}%`;
+  next.textContent = practiceIndex === QUESTION_BANK.length - 1 ? '查看练习小结' : '下一题';
+  feedback.textContent = '先观察模型与真实三视图，选择后再提交判断。';
+  feedback.dataset.tone = 'info';
+  evidence.hidden = true;
+  evidence.textContent = '';
+  reflection.hidden = true;
+  reflectionPrompt.textContent = question.reflection;
+  reflectionSelect.value = '';
+  summary.hidden = true;
 
   ['front', 'top', 'side'].forEach(view => {
-    const tag = document.getElementById(`quiz-tag-${view}`);
-    const card = document.getElementById(`quiz-view-${view}`);
-    tag?.classList.toggle('on', step.views.includes(view));
-    card?.classList.toggle('revealed', step.views.includes(view));
+    document.getElementById(`quiz-tag-${view}`)?.classList.toggle('on', question.views.includes(view));
   });
 
-  document.querySelectorAll('.quiz-option[data-answer]').forEach(btn => {
-    const ok = step.possible.includes(btn.dataset.answer);
-    btn.classList.toggle('correct', ok);
-    btn.classList.toggle('disabled', !ok);
-    btn.setAttribute('aria-disabled', String(!ok));
+  optionRoot.replaceChildren(...(isChoiceQuestion(question) ? question.options.map(option => {
+    const button = document.createElement('button');
+    button.className = 'quiz-option';
+    button.dataset.answer = option.id;
+    button.type = 'button';
+    button.setAttribute('aria-pressed', 'false');
+    button.textContent = option.label;
+    button.addEventListener('click', () => {
+      if (practiceAnswered) return;
+      if (question.type === 'single') practiceSelected = new Set([option.id]);
+      else if (practiceSelected.has(option.id)) practiceSelected.delete(option.id);
+      else practiceSelected.add(option.id);
+      feedback.textContent = practiceSelected.size ? '已选择答案。请根据三维模型和投影线核对后提交。' : '请至少选择一个答案。';
+      updatePracticeOptionUI();
+    });
+    return button;
+  }) : []));
+
+  setPracticeModeModel(question);
+  updatePracticeInteractionUI();
+  updatePracticeOptionUI();
+  updatePracticeSubmitState();
+}
+
+function submitPracticeAnswer() {
+  const question = currentPracticeQuestion();
+  const response = isChoiceQuestion(question) ? practiceSelected : (question.type === 'rotate-to-view' ? { direction: currentCameraDirectionArray() } : practiceInteraction);
+  if (practiceAnswered || (isChoiceQuestion(question) ? practiceSelected.size === 0 : !response)) return;
+  const feedback = document.getElementById('quiz-feedback');
+  const evidence = document.getElementById('quiz-evidence');
+  const reflection = document.getElementById('quiz-reflection');
+  const result = evaluateQuestionAnswer(question, response);
+  practiceAnswered = true;
+  practiceAttempts += 1;
+  if (!isChoiceQuestion(question)) practiceInteraction = response;
+  updatePracticeOptionUI();
+  updatePracticeInteractionUI();
+  updatePracticeSubmitState();
+
+  if (question.revealHiddenAfterSubmit) {
+    state.showHidden = true;
+    document.getElementById('tog-hidden')?.classList.add('on');
+    drawProjections();
+  }
+
+  evidence.hidden = false;
+  evidence.textContent = `图学证据：${question.evidence}`;
+  reflection.hidden = false;
+  if (result.exact) {
+    feedback.textContent = '判断正确。请说明你用到的图学依据，再进入下一题。';
+    feedback.dataset.tone = 'success';
+  } else {
+    const details = [];
+    if (result.missing?.length) details.push('未命中目标');
+    if (result.unexpected?.length) details.push('选择了不符合的对象');
+    feedback.textContent = `本次判断需要修正（${details.join('；') || '未满足题目条件'}）。请用上面的证据回到模型和投影中核对。`;
+    feedback.dataset.tone = 'error';
+  }
+}
+
+function finishPracticeQuestion() {
+  if (!practiceAnswered) return;
+  const question = currentPracticeQuestion();
+  const response = isChoiceQuestion(question) ? practiceSelected : practiceInteraction;
+  practiceRecords.push(createPracticeRecord(question, response, 0, {
+    endedAt: Math.round(performance.now() - practiceStartedAt),
+    attempts: practiceAttempts,
+    hintUsed: practiceHintUsed,
+    reflection: document.getElementById('quiz-reflection-select')?.value || null
+  }));
+
+  if (practiceIndex < QUESTION_BANK.length - 1) {
+    practiceIndex += 1;
+    renderPracticeQuestion();
+    return;
+  }
+
+  const summary = summarizePractice(practiceRecords);
+  const summaryEl = document.getElementById('quiz-summary');
+  summaryEl.hidden = false;
+  summaryEl.textContent = `本轮完成 ${summary.completed} 题，正确 ${summary.correct} 题。提示使用 ${summary.hintsUsed} 次。建议回顾出现错误的图学关系，再重新练习。`;
+  document.getElementById('quiz-next-view').textContent = '重新练习';
+  practiceIndex = -1;
+}
+
+function getObjectPath(object, root) {
+  if (!object || !root) return null;
+  const path = [];
+  let current = object;
+  while (current && current !== root) {
+    const parent = current.parent;
+    if (!parent) return null;
+    const index = parent.children.indexOf(current);
+    if (index < 0) return null;
+    path.unshift(index);
+    current = parent;
+  }
+  return current === root ? path : null;
+}
+
+function resolveObjectPath(root, path) {
+  if (!root || !Array.isArray(path)) return null;
+  return path.reduce((current, index) => current?.children?.[index] || null, root);
+}
+
+function captureBridgeTaskSnapshot() {
+  return {
+    active: bridgeTaskState.active,
+    stage: bridgeTaskState.stage,
+    prompt: document.getElementById('bridge-task-prompt')?.textContent || '',
+    feedback: document.getElementById('bridge-task-feedback')?.textContent || '',
+    feedbackTone: document.getElementById('bridge-task-feedback')?.dataset.tone || 'info',
+    viewActionsHidden: document.getElementById('bridge-task-view-actions')?.hidden ?? true,
+    startText: document.getElementById('bridge-task-start')?.textContent || '',
+    viewButtons: Array.from(document.querySelectorAll('[data-task-view]')).map(button => ({
+      view: button.dataset.taskView,
+      correct: button.classList.contains('correct'),
+      wrong: button.classList.contains('wrong'),
+      disabled: button.disabled
+    }))
+  };
+}
+
+function applyBridgeTaskSnapshot(snapshot) {
+  if (!snapshot) return;
+  bridgeTaskState.active = Boolean(snapshot.active);
+  bridgeTaskState.stage = snapshot.stage || 'idle';
+  const prompt = document.getElementById('bridge-task-prompt');
+  const feedback = document.getElementById('bridge-task-feedback');
+  const viewActions = document.getElementById('bridge-task-view-actions');
+  const start = document.getElementById('bridge-task-start');
+  if (prompt) prompt.textContent = snapshot.prompt;
+  if (feedback) {
+    feedback.textContent = snapshot.feedback;
+    feedback.dataset.tone = snapshot.feedbackTone;
+  }
+  if (viewActions) viewActions.hidden = snapshot.viewActionsHidden;
+  if (start) start.textContent = snapshot.startText;
+  (snapshot.viewButtons || []).forEach(saved => {
+    const button = document.querySelector(`[data-task-view="${saved.view}"]`);
+    if (!button) return;
+    button.classList.toggle('correct', saved.correct);
+    button.classList.toggle('wrong', saved.wrong);
+    button.disabled = saved.disabled;
   });
+}
+
+function captureProductState() {
+  const settledUnfoldProgress = state.transitionActive ? state.transitionTo : state.unfoldProgress;
+  return {
+    currentModel: state.currentModel,
+    showProjLines: state.showProjLines,
+    showHidden: state.showHidden,
+    showAxes: state.showAxes,
+    transparentModel: state.transparentModel,
+    planeAlpha: state.planeAlpha,
+    planeSize: state.planeSize,
+    planeGap: state.planeGap,
+    importedGeometry: state.importedGeometry,
+    importedName: state.importedName,
+    isUnfolded: settledUnfoldProgress >= 0.5,
+    unfoldProgress: settledUnfoldProgress,
+    transitionActive: false,
+    isTiled: state.isTiled,
+    selectedComponentPath: getObjectPath(selectedComponent, modelGroup),
+    bridgeTask: captureBridgeTaskSnapshot(),
+    statusText: statusStrip?.textContent || '',
+    cameraPosition: camera.position.toArray(),
+    cameraUp: camera.up.toArray(),
+    controlsTarget: controls.target.toArray()
+  };
+}
+
+function applyProductState(snapshot) {
+  if (!snapshot) return false;
+  const {
+    cameraPosition,
+    cameraUp,
+    controlsTarget,
+    isTiled: restoreTiled,
+    returnMode: _returnMode,
+    selectedComponentPath,
+    bridgeTask,
+    statusText,
+    ...restoredState
+  } = snapshot;
+  Object.assign(state, restoredState, { isTiled: false, transitionActive: false });
+  rebuildModel();
+  if (cameraPosition) camera.position.fromArray(cameraPosition);
+  if (cameraUp) camera.up.fromArray(cameraUp);
+  if (controlsTarget) controls.target.fromArray(controlsTarget);
+  camera.lookAt(controls.target);
+  controls.update();
+  Object.values(projPlanes).forEach(plane => { if (plane) plane.visible = true; });
+  updateUnfold(state.unfoldProgress);
+  bridgeTaskState.active = false;
+  const restoredComponent = resolveObjectPath(modelGroup, selectedComponentPath);
+  if (restoredComponent?.isMesh) setFocusComponent(restoredComponent);
+  applyBridgeTaskSnapshot(bridgeTask);
+  [
+    ['tog-projlines', 'tog-projlines-m', 'showProjLines'],
+    ['tog-hidden', 'tog-hidden-m', 'showHidden'],
+    ['tog-axes', 'tog-axes-m', 'showAxes'],
+    ['tog-transparent', 'tog-transparent-m', 'transparentModel']
+  ].forEach(([desktopId, mobileId, key]) => {
+    document.getElementById(desktopId)?.classList.toggle('on', state[key]);
+    document.getElementById(mobileId)?.classList.toggle('on', state[key]);
+  });
+  ['plane-gap', 'plane-gap-m'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.value = String(state.planeGap);
+  });
+  ['plane-gap-val', 'plane-gap-val-m'].forEach(id => {
+    const output = document.getElementById(id);
+    if (output) output.textContent = state.planeGap.toFixed(1);
+  });
+  const unfoldText = state.isUnfolded ? '合并三视图' : '展开三视图';
+  ['unfold-btn', 'unfold-btn-mobile', 'mobile-unfold-fab'].forEach(id => {
+    const button = document.getElementById(id);
+    if (!button) return;
+    const label = button.querySelector('span');
+    if (label) label.textContent = unfoldText;
+    else button.textContent = unfoldText;
+    button.setAttribute('aria-pressed', String(state.isUnfolded));
+  });
+  if (statusText) setStatus(statusText);
+  mountRenderer();
+  onResize();
+  return Boolean(restoreTiled);
+}
+
+function setProductEnvironmentVisible(visible) {
+  [floorGroup, projectionGroup, modelGroup, focusGroup]
+    .forEach(group => { group.visible = visible; });
+  axesGroup.visible = visible && state.showAxes;
+  projLinesGroup.visible = visible && state.showProjLines;
+}
+
+function syncModeUI(mode) {
+  const modeTabs = Array.from(document.querySelectorAll('.mode-tab'));
+  const quizOverlay = document.getElementById('quiz-overlay');
+  modeTabs.forEach(tab => {
+    const active = tab.dataset.mode === mode;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  document.body.classList.toggle('mode-lab', mode === 'lab');
+  document.body.classList.toggle('mode-quiz', mode === 'quiz');
+  ['ribbon', 'tree-panel', 'props-panel', 'mobile-drawer'].forEach(id => {
+    const element = document.getElementById(id);
+    if (element) element.inert = mode === 'quiz';
+  });
+  quizOverlay.style.display = mode === 'quiz' ? 'block' : 'none';
+  quizOverlay.setAttribute('aria-hidden', mode === 'quiz' ? 'false' : 'true');
+}
+
+function setAppMode(nextMode, options = {}) {
+  if (!['lab', 'explore', 'quiz'].includes(nextMode) || nextMode === state.mode) return;
+  const previousMode = state.mode;
+
+  if (previousMode === 'explore' && nextMode === 'lab' && !options.productStateReady) {
+    exploreRestoreState = captureProductState();
+  }
+  if (nextMode === 'quiz' && !practiceRestoreState) {
+    const productState = previousMode === 'lab' && exploreRestoreState
+      ? exploreRestoreState
+      : captureProductState();
+    practiceRestoreState = { ...productState, returnMode: previousMode };
+  }
+  if (state.isTiled && nextMode !== 'explore') setTiledMode(false);
+  if (previousMode === 'lab') labController?.leave();
+
+  state.mode = nextMode;
+  syncModeUI(nextMode);
+
+  if (nextMode === 'lab') {
+    setProductEnvironmentVisible(false);
+    labController?.enter();
+    hudMode.textContent = '教材实验 · 点线面投影';
+    mountRenderer();
+    onResize();
+    return;
+  }
+
+  setProductEnvironmentVisible(true);
+  if (nextMode === 'quiz') {
+    bridgeTaskState.active = false;
+    hudMode.textContent = '空间练习 · 预测与核对';
+    practiceIndex = 0;
+    practiceRecords = [];
+    renderPracticeQuestion();
+    setStatus('空间练习：先观察真实模型和三视图，再作出预测并用图学证据核对。');
+    mountRenderer();
+    onResize();
+    return;
+  }
+
+  hudMode.textContent = '三维透视 · 第一角';
+  let restoreTiled = false;
+  if (!options.productStateReady && previousMode === 'lab' && exploreRestoreState) {
+    restoreTiled = applyProductState(exploreRestoreState);
+  } else {
+    mountRenderer();
+    onResize();
+  }
+  if (restoreTiled) setTiledMode(true);
+}
+
+function exitPractice(targetMode = null) {
+  const snapshot = practiceRestoreState;
+  const returnMode = targetMode || snapshot?.returnMode || 'explore';
+  practiceRestoreState = null;
+
+  const productSnapshot = returnMode === 'explore' && snapshot?.returnMode === 'lab' && exploreRestoreState
+    ? exploreRestoreState
+    : snapshot;
+  if (returnMode === 'lab' && snapshot?.returnMode === 'explore' && productSnapshot) {
+    exploreRestoreState = { ...productSnapshot };
+  }
+  const restoreTiled = applyProductState(productSnapshot);
+  setAppMode(returnMode, { productStateReady: true });
+  if (returnMode === 'explore' && restoreTiled) setTiledMode(true);
 }
 
 function bindQuizUI() {
   const modeTabs = Array.from(document.querySelectorAll('.mode-tab'));
-  const quizOverlay = document.getElementById('quiz-overlay');
-  modeTabs.forEach(t => {
-    t.addEventListener('click', () => {
-      modeTabs.forEach(x => x.classList.toggle('active', x === t));
-      modeTabs.forEach(x => x.setAttribute('aria-selected', x === t ? 'true' : 'false'));
-      state.mode = t.dataset.mode;
-      if (state.mode === 'quiz') {
-        quizOverlay.style.display = 'block';
-        quizOverlay.setAttribute('aria-hidden', 'false');
-        hudMode.textContent = '空间测评 · 三视图递进推理';
-        quizStep = 0;
-        renderQuizStep();
-        setStatus('测评模式：先给一个视图，再逐步增加视图，观察候选实体如何收缩。');
-      } else {
-        quizOverlay.style.display = 'none';
-        quizOverlay.setAttribute('aria-hidden', 'true');
-        hudMode.textContent = '三维透视 · 第一角';
-      }
+  modeTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const nextMode = tab.dataset.mode;
+      if (nextMode === state.mode) return;
+      if (state.mode === 'quiz' && nextMode !== 'quiz') exitPractice(nextMode);
+      else setAppMode(nextMode);
     });
   });
 
-  document.getElementById('quiz-close')?.addEventListener('click', () => {
-    modeTabs.find(t => t.dataset.mode === 'explore')?.click();
+  document.getElementById('quiz-close')?.addEventListener('click', () => exitPractice());
+  document.getElementById('quiz-hint')?.addEventListener('click', () => {
+    const question = currentPracticeQuestion();
+    if (!question) return;
+    practiceHintUsed = true;
+    const feedback = document.getElementById('quiz-feedback');
+    feedback.textContent = `提示：${question.hint}`;
+    feedback.dataset.tone = 'info';
   });
-
-  document.getElementById('quiz-reset')?.addEventListener('click', () => {
-    quizStep = 0;
-    renderQuizStep();
-  });
-
+  document.getElementById('quiz-submit')?.addEventListener('click', submitPracticeAnswer);
   document.getElementById('quiz-next-view')?.addEventListener('click', () => {
-    if (quizStep < QUIZ_STEPS.length - 1) {
-      quizStep += 1;
-      renderQuizStep();
-    }
+    if (practiceIndex === -1) {
+      practiceIndex = 0;
+      practiceRecords = [];
+      renderPracticeQuestion();
+    } else finishPracticeQuestion();
   });
-
-  document.querySelectorAll('.quiz-option[data-answer]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const step = QUIZ_STEPS[quizStep];
-      const answer = btn.dataset.answer;
-      const label = QUIZ_LABELS[answer] || btn.textContent.trim();
-      const feedback = document.getElementById('quiz-feedback');
-      if (step.possible.includes(answer)) {
-        feedback.textContent = quizStep === QUIZ_STEPS.length - 1
-          ? `${label} 是最终唯一答案。三视图共同约束了长、宽、高和特征形状。`
-          : `${label} 目前仍可能成立。继续给出下一个视图，候选会进一步减少。`;
-      } else {
-        feedback.textContent = `${label} 已被当前视图条件排除。注意比较轮廓、深度和曲面/斜面特征。`;
-      }
-    });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && state.mode === 'quiz') exitPractice();
   });
-
-  renderQuizStep();
 }
 
-// ===== 主循环 =====
+function updateTiledProjectionCards() {
+  TILED_VIEW_ORDER.forEach(({ key }) => {
+    const image = document.querySelector(`[data-tiled-image="${key}"]`);
+    let canvas = projCanvases[key];
+    const target = projTargets[key];
+    if (!image || !target) return;
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      projCanvases[key] = canvas;
+    }
+    canvas.width = target.width;
+    canvas.height = target.height;
+    const width = target.width;
+    const height = target.height;
+    const pixels = new Uint8Array(width * height * 4);
+    renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
+    const context = canvas.getContext('2d');
+    const imageData = context.createImageData(width, height);
+    const orientation = VIEW[key];
+    for (let y = 0; y < height; y += 1) {
+      const destinationY = orientation.flipY ? y : height - y - 1;
+      const sourceRowOffset = y * width * 4;
+      const destinationRowOffset = destinationY * width * 4;
+      if (!orientation.flipX) {
+        imageData.data.set(
+          pixels.subarray(sourceRowOffset, sourceRowOffset + width * 4),
+          destinationRowOffset
+        );
+        continue;
+      }
+      for (let x = 0; x < width; x += 1) {
+        const destinationX = orientation.flipX ? width - x - 1 : x;
+        const sourceOffset = sourceRowOffset + x * 4;
+        const destinationOffset = (destinationY * width + destinationX) * 4;
+        imageData.data[destinationOffset] = pixels[sourceOffset];
+        imageData.data[destinationOffset + 1] = pixels[sourceOffset + 1];
+        imageData.data[destinationOffset + 2] = pixels[sourceOffset + 2];
+        imageData.data[destinationOffset + 3] = pixels[sourceOffset + 3];
+      }
+    }
+    context.putImageData(imageData, 0, 0);
+    image.src = canvas.toDataURL('image/png');
+  });
+}
+
+function updateViewMatchFeedback() {
+  if (!state.isTiled) return;
+  const direction = currentCameraDirectionArray();
+  const match = TILED_VIEW_ORDER.find(view => directionAngleDegrees(direction, view.direction) <= 9) || null;
+  if (match?.key !== state.activeMatchedView) {
+    state.activeMatchedView = match?.key || null;
+    if (match) state.matchedViewEnteredAt = performance.now();
+  }
+  document.querySelectorAll('[data-tiled-card]').forEach(card => {
+    const active = card.dataset.tiledCard === state.activeMatchedView;
+    card.classList.toggle('matched', active);
+    card.classList.toggle('sparkle', active && performance.now() - state.matchedViewEnteredAt < 900);
+  });
+}
+
+function setStandardCameraView(viewKey) {
+  const config = VIEW[viewKey];
+  if (!config) return;
+  const distance = camera.position.distanceTo(controls.target);
+  camera.position.copy(controls.target).addScaledVector(config.eye, distance);
+  camera.up.copy(config.up);
+  camera.lookAt(controls.target);
+  controls.update();
+  updateViewMatchFeedback();
+}
+
+function setTiledMode(enabled) {
+  if (enabled && state.mode !== 'explore') return;
+  state.isTiled = enabled;
+  const viewportEl = document.getElementById('viewport');
+  const button = document.getElementById('tile-btn');
+  mountRenderer();
+  viewportEl?.classList.toggle('tiled-mode', enabled);
+  if (button) {
+    button.classList.toggle('on', enabled);
+    button.setAttribute('aria-pressed', String(enabled));
+    const label = button.querySelector('.cap');
+    if (label) label.textContent = enabled ? '退出平铺对照' : '平铺三视图';
+  }
+  if (enabled) {
+    state.isUnfolded = false;
+    state.unfoldProgress = 0;
+    state.transitionActive = false;
+    updateUnfold(0);
+    drawProjections();
+    updateTiledProjectionCards();
+    updateViewMatchFeedback();
+    setStatus('平铺对照：左侧可自由旋转三维模型；右侧按第一角画法显示三视图。');
+  } else {
+    state.activeMatchedView = null;
+    document.querySelectorAll('[data-tiled-card]').forEach(card => card.classList.remove('matched', 'sparkle'));
+  }
+  onResize();
+}
+
+function bindTiledViewUI() {
+  document.getElementById('tile-btn')?.addEventListener('click', () => setTiledMode(!state.isTiled));
+  document.querySelectorAll('[data-standard-view]').forEach(button => {
+    button.addEventListener('click', () => setStandardCameraView(button.dataset.standardView));
+  });
+}
+
+function getRendererHost() {
+  if (state.mode === 'lab') return document.getElementById('lab-canvas-host') || viewport;
+  if (state.isTiled) return document.getElementById('model-pane') || viewport;
+  return viewport;
+}
+
+function mountRenderer() {
+  const host = getRendererHost();
+  if (renderer.domElement.parentElement === host) return host;
+  if (host === viewport) host.insertBefore(renderer.domElement, host.firstChild);
+  else host.prepend(renderer.domElement);
+  return host;
+}
+
 function onResize() {
-  const w = viewport.clientWidth;
-  const h = viewport.clientHeight;
+  const host = getRendererHost();
+  const w = host.clientWidth;
+  const h = host.clientHeight;
   camera.aspect = w / Math.max(h, 1);
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
@@ -1365,11 +2210,19 @@ function animate() {
     }
   }
   controls.update();
+  updateViewMatchFeedback();
+  if (state.mode === 'quiz' && currentPracticeQuestion()?.type === 'rotate-to-view' && !practiceAnswered) {
+    practiceInteraction = { direction: currentCameraDirectionArray() };
+    updatePracticeInteractionUI();
+    updatePracticeSubmitState();
+  }
   renderer.render(scene, camera);
 }
 
 // ===== 启动 =====
 window.addEventListener('resize', onResize);
+
+labController = createBasicProjectionLab({ THREE, scene, camera, controls, setStatus });
 
 bindModelButtons();
 bindObjImport();
@@ -1377,9 +2230,12 @@ bindControls();
 bindMobileUI();
 bindQuizUI();
 bindFocusPicking();
+bindBridgeTaskUI();
+bindTiledViewUI();
 
 onResize();
 rebuildModel();
+setAppMode('lab');
 animate();
 
-setStatus('v7：仿 CAD 工作台 — 正交三视图（含中心线/消隐）、桥梁参数化模型与 OBJ 资产导入；点击模型上的构件可对局部出三视图。');
+setStatus('教材实验：从投影形成开始，依次观察点、线、面的三面投影及其空间关系。');

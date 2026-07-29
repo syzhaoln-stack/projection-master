@@ -23,9 +23,12 @@ bank (per the 4 spatial dimensions in the research design).
 - Built-in engineering drawing solids (mechanical, as the entry-level set).
 - First-angle three-view unfold/merge.
 - Hidden-line projection rendering.
-- OBJ / STL local import.
+- STEP / STP / OBJ / STL / GLB / GLTF local import, followed by automatic three-view generation.
+- Light model space and light engineering-view sheets; distance fog is disabled so zoomed-out models keep their contrast.
 - Responsive: narrow screens collapse the side panels into floating drawers.
-- Spatial quiz mode: one view -> two views -> three views, candidates gradually reduce to one answer.
+- Spatial quiz mode: students select and submit before explanations and the next view are revealed.
+- Semantic component picking: highlight a named bridge component and generate its own three views.
+- Active cable-stayed bridge task: identify a stay cable in 3D, then judge its most informative orthographic view.
 
 ## Recommended
 
@@ -42,3 +45,25 @@ http://127.0.0.1:5181/index.html
 ```
 
 Keep the server window open while using the page.
+
+## Tests
+
+```text
+npm install
+npm test
+```
+
+The tests cover quiz answer-state disclosure, answer evaluation, bridge component
+semantics, format detection, OCCT mesh conversion, and a real STEP import of the
+generated bearing-block fixture.
+
+The fixture can be regenerated with CadQuery:
+
+```text
+python tools/generate-step-sample.py
+```
+
+STEP files are parsed locally in the browser with OpenCascade WebAssembly and then
+triangulated for display and orthographic projection. This preserves the imported
+shape for teaching and checking, but it does not recover a SolidWorks-style feature
+tree or native parametric editing history.
