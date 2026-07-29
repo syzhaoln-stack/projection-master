@@ -1464,7 +1464,7 @@ function bindControls() {
     (v) => v.toFixed(1), applyClearance);
 
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && state.mode !== 'quiz') { e.preventDefault(); toggleUnfold(); }
+    if (e.code === 'Space' && state.mode === 'explore') { e.preventDefault(); toggleUnfold(); }
   });
 }
 
@@ -1786,17 +1786,31 @@ function finishPracticeQuestion() {
 
 function restorePracticeState() {
   if (!practiceRestoreState) return;
-  Object.assign(state, practiceRestoreState);
+  const {
+    cameraPosition,
+    cameraUp,
+    controlsTarget,
+    isTiled: restoreTiled,
+    ...restoredState
+  } = practiceRestoreState;
+  Object.assign(state, restoredState, { isTiled: false });
   practiceRestoreState = null;
   rebuildModel();
+  if (cameraPosition) camera.position.fromArray(cameraPosition);
+  if (cameraUp) camera.up.fromArray(cameraUp);
+  if (controlsTarget) controls.target.fromArray(controlsTarget);
+  camera.lookAt(controls.target);
+  controls.update();
   Object.values(projPlanes).forEach(plane => { if (plane) plane.visible = true; });
   updateUnfold(state.unfoldProgress);
+  if (restoreTiled && state.mode === 'explore') setTiledMode(true);
+  else {
+    mountRenderer();
+    onResize();
+  }
 }
 
 function exitPractice(modeTabs) {
-  document.getElementById('quiz-overlay').style.display = 'none';
-  document.getElementById('quiz-overlay').setAttribute('aria-hidden', 'true');
-  restorePracticeState();
   modeTabs.find(tab => tab.dataset.mode === 'explore')?.click();
 }
 
@@ -1805,19 +1819,26 @@ function bindQuizUI() {
   const quizOverlay = document.getElementById('quiz-overlay');
   modeTabs.forEach(tab => {
     tab.addEventListener('click', () => {
+      const nextMode = tab.dataset.mode;
+      if (nextMode === state.mode) return;
+      if (nextMode === 'quiz' && !practiceRestoreState) {
+        practiceRestoreState = {
+          currentModel: state.currentModel,
+          showHidden: state.showHidden,
+          isUnfolded: state.isUnfolded,
+          unfoldProgress: state.unfoldProgress,
+          transitionActive: false,
+          isTiled: state.isTiled,
+          cameraPosition: camera.position.toArray(),
+          cameraUp: camera.up.toArray(),
+          controlsTarget: controls.target.toArray()
+        };
+      }
+      if (nextMode === 'quiz' && state.isTiled) setTiledMode(false);
       modeTabs.forEach(item => item.classList.toggle('active', item === tab));
       modeTabs.forEach(item => item.setAttribute('aria-selected', item === tab ? 'true' : 'false'));
-      state.mode = tab.dataset.mode;
+      state.mode = nextMode;
       if (state.mode === 'quiz') {
-        if (!practiceRestoreState) {
-          practiceRestoreState = {
-            currentModel: state.currentModel,
-            showHidden: state.showHidden,
-            isUnfolded: state.isUnfolded,
-            unfoldProgress: state.unfoldProgress,
-            transitionActive: false
-          };
-        }
         quizOverlay.style.display = 'block';
         quizOverlay.setAttribute('aria-hidden', 'false');
         hudMode.textContent = '空间练习 · 预测与核对';
@@ -1911,18 +1932,17 @@ function setStandardCameraView(viewKey) {
 }
 
 function setTiledMode(enabled) {
+  if (enabled && state.mode !== 'explore') return;
   state.isTiled = enabled;
   const viewportEl = document.getElementById('viewport');
-  const modelPane = document.getElementById('model-pane');
   const button = document.getElementById('tile-btn');
-  if (enabled && state.mode === 'quiz') document.querySelector('.mode-tab[data-mode="explore"]')?.click();
-  if (enabled && modelPane && !modelPane.contains(renderer.domElement)) modelPane.appendChild(renderer.domElement);
-  if (!enabled && !viewportEl.contains(renderer.domElement)) viewportEl.insertBefore(renderer.domElement, viewportEl.firstChild);
+  mountRenderer();
   viewportEl?.classList.toggle('tiled-mode', enabled);
   if (button) {
     button.classList.toggle('on', enabled);
     button.setAttribute('aria-pressed', String(enabled));
-    button.querySelector('span').textContent = enabled ? '退出平铺对照' : '平铺三视图';
+    const label = button.querySelector('.cap');
+    if (label) label.textContent = enabled ? '退出平铺对照' : '平铺三视图';
   }
   if (enabled) {
     state.isUnfolded = false;
@@ -1946,9 +1966,22 @@ function bindTiledViewUI() {
     button.addEventListener('click', () => setStandardCameraView(button.dataset.standardView));
   });
 }
+
+function getRendererHost() {
+  if (state.isTiled) return document.getElementById('model-pane') || viewport;
+  return viewport;
+}
+
+function mountRenderer() {
+  const host = getRendererHost();
+  if (renderer.domElement.parentElement === host) return host;
+  if (host === viewport) host.insertBefore(renderer.domElement, host.firstChild);
+  else host.prepend(renderer.domElement);
+  return host;
+}
+
 function onResize() {
-  const tiledHost = document.getElementById('model-pane');
-  const host = state.isTiled && tiledHost ? tiledHost : viewport;
+  const host = getRendererHost();
   const w = host.clientWidth;
   const h = host.clientHeight;
   camera.aspect = w / Math.max(h, 1);

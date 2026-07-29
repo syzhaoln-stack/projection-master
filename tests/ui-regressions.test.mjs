@@ -27,3 +27,21 @@ test('quiz pointer handler computes the canvas bounds before using them', () => 
   assert.ok(rectDeclaration >= 0 && rectUse >= 0, 'quiz pointer path is missing');
   assert.ok(rectDeclaration < rectUse, 'rect must be initialized before the quiz pointer path uses it');
 });
+
+test('tiled mode mounts the renderer through one host function and updates the text label only', () => {
+  assert.match(PROJECTION_MASTER, /function getRendererHost\(\)/);
+  assert.match(PROJECTION_MASTER, /function mountRenderer\(\)/);
+  assert.match(PROJECTION_MASTER, /button\.querySelector\('\.cap'\)/);
+  assert.doesNotMatch(PROJECTION_MASTER, /button\.querySelector\('span'\)\.textContent = enabled/);
+});
+
+test('spacebar unfolds projections only in free exploration mode', () => {
+  assert.match(PROJECTION_MASTER, /e\.code === 'Space' && state\.mode === 'explore'/);
+});
+
+test('practice mode snapshots and restores tiled and camera state', () => {
+  assert.match(PROJECTION_MASTER, /isTiled: state\.isTiled/);
+  assert.match(PROJECTION_MASTER, /cameraPosition: camera\.position\.toArray\(\)/);
+  assert.match(PROJECTION_MASTER, /controlsTarget: controls\.target\.toArray\(\)/);
+  assert.match(PROJECTION_MASTER, /if \(restoreTiled && state\.mode === 'explore'\) setTiledMode\(true\)/);
+});
