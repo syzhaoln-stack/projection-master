@@ -11,6 +11,7 @@ desktop.ini
 *.log
 *.tmp
 *.temp
+*.tsbuildinfo
 tmp-*.png
 
 # Local dependency/cache folders
@@ -19,6 +20,8 @@ node_modules/
 .playwright-cli/
 dist/
 build/
+.wrangler/
+.next/
 
 # Local environment files
 .env
