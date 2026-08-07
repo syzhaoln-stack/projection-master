@@ -3,6 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import {
   getModelExtension,
   isStepExtension,
@@ -23,6 +26,7 @@ import {
 } from './learning-logic.js';
 import { QUESTION_BANK } from './question-bank.js?v=7.0.1';
 import { createBasicProjectionLab } from './basic-projection-lab.js?v=8.0.0';
+import { createCompoundProjectionLab } from './compound-projection-lab.js?v=8.2.1';
 
 // ===== 基础设置 =====
 const viewport = document.getElementById('viewport');
@@ -108,6 +112,7 @@ const focusGroup = new THREE.Group();   // 局部三视图聚焦框标记
 scene.add(floorGroup, projectionGroup, modelGroup, axesGroup, projLinesGroup, focusGroup);
 
 let labController = null;
+let compoundController = null;
 let exploreRestoreState = null;
 
 // 语义构件选择：真实构件包围盒（null=整体）
@@ -325,6 +330,16 @@ const MODELS = {
       addBox(g, 'slot_right', -0.2, 0.92, -0.2, 1.4, 0.84, 0.38, 0x78b179);
       addTriPrism(g, 'compound_rib', 0x9bc49a, [[-0.7, -0.65], [0.7, -0.65], [-0.7, 0.65]], 0.36, -0.55, 0.9, 0.55);
       return g;
+    }
+  },
+  chapter5: {
+    name: '第5章组合体例题',
+    note: '按教材例题的组成、切除和检验顺序生成三维模型与三视图。',
+    get centerAxes() {
+      return compoundController?.getCenterAxes() || [];
+    },
+    build() {
+      return compoundController?.buildCurrentModel() || new THREE.Group();
     }
   }
 };
@@ -643,11 +658,24 @@ function buildProjScene() {
   const size = new THREE.Vector3(); box.getSize(size);
   const ext = Math.max(size.x, size.y, size.z) || 1;
   const dash = ext * 0.02;
+  const compoundProjectionStyle = state.mode === 'compound' ? compoundController?.getProjectionStyle?.() : null;
+  const boldEdges = Boolean(compoundProjectionStyle?.boldEdges);
 
   // 收集每个 mesh 的世界空间几何
   const worldGeos = [];
+  const projectionGuides = [];
   projectionRoot.traverse(child => {
-    if (!child.isMesh || !child.geometry) return;
+    if (child.userData?.projectionGuide && isVisibleInHierarchy(child) && child.geometry) {
+      const guide = child.geometry.clone();
+      guide.applyMatrix4(child.matrixWorld);
+      projectionGuides.push({
+        geometry: guide,
+        views: Array.isArray(child.userData.projectionViews) ? [...child.userData.projectionViews] : [],
+        style: child.userData.projectionLineStyle || 'auto'
+      });
+      return;
+    }
+    if (!isProjectionMesh(child)) return;
     const g = child.geometry.clone();
     g.applyMatrix4(child.matrixWorld);
     worldGeos.push(g);
@@ -656,47 +684,148 @@ function buildProjScene() {
 
   // 遮挡体（底色实绘：盖住剪影内部、只留外轮廓白边；并写深度供消隐）
   // polygonOffset 推后，让边线压在前不闪烁
-  const occMat = new THREE.MeshBasicMaterial({ color: PROJ_BG });
+  const occMat = new THREE.MeshBasicMaterial({ color: PROJ_BG, side: THREE.DoubleSide });
   occMat.polygonOffset = true; occMat.polygonOffsetFactor = 1; occMat.polygonOffsetUnits = 1;
   _projDisposables.push(occMat);
   // 剪影（外轮廓）
-  const silMat = makeSilhouetteMaterial(ext * 0.004);
+  const silMat = makeSilhouetteMaterial(ext * (boldEdges ? 0.0055 : 0.0038));
   _projDisposables.push(silMat);
   // 可见实线
-  const visMat = new THREE.LineBasicMaterial({ color: 0x20364a });
+  const visMat = new LineMaterial({
+    color: 0x20364a,
+    linewidth: boldEdges ? 4.2 : 2.4,
+    depthTest: true,
+    depthWrite: false,
+    alphaToCoverage: true
+  });
+  visMat.resolution.set(PROJ_RES, PROJ_RES);
   _projDisposables.push(visMat);
   // 隐藏虚线（仅在被遮挡处绘制）
-  const hidMat = new THREE.LineDashedMaterial({ color: 0x718293, dashSize: dash, gapSize: dash * 0.72, transparent: true, opacity: 0.92 });
+  const hidMat = new LineMaterial({
+    color: 0x718293,
+    linewidth: boldEdges ? 3 : 2,
+    dashed: true,
+    dashSize: dash * 1.55,
+    gapSize: dash * 1.05,
+    transparent: true,
+    opacity: 0.9,
+    depthTest: true,
+    depthWrite: false,
+    alphaToCoverage: true
+  });
+  hidMat.resolution.set(PROJ_RES, PROJ_RES);
   hidMat.depthFunc = THREE.GreaterDepth;
   _projDisposables.push(hidMat);
+  const analyticVisMat = new LineMaterial({
+    color: 0x20364a,
+    linewidth: boldEdges ? 4.2 : 2.4,
+    depthTest: false,
+    depthWrite: false,
+    alphaToCoverage: true
+  });
+  analyticVisMat.resolution.set(PROJ_RES, PROJ_RES);
+  _projDisposables.push(analyticVisMat);
+  const analyticHiddenMat = new LineMaterial({
+    color: 0x718293,
+    linewidth: boldEdges ? 3 : 2,
+    dashed: true,
+    dashSize: dash * 1.55,
+    gapSize: dash * 1.05,
+    transparent: true,
+    opacity: 0.9,
+    depthTest: false,
+    depthWrite: false,
+    alphaToCoverage: true
+  });
+  analyticHiddenMat.resolution.set(PROJ_RES, PROJ_RES);
+  _projDisposables.push(analyticHiddenMat);
+  // 教材中需要特别辨认的隐藏轮廓（例5-5的B3贯穿槽）使用更深、更宽的虚线，
+  // 避免1024px离屏图缩放到卡片尺寸后只剩下不到一个像素。
+  const analyticEmphasisHiddenMat = new LineMaterial({
+    color: 0x52687c,
+    linewidth: boldEdges ? 7.2 : 4.4,
+    dashed: true,
+    dashSize: dash * 1.8,
+    gapSize: dash * 0.95,
+    transparent: true,
+    opacity: 1,
+    depthTest: false,
+    depthWrite: false,
+    alphaToCoverage: true
+  });
+  analyticEmphasisHiddenMat.resolution.set(PROJ_RES, PROJ_RES);
+  _projDisposables.push(analyticEmphasisHiddenMat);
+
+  const makeProjectedSegments = (sourceGeometry, lineMaterial, renderOrder, dashed = false, metadata = {}) => {
+    const lineGeometry = new LineSegmentsGeometry();
+    lineGeometry.setPositions(sourceGeometry.attributes.position.array);
+    _projDisposables.push(lineGeometry);
+    const lines = new LineSegments2(lineGeometry, lineMaterial);
+    lines.renderOrder = renderOrder;
+    lines.frustumCulled = false;
+    lines.userData.projectionViews = metadata.views || [];
+    if (dashed) lines.computeLineDistances();
+    projScene.add(lines);
+    return lines;
+  };
 
   worldGeos.forEach(g => {
     _projDisposables.push(g);
+    if (g.userData?.projectionAnalyticOnly) return;
     const sil = new THREE.Mesh(g, silMat); sil.renderOrder = 0; projScene.add(sil);
     const occ = new THREE.Mesh(g, occMat); occ.renderOrder = 1; projScene.add(occ);
-    const eg = new THREE.EdgesGeometry(g, EDGE_THRESHOLD);
+    if (g.userData?.projectionSilhouetteOnly) return;
+    const eg = new THREE.EdgesGeometry(g, g.userData?.projectionEdgeThreshold || EDGE_THRESHOLD);
     _projDisposables.push(eg);
     if (state.showHidden) {
-      const hid = new THREE.LineSegments(eg, hidMat); hid.renderOrder = 2;
-      hid.computeLineDistances();
-      projScene.add(hid);
+      makeProjectedSegments(eg, hidMat, 2, true);
     }
-    const vis = new THREE.LineSegments(eg, visMat); vis.renderOrder = 3; projScene.add(vis);
+    makeProjectedSegments(eg, visMat, 3);
+  });
+
+  projectionGuides.forEach(guide => {
+    const { geometry: g, views, style } = guide;
+    _projDisposables.push(g);
+    if (style === 'hidden') {
+      if (state.showHidden) makeProjectedSegments(g, analyticHiddenMat, 5, true, { views });
+      return;
+    }
+    if (style === 'hidden-emphasis') {
+      if (state.showHidden) makeProjectedSegments(g, analyticEmphasisHiddenMat, 7, true, { views });
+      return;
+    }
+    if (style === 'visible') {
+      makeProjectedSegments(g, analyticVisMat, 6, false, { views });
+      return;
+    }
+    if (state.showHidden) makeProjectedSegments(g, hidMat, 2, true, { views });
+    makeProjectedSegments(g, visMat, 3, false, { views });
   });
 
   // 中心线（链式点划线，置顶不消隐）
-  const centerSegs = computeCenterLines(box);
+  const centerSegs = compoundProjectionStyle?.suppressCenterLines ? [] : computeCenterLines(box);
   if (centerSegs.length) {
-    const cMat = new THREE.LineDashedMaterial({
-      color: 0xa86200, dashSize: ext * 0.05, gapSize: ext * 0.022,
-      transparent: true, opacity: 0.85, depthTest: false
+    const cMat = new LineMaterial({
+      color: 0xa86200,
+      linewidth: boldEdges ? 2.6 : 1.8,
+      dashed: true,
+      dashSize: ext * 0.05,
+      gapSize: ext * 0.022,
+      transparent: true,
+      opacity: 0.82,
+      depthTest: false,
+      depthWrite: false,
+      alphaToCoverage: true
     });
+    cMat.resolution.set(PROJ_RES, PROJ_RES);
     _projDisposables.push(cMat);
-    const pts = [];
-    centerSegs.forEach(([a, b]) => { pts.push(a, b); });
-    const cGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    const positions = [];
+    centerSegs.forEach(([a, b]) => positions.push(a.x, a.y, a.z, b.x, b.y, b.z));
+    const cGeo = new LineSegmentsGeometry();
+    cGeo.setPositions(positions);
     _projDisposables.push(cGeo);
-    const cLines = new THREE.LineSegments(cGeo, cMat); cLines.renderOrder = 4;
+    const cLines = new LineSegments2(cGeo, cMat); cLines.renderOrder = 4;
+    cLines.frustumCulled = false;
     cLines.computeLineDistances();
     projScene.add(cLines);
   }
@@ -739,6 +868,9 @@ function renderProjViews() {
   const fullBox = getModelBounds();
   const fullSize = new THREE.Vector3(); fullBox.getSize(fullSize);
   const fc = new THREE.Vector3(); fullBox.getCenter(fc);
+  const fittedHalf = state.mode === 'compound'
+    ? (Math.max(fullSize.x, fullSize.y, fullSize.z) || 1) * 0.62
+    : half;
   const dist = Math.max(fullSize.x, fullSize.y, fullSize.z, S) * 2 + 4;  // 仅影响裁剪
 
   // 各视图的取景半宽与“看向点”（其余轴用整体模型中心保证完整入框）
@@ -754,9 +886,9 @@ function renderProjViews() {
     };
   } else {
     frames = {
-      front: { half, look: new THREE.Vector3(0, fcY, fc.z) },
-      top:   { half, look: new THREE.Vector3(0, fc.y, 0) },
-      side:  { half, look: new THREE.Vector3(fc.x, fcY, 0) }
+      front: { half: fittedHalf, look: state.mode === 'compound' ? fc.clone() : new THREE.Vector3(0, fcY, fc.z) },
+      top:   { half: fittedHalf, look: state.mode === 'compound' ? fc.clone() : new THREE.Vector3(0, fc.y, 0) },
+      side:  { half: fittedHalf, look: state.mode === 'compound' ? fc.clone() : new THREE.Vector3(fc.x, fcY, 0) }
     };
   }
 
@@ -769,6 +901,12 @@ function renderProjViews() {
     const cfg = VIEW[view];
     const cam = projCams[view];
     const f = frames[view];
+    projScene.traverse(object => {
+      const projectionViews = object.userData?.projectionViews;
+      if (Array.isArray(projectionViews) && projectionViews.length) {
+        object.visible = projectionViews.includes(view);
+      }
+    });
     cam.left = -f.half; cam.right = f.half; cam.top = f.half; cam.bottom = -f.half;
     cam.near = 0.01; cam.far = dist * 2;
     cam.up.copy(cfg.up);
@@ -788,6 +926,7 @@ function drawProjections() {
   buildProjScene();
   renderProjViews();
   if (state.isTiled) updateTiledProjectionCards();
+  if (state.mode === 'compound') compoundController?.syncProjectionImages();
 }
 
 // ===== 语义构件选择：高亮真实构件，并单独生成其三视图 =====
@@ -917,7 +1056,7 @@ function bindFocusPicking() {
     const dt = performance.now() - down.t;
     down = null;
     if (moved > 6 || dt > 450) return;      // 拖拽/长按 → 视为轨道操作，不聚焦
-    if (state.mode === 'lab') return;
+    if (state.mode === 'lab' || state.mode === 'compound') return;
     const rect = dom.getBoundingClientRect();
     if (state.mode === 'quiz' && handlePracticePointerHit(e, rect)) return;
     if (state.mode === 'quiz') return;
@@ -934,8 +1073,35 @@ function bindFocusPicking() {
   });
 }
 
+function isVisibleInHierarchy(object) {
+  let current = object;
+  while (current) {
+    if (current.visible === false) return false;
+    current = current.parent;
+  }
+  return true;
+}
+
+function isProjectionMesh(object) {
+  return Boolean(
+    object?.isMesh
+    && object.geometry
+    && isVisibleInHierarchy(object)
+    && !object.userData?.excludeFromProjection
+  );
+}
+
 function getModelBounds() {
-  const box = new THREE.Box3().setFromObject(modelGroup);
+  const box = new THREE.Box3();
+  const meshBox = new THREE.Box3();
+  modelGroup.updateMatrixWorld(true);
+  modelGroup.traverse(child => {
+    if (!isProjectionMesh(child)) return;
+    if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+    if (!child.geometry.boundingBox) return;
+    meshBox.copy(child.geometry.boundingBox).applyMatrix4(child.matrixWorld);
+    box.union(meshBox);
+  });
   if (!Number.isFinite(box.min.x)) box.set(new THREE.Vector3(-2, 0, -1.5), new THREE.Vector3(2, 2, 1.5));
   return box;
 }
@@ -1137,9 +1303,13 @@ function applyClearance() {
 function updateModelTransparency() {
   modelGroup.traverse(child => {
     if (!child.isMesh || !child.material) return;
-    child.material.transparent = state.transparentModel;
-    child.material.opacity = state.transparentModel ? 0.54 : 1;
-    child.material.depthWrite = !state.transparentModel;
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    materials.forEach(item => {
+      const preserveOpacity = child.userData.preserveMaterialOpacity && !state.transparentModel;
+      item.transparent = state.transparentModel || preserveOpacity;
+      item.opacity = state.transparentModel ? 0.54 : preserveOpacity ? child.userData.baseOpacity : 1;
+      item.depthWrite = state.transparentModel ? false : !preserveOpacity;
+    });
   });
 }
 
@@ -1956,6 +2126,7 @@ function syncModeUI(mode) {
     tab.setAttribute('aria-selected', active ? 'true' : 'false');
   });
   document.body.classList.toggle('mode-lab', mode === 'lab');
+  document.body.classList.toggle('mode-compound', mode === 'compound');
   document.body.classList.toggle('mode-quiz', mode === 'quiz');
   ['ribbon', 'tree-panel', 'props-panel', 'mobile-drawer'].forEach(id => {
     const element = document.getElementById(id);
@@ -1965,21 +2136,26 @@ function syncModeUI(mode) {
   quizOverlay.setAttribute('aria-hidden', mode === 'quiz' ? 'false' : 'true');
 }
 
+function isTeachingMode(mode) {
+  return mode === 'lab' || mode === 'compound';
+}
+
 function setAppMode(nextMode, options = {}) {
-  if (!['lab', 'explore', 'quiz'].includes(nextMode) || nextMode === state.mode) return;
+  if (!['lab', 'compound', 'explore', 'quiz'].includes(nextMode) || nextMode === state.mode) return;
   const previousMode = state.mode;
 
-  if (previousMode === 'explore' && nextMode === 'lab' && !options.productStateReady) {
+  if (previousMode === 'explore' && isTeachingMode(nextMode) && !options.productStateReady) {
     exploreRestoreState = captureProductState();
   }
   if (nextMode === 'quiz' && !practiceRestoreState) {
-    const productState = previousMode === 'lab' && exploreRestoreState
+    const productState = isTeachingMode(previousMode) && exploreRestoreState
       ? exploreRestoreState
       : captureProductState();
     practiceRestoreState = { ...productState, returnMode: previousMode };
   }
   if (state.isTiled && nextMode !== 'explore') setTiledMode(false);
   if (previousMode === 'lab') labController?.leave();
+  if (previousMode === 'compound') compoundController?.leave();
 
   state.mode = nextMode;
   syncModeUI(nextMode);
@@ -1988,6 +2164,22 @@ function setAppMode(nextMode, options = {}) {
     setProductEnvironmentVisible(false);
     labController?.enter();
     hudMode.textContent = '教材实验 · 点线面投影';
+    mountRenderer();
+    onResize();
+    return;
+  }
+
+  if (nextMode === 'compound') {
+    state.showHidden = true;
+    state.transparentModel = false;
+    setProductEnvironmentVisible(true);
+    floorGroup.visible = false;
+    projectionGroup.visible = false;
+    axesGroup.visible = false;
+    projLinesGroup.visible = false;
+    focusGroup.visible = false;
+    compoundController?.enter();
+    hudMode.textContent = '教材例题 · 组合体投影';
     mountRenderer();
     onResize();
     return;
@@ -2008,7 +2200,7 @@ function setAppMode(nextMode, options = {}) {
 
   hudMode.textContent = '三维透视 · 第一角';
   let restoreTiled = false;
-  if (!options.productStateReady && previousMode === 'lab' && exploreRestoreState) {
+  if (!options.productStateReady && isTeachingMode(previousMode) && exploreRestoreState) {
     restoreTiled = applyProductState(exploreRestoreState);
   } else {
     mountRenderer();
@@ -2022,10 +2214,10 @@ function exitPractice(targetMode = null) {
   const returnMode = targetMode || snapshot?.returnMode || 'explore';
   practiceRestoreState = null;
 
-  const productSnapshot = returnMode === 'explore' && snapshot?.returnMode === 'lab' && exploreRestoreState
+  const productSnapshot = returnMode === 'explore' && isTeachingMode(snapshot?.returnMode) && exploreRestoreState
     ? exploreRestoreState
     : snapshot;
-  if (returnMode === 'lab' && snapshot?.returnMode === 'explore' && productSnapshot) {
+  if (isTeachingMode(returnMode) && snapshot?.returnMode === 'explore' && productSnapshot) {
     exploreRestoreState = { ...productSnapshot };
   }
   const restoreTiled = applyProductState(productSnapshot);
@@ -2066,48 +2258,75 @@ function bindQuizUI() {
   });
 }
 
+function projectionTargetDataUrl(key) {
+  ensureProjResources();
+  let canvas = projCanvases[key];
+  const target = projTargets[key];
+  if (!target || !VIEW[key]) return '';
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    projCanvases[key] = canvas;
+  }
+  canvas.width = target.width;
+  canvas.height = target.height;
+  const width = target.width;
+  const height = target.height;
+  const pixels = new Uint8Array(width * height * 4);
+  renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
+  const context = canvas.getContext('2d');
+  const imageData = context.createImageData(width, height);
+  const orientation = VIEW[key];
+  for (let y = 0; y < height; y += 1) {
+    const destinationY = orientation.flipY ? y : height - y - 1;
+    const sourceRowOffset = y * width * 4;
+    const destinationRowOffset = destinationY * width * 4;
+    if (!orientation.flipX) {
+      imageData.data.set(
+        pixels.subarray(sourceRowOffset, sourceRowOffset + width * 4),
+        destinationRowOffset
+      );
+      continue;
+    }
+    for (let x = 0; x < width; x += 1) {
+      const destinationX = orientation.flipX ? width - x - 1 : x;
+      const sourceOffset = sourceRowOffset + x * 4;
+      const destinationOffset = (destinationY * width + destinationX) * 4;
+      imageData.data[destinationOffset] = pixels[sourceOffset];
+      imageData.data[destinationOffset + 1] = pixels[sourceOffset + 1];
+      imageData.data[destinationOffset + 2] = pixels[sourceOffset + 2];
+      imageData.data[destinationOffset + 3] = pixels[sourceOffset + 3];
+    }
+  }
+  context.putImageData(imageData, 0, 0);
+  return canvas.toDataURL('image/png');
+}
+
+function projectionPointPositions(worldPoint) {
+  ensureProjResources();
+  const point = Array.isArray(worldPoint)
+    ? new THREE.Vector3(...worldPoint)
+    : new THREE.Vector3(worldPoint?.x || 0, worldPoint?.y || 0, worldPoint?.z || 0);
+  return Object.fromEntries(['front', 'side', 'top'].map(key => {
+    const projected = point.clone().project(projCams[key]);
+    const orientation = VIEW[key];
+    const rawX = (projected.x + 1) / 2;
+    const x = orientation.flipX ? 1 - rawX : rawX;
+    const y = orientation.flipY ? (projected.y + 1) / 2 : (1 - projected.y) / 2;
+    return [key, { x, y, depth: projected.z }];
+  }));
+}
+
+function setCompoundProjectionHidden(enabled) {
+  state.showHidden = Boolean(enabled);
+  document.getElementById('tog-hidden')?.classList.toggle('on', state.showHidden);
+  document.getElementById('tog-hidden-m')?.classList.toggle('on', state.showHidden);
+}
+
 function updateTiledProjectionCards() {
   TILED_VIEW_ORDER.forEach(({ key }) => {
     const image = document.querySelector(`[data-tiled-image="${key}"]`);
-    let canvas = projCanvases[key];
-    const target = projTargets[key];
-    if (!image || !target) return;
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      projCanvases[key] = canvas;
-    }
-    canvas.width = target.width;
-    canvas.height = target.height;
-    const width = target.width;
-    const height = target.height;
-    const pixels = new Uint8Array(width * height * 4);
-    renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
-    const context = canvas.getContext('2d');
-    const imageData = context.createImageData(width, height);
-    const orientation = VIEW[key];
-    for (let y = 0; y < height; y += 1) {
-      const destinationY = orientation.flipY ? y : height - y - 1;
-      const sourceRowOffset = y * width * 4;
-      const destinationRowOffset = destinationY * width * 4;
-      if (!orientation.flipX) {
-        imageData.data.set(
-          pixels.subarray(sourceRowOffset, sourceRowOffset + width * 4),
-          destinationRowOffset
-        );
-        continue;
-      }
-      for (let x = 0; x < width; x += 1) {
-        const destinationX = orientation.flipX ? width - x - 1 : x;
-        const sourceOffset = sourceRowOffset + x * 4;
-        const destinationOffset = (destinationY * width + destinationX) * 4;
-        imageData.data[destinationOffset] = pixels[sourceOffset];
-        imageData.data[destinationOffset + 1] = pixels[sourceOffset + 1];
-        imageData.data[destinationOffset + 2] = pixels[sourceOffset + 2];
-        imageData.data[destinationOffset + 3] = pixels[sourceOffset + 3];
-      }
-    }
-    context.putImageData(imageData, 0, 0);
-    image.src = canvas.toDataURL('image/png');
+    const src = projectionTargetDataUrl(key);
+    if (image && src) image.src = src;
   });
 }
 
@@ -2175,6 +2394,7 @@ function bindTiledViewUI() {
 
 function getRendererHost() {
   if (state.mode === 'lab') return document.getElementById('lab-canvas-host') || viewport;
+  if (state.mode === 'compound') return document.getElementById('compound-model-host') || viewport;
   if (state.isTiled) return document.getElementById('model-pane') || viewport;
   return viewport;
 }
@@ -2194,6 +2414,7 @@ function onResize() {
   camera.aspect = w / Math.max(h, 1);
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
+  if (state.mode === 'compound') compoundController?.scrollActiveLessonIntoView();
 }
 
 function animate() {
@@ -2210,6 +2431,7 @@ function animate() {
     }
   }
   controls.update();
+  if (state.mode === 'compound') compoundController?.update();
   updateViewMatchFeedback();
   if (state.mode === 'quiz' && currentPracticeQuestion()?.type === 'rotate-to-view' && !practiceAnswered) {
     practiceInteraction = { direction: currentCameraDirectionArray() };
@@ -2223,6 +2445,25 @@ function animate() {
 window.addEventListener('resize', onResize);
 
 labController = createBasicProjectionLab({ THREE, scene, camera, controls, setStatus });
+compoundController = createCompoundProjectionLab({
+  THREE,
+  camera,
+  controls,
+  rendererElement: renderer.domElement,
+  modelGroup,
+  activateModel: () => {
+    state.currentModel = 'chapter5';
+    state.importedGeometry = null;
+    state.importedName = '';
+    rebuildModel();
+  },
+  refreshProjections: drawProjections,
+  projectionImageProvider: projectionTargetDataUrl,
+  projectionPointProvider: projectionPointPositions,
+  setProjectionHidden: setCompoundProjectionHidden,
+  clearFocus: () => clearFocus(false),
+  setStatus
+});
 
 bindModelButtons();
 bindObjImport();

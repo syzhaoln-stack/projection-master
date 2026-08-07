@@ -1,6 +1,6 @@
 {
   "name": "engineering-projection-master",
-  "version": "8.0.0",
+  "version": "8.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -13,7 +13,10 @@
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "occt-import-js": "0.0.23"
+    "occt-import-js": "0.0.23",
+    "three": "0.160.0",
+    "three-bvh-csg": "0.0.17",
+    "three-mesh-bvh": "0.8.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",

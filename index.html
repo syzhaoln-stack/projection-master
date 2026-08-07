@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#e9ecf0">
 <link rel="icon" href="data:,">
-<title>工图投影大师 v8 · 教材实验与空间智能教学</title>
+<title>工图投影大师 v8.2 · 教材切割实验与空间智能教学</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -557,6 +557,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 }
 </style>
 <link rel="stylesheet" href="./basic-projection-lab.css?v=8.0.0">
+<link rel="stylesheet" href="./compound-projection-lab.css?v=8.2.1">
 </head>
 <body class="mode-lab">
 
@@ -566,11 +567,12 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     <div id="logo" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M5 4.5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6.5l-3 2v-2h-1a1.5 1.5 0 0 1-1.5-1.5v-11A1 1 0 0 1 5 4.5zm3.5 2h-2v2h2v-2zm0 4h-2v2h2v-2zm0 4h-2v2h2v-2zm4-8h7v2h-7v-2zm0 4h7v2h-7v-2zm0 4h7v2h-7v-2z"/></svg>
     </div>
-    <h1>工图投影大师<span class="ver">v8</span></h1>
+    <h1>工图投影大师<span class="ver">v8.2</span></h1>
     <span class="sub">空间智能教学工作台 · 第一角投影</span>
   </div>
   <div id="doc-tabs" role="tablist">
-    <button class="mode-tab active" data-mode="lab" role="tab" aria-selected="true">教材实验</button>
+    <button class="mode-tab active" data-mode="lab" role="tab" aria-selected="true">第3章·投影基础</button>
+    <button class="mode-tab" data-mode="compound" role="tab" aria-selected="false">第5章·组合体投影</button>
     <button class="mode-tab" data-mode="explore" role="tab" aria-selected="false">自由探索</button>
     <button class="mode-tab" data-mode="quiz" role="tab" aria-selected="false">空间练习</button>
   </div>
@@ -807,6 +809,106 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       </div>
     </section>
 
+    <section id="compound-shell" aria-label="第5章组合体投影交互例题">
+      <header class="compound-coursebar">
+        <div class="compound-course-title">
+          <span>第 5<br>章</span>
+          <div><strong>组合体切割实验</strong><small>三个教材例题 · 实时差集与三视图</small></div>
+        </div>
+        <nav id="compound-lesson-nav" aria-label="第五章例题选择"></nav>
+        <button type="button" id="compound-reset" class="compound-quiet-action" title="复位当前例题">复位本例</button>
+      </header>
+
+      <div class="compound-workspace">
+        <section class="compound-model-panel" aria-label="可交互组合体模型">
+          <header class="compound-panel-head">
+            <div><span id="compound-source">第5章</span><strong id="compound-title">组合体投影例题</strong></div>
+            <div id="compound-operation-tags" aria-label="本例涉及的建模操作"></div>
+          </header>
+          <div id="compound-model-host">
+            <div class="compound-axis-note">黄色为刀具 B · 蓝色为实体 A</div>
+            <div class="compound-model-help">拖动黄色刀具 · 滚轮缩放 · 右侧执行 A−B · 三视图同步</div>
+          </div>
+        </section>
+
+        <section class="compound-projection-panel" aria-label="同步生成的第一角三视图">
+          <header class="compound-panel-head">
+            <div><span>实时成图</span><strong>当前组合步骤的三视图</strong></div>
+            <div id="compound-stage-progress">1 / 1</div>
+          </header>
+          <div class="compound-projection-board">
+            <article class="compound-view-card front"><header><strong>主视图</strong><span>从前向后</span></header><div class="compound-view-image"><img data-compound-image="front" alt="当前组合步骤主视图"><span class="compound-projected-point" data-compound-point="front" hidden><b>P</b></span></div></article>
+            <article class="compound-view-card side"><header><strong>左视图</strong><span>置于主视图右侧</span></header><div class="compound-view-image"><img data-compound-image="side" alt="当前组合步骤左视图"><span class="compound-projected-point" data-compound-point="side" hidden><b>P</b></span></div></article>
+            <article class="compound-view-card top"><header><strong>俯视图</strong><span>置于主视图下方</span></header><div class="compound-view-image"><img data-compound-image="top" alt="当前组合步骤俯视图"><span class="compound-projected-point" data-compound-point="top" hidden><b>P</b></span></div></article>
+            <div class="compound-first-angle-note"><strong>第一角画法</strong><span>长对正 · 高平齐 · 宽相等</span><span>切换步骤后，三视图只投影当前可见实体。</span></div>
+          </div>
+        </section>
+
+        <aside class="compound-control-rail" aria-label="例题操作与判断">
+          <section class="compound-card compound-example-head">
+            <span class="compound-source" id="compound-source-label">教材原例</span>
+            <h2 id="compound-title-label">观察组合体形成</h2>
+            <p id="compound-objective">按教材顺序装载构件，并观察对应投影变化。</p>
+            <div class="compound-ai-chain" aria-label="AI到CAD再到成图核验的执行链">
+              <div><span>AI 识别</span><b id="compound-ai-input">识别组成形体</b></div>
+              <i aria-hidden="true">→</i>
+              <div><span>CAD / SOLIDWORKS</span><b id="compound-cad-action">建立参数特征</b></div>
+              <i aria-hidden="true">→</i>
+              <div><span>平台核验</span><b>重投影并对照题图</b></div>
+            </div>
+          </section>
+
+          <section class="compound-card">
+            <div class="compound-card-title"><strong>组合顺序轨道</strong><span>可前进、回退或直达</span></div>
+            <div id="compound-sequence"></div>
+            <p id="compound-stage-note" aria-live="polite"></p>
+            <div class="compound-stage-actions">
+              <button type="button" id="compound-prev-stage" class="compound-secondary-action">退回一步</button>
+              <button type="button" id="compound-next-stage" class="compound-primary-action">装载下一步</button>
+            </div>
+          </section>
+
+          <section class="compound-card compound-boolean-card" id="compound-boolean-card">
+            <div class="compound-card-title"><strong>布尔运算台</strong><span>选刀 → 定位 → 执行 A−B</span></div>
+            <div id="compound-boolean-workbench"></div>
+          </section>
+
+          <section class="compound-card compound-observation-card" id="compound-observation-card" hidden>
+            <div class="compound-card-title"><strong>例5-5观察显示</strong><span>弱化阴影 · 强化边线 · 点投影</span></div>
+            <div id="compound-observation-tools"></div>
+          </section>
+
+          <section class="compound-card">
+            <div class="compound-card-title"><strong>构件独立观察</strong><span>再次点击恢复组合</span></div>
+            <div id="compound-components"></div>
+          </section>
+
+          <section class="compound-card compound-assembly-card" id="compound-assembly-card" hidden>
+            <div class="compound-card-title"><strong>叠加装配台</strong><span>拿开 ⇄ 移位 ⇄ 装回</span></div>
+            <div id="compound-assembly-workbench"></div>
+          </section>
+
+          <section class="compound-card">
+            <div class="compound-card-title"><strong>拆装与教材参数</strong><span>实体和投影同步</span></div>
+            <label class="compound-explode-row" for="compound-explode"><span>爆炸距离</span><input id="compound-explode" type="range" min="0" max="100" step="1" value="0"><output id="compound-explode-output">0%</output></label>
+            <div class="compound-explode-actions">
+              <button type="button" id="compound-assemble" class="compound-secondary-action">恢复装配</button>
+              <button type="button" id="compound-explode-all" class="compound-secondary-action">完全爆炸</button>
+            </div>
+            <div id="compound-parameters"></div>
+          </section>
+
+          <section class="compound-card compound-question">
+            <div class="compound-card-title"><strong>用题检验读图</strong><span>依据当前例题</span></div>
+            <p id="compound-question-prompt"></p>
+            <div id="compound-answers"></div>
+            <div id="compound-feedback" hidden aria-live="polite"></div>
+            <button type="button" id="compound-submit" class="compound-primary-action" disabled>核对判断</button>
+          </section>
+        </aside>
+      </div>
+    </section>
+
     <div id="tiled-layout" aria-label="第一角三视图平铺对照">
       <section id="model-pane" aria-label="可自由旋转的三维模型"></section>
       <section id="three-view-pane" aria-label="第一角三视图">
@@ -946,7 +1048,9 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 <script type="importmap">
 {"imports":{
   "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+  "three-bvh-csg":"https://cdn.jsdelivr.net/npm/three-bvh-csg@0.0.17/build/index.module.js",
+  "three-mesh-bvh":"https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.8.0/build/index.module.js"
 }}
 </script>
 
@@ -1012,6 +1116,6 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 })();
 </script>
 
-<script type="module" src="projection-master.js?v=8.0.0"></script>
+<script type="module" src="projection-master.js?v=8.2.1"></script>
 </body>
 </html>
