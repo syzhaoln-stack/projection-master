@@ -1,0 +1,119 @@
+{
+  "scope": "Three.js GLTF import, metadata, final-state filtering, display bounds and cache isolation; no pixel rendering",
+  "contract_sha256": "103cd0d92ce3f993d2df8f503008c1f58540db2df8943b2b12252ef2d4da4443",
+  "bridges": [
+    {
+      "id": "drawing_bago",
+      "file": "cable_stayed.glb",
+      "sha256": "24e66587a286006fd4e79ca96c7a37995c6c508776efc37862dabecd8198f964",
+      "bytes": 4564460,
+      "source_mesh_instances": 1782,
+      "retained_mesh_instances": 1626,
+      "removed_mesh_instances": 156,
+      "embedded_images": 6,
+      "physical_bounds_m": {
+        "min": [
+          -6,
+          -18,
+          -11.44999984651804
+        ],
+        "max": [
+          454,
+          75.94960021972656,
+          11.44999984651804
+        ]
+      },
+      "display_scale": 0.010869565217391304,
+      "display_size": [
+        5,
+        1.0211913067361582,
+        0.2489130401416965
+      ],
+      "semantic_counts": {
+        "stay_cable": 40,
+        "tower": 12,
+        "girder": 537
+      },
+      "cache_isolation": "PASS",
+      "final_state_filter": "PASS",
+      "source_hash": "PASS",
+      "dimensions": "PASS"
+    },
+    {
+      "id": "drawing_forth",
+      "file": "suspension.glb",
+      "sha256": "ac85455eef15823563d26a29438f856847202bc3519b61e69ce8af4fef8a8a7d",
+      "bytes": 12888056,
+      "source_mesh_instances": 4749,
+      "retained_mesh_instances": 4329,
+      "removed_mesh_instances": 420,
+      "embedded_images": 6,
+      "physical_bounds_m": {
+        "min": [
+          -22.5,
+          -18,
+          -24
+        ],
+        "max": [
+          1844.5,
+          157.20000612735748,
+          24
+        ]
+      },
+      "display_scale": 0.002678093197643278,
+      "display_size": [
+        4.999999999999999,
+        0.46920194463673665,
+        0.12854847348687734
+      ],
+      "semantic_counts": {
+        "main_cable": 2,
+        "hanger": 384,
+        "tower": 48,
+        "girder": 792
+      },
+      "cache_isolation": "PASS",
+      "final_state_filter": "PASS",
+      "source_hash": "PASS",
+      "dimensions": "PASS"
+    },
+    {
+      "id": "drawing_nrg",
+      "file": "arch.glb",
+      "sha256": "91c940694e7f319157586b9e210f59777c72ef5c860b6681c8a1d4bcce4c44bc",
+      "bytes": 6236256,
+      "source_mesh_instances": 1843,
+      "retained_mesh_instances": 1719,
+      "removed_mesh_instances": 124,
+      "embedded_images": 7,
+      "physical_bounds_m": {
+        "min": [
+          -4.5,
+          -21.19586753845215,
+          -16.972999572753906
+        ],
+        "max": [
+          602.6599731445312,
+          134.06315767765045,
+          16.972999572753906
+        ]
+      },
+      "display_scale": 0.008235061962508151,
+      "display_size": [
+        5,
+        1.2785676928932206,
+        0.27954740634250563
+      ],
+      "semantic_counts": {
+        "arch_rib": 206,
+        "arch_brace": 104,
+        "pier": 108,
+        "deck": 60
+      },
+      "cache_isolation": "PASS",
+      "final_state_filter": "PASS",
+      "source_hash": "PASS",
+      "dimensions": "PASS"
+    }
+  ]
+}

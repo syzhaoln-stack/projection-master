@@ -10,10 +10,24 @@ import {
   summarizePractice
 } from '../learning-logic.js';
 
-test('mechanical practice bank has valid and unique questions', () => {
-  assert.equal(QUESTION_BANK.length, 10);
+test('engineering practice bank has valid and unique mechanical and bridge questions', () => {
+  assert.equal(QUESTION_BANK.length, 13);
   assert.deepEqual(validateQuestionBank(), []);
   assert.equal(getQuestionById('slot-hidden-line').modelId, 'slottedBlock');
+});
+
+test('bridge transfer tasks require three distinct orthographic directions without shortcut hints', () => {
+  const plan = getQuestionById('bridge-rotate-plan');
+  const elevation = getQuestionById('bridge-rotate-elevation');
+  const section = getQuestionById('bridge-rotate-section');
+  assert.deepEqual(plan.targetDirection, [0, 1, 0]);
+  assert.deepEqual(elevation.targetDirection, [0, 0, 1]);
+  assert.deepEqual(section.targetDirection, [1, 0, 0]);
+  [plan, elevation, section].forEach(question => {
+    assert.equal(validateQuestion(question).length, 0);
+    assert.doesNotMatch(question.hint, /可先点击|点击“(主视|俯视|左视)”|快捷键/);
+    assert.ok(question.toleranceDegrees <= 6);
+  });
 });
 
 test('first-angle projection places the top view below the front view', () => {

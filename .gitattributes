@@ -1,0 +1,4 @@
+# Preserve vendored teaching assets and their recorded source fingerprints.
+assets/textbook-bridges/** -text -whitespace
+assets/drawing-bridges/** -text -whitespace
+assets/vice-lab/** -text -whitespace

@@ -1,10 +1,37 @@
-# Projection Master v8.2 · 工图投影大师
+# Projection Master v8.3.1 · 工图投影大师
 
 开发者：赵诗宇（大连交通大学） · szhao@djtu.edu.cn
 
-在线访问：https://syzhaoln-stack.github.io/projection-master/
+公网版本：[工图投影大师 v8.3.1](https://syzhaoln-stack.github.io/projection-master/?mode=explore&model=cableStayedFan&v=2373393)（2026-10-15 修订）。
+
+桥梁工程专项分支的构件接口、训练序列与测评边界见 [BRIDGE_SPATIAL_LAB.md](BRIDGE_SPATIAL_LAB.md)。
 
 Do not open `index.html` by double-clicking it directly. This page uses JavaScript ES modules and Three.js imports, so it should be served through a local web server.
+
+## v8.3 整合发布 · 2026-10-15
+
+本轮 v8.3.1 修订：展开/合并只翻转投影面，保留用户的相机方向、目标与缩放；调整窗口及平铺切换也不自动归位。投影连线、中心线、坐标轴默认关闭，虚线与中心线分别控制。桥梁坐标按 X 纵桥、Y 横桥、Z 竖向标注，只绘制明确的特征中心轴。
+
+第5章统一内核与显示坐标转换，修复例5-6前方槽和后拱槽交换、偏移后内壁残留台阶，并同步修复例5-5槽的深度位移、例5-1前孔与后立板方向。例5-5和例5-6的即时投影直接取自当前布尔实体；精算完成后由同一 BRep 接管实体和 HLR 三视图。103 项测试通过，其中新增检查实际运行 OpenCascade/WASM，而非仅匹配源码文本。
+
+模型与三视图默认保持三个投影面包裹实体；按空格或“展开三视图”翻开，再按空格或“合并三视图”合回。单构件保持原位、同一比例，投影线随投影面翻转。平铺三视图仅作为手动选择的辅助方式。
+
+发布分支为 `gh-pages`；v8.3.1 提交为 `237339391245de8236f4447158800fcb6b3729b3`，父提交为 v8.3 的 `b68de9f56fcb7feff574f5137908f5a71604b1e4`。本次仅更换首页、主程序和精确内核 worker 三项资源，复用模型与其他资源。主分支与原有开发分支的远端提交未改动。
+
+当前版本在原有工图工作台内保留第3章投影基础、第5章组合体构形与空间练习，并接入以下模型：
+
+- **20 种新版桥梁模型**：来自当前桥梁教材 `interactive/bridge-office`，几何源版本为 **2026-09-26**。桥型包括梁、拱、斜拉、悬索及组合体系；原米制坐标、中文构件名称与唯一 ID 保留，仅在显示根节点等比缩放。来源与尺寸见 `assets/textbook-bridges/`。
+- **3 座按图纸重构的桥梁**：Bago 斜拉桥、Forth Road 悬索桥、New River Gorge 拱桥。可编辑工程与 GLB 建模源日期为 **2026-09-08**，网页优化资源形成于 2026-09-09；保持各自教学重构的尺寸来源与简化边界。
+- **虎钳拆装**：嵌入 **2026-09-17** 交付网页，包含夹紧、14 步拆装、自动演示和自由取件。切换栏目后再次进入会重置虎钳实验；模型页提供独立打开入口。
+- **第5章最新核心**：沿用原 `Projection-master` 的 Git 基线 **ff1c8a0244090f854c34443aaef1aeaa950815c7**，接入精确 BRep / HLR 重建和关联投影；第3章原有教学模块继续保留。第5章是组合体构形与切除实验，不把桥梁端视图当作已完成的实体剖切。
+
+双击 **`start-projection-master.bat`** 打开 `http://127.0.0.1:5186/index.html`。启动器仅服务 **`dist/client`**；目录中已有构建就直接使用，缺少构建时执行 `npm run build`。首次构建前需安装项目依赖（`npm ci`）。修改源码后应先重新执行 `npm run build`，再打开启动器。
+
+启动器会核对 5186 端口已有服务与本项目构建首页是否一致：一致时直接复用；不一致时提示端口冲突，不关闭其他服务。新服务只绑定 `127.0.0.1`，不会部署或发布到公网。服务由当前启动器创建时，在启动窗口按回车可停止；复用已有服务时不改变其生命周期。
+
+不能再用旧方式把源目录直接交给普通静态服务器：新版精确内核包含需要 Vite 构建的包导入和 WASM 资源。`start-projection-master.ps1 -CheckOnly` 只核对现有构建与端口，不构建、不打开浏览器、不启动服务。
+
+下列 v8.2 说明保留作为原功能和教材例题的记录；当前整合范围及启动方式以上述 v8.3 说明为准。
 
 ## What's new in v8.2
 
@@ -63,10 +90,10 @@ start-projection-master.bat
 It will start a local server and open:
 
 ```text
-http://127.0.0.1:5181/index.html
+http://127.0.0.1:5186/index.html
 ```
 
-Keep the server window open while using the page.
+The launcher serves `dist/client`, building it first if absent. Keep its window open when it starts a new server; press Enter there to stop that server. An already running matching preview is reused.
 
 ## Tests
 

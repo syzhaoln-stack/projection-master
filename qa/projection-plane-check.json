@@ -1,0 +1,565 @@
+{
+  "scope": "Actual projection cameras, folded/unfolded plane transforms, projection-line endpoints and physical 1:1 component focus; no raster/visual check",
+  "models": [
+    {
+      "id": "beamBridge",
+      "whole_projection_max_error": 7.105427357601002e-15,
+      "focus_projection_max_error": 7.595905452671892e-15,
+      "moving_line_max_error": 1.900395703982448e-15,
+      "model_size": [
+        5,
+        1.2840172483569352,
+        2.2678186455086915
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          7.133909322754346
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_girder_tree",
+      "whole_projection_max_error": 7.447602459741819e-15,
+      "focus_projection_max_error": 7.106294666405892e-15,
+      "moving_line_max_error": 1.831026719408895e-15,
+      "model_size": [
+        5.000000000000001,
+        0.9325679486579654,
+        0.8313539447233289
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.4156769723616645
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_stayed_standard",
+      "whole_projection_max_error": 7.447602459741819e-15,
+      "focus_projection_max_error": 7.445119511694903e-15,
+      "moving_line_max_error": 1.897149936107019e-15,
+      "model_size": [
+        5,
+        0.9373009374907524,
+        0.6142506143305754
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.307125307165288
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "cableStayedFan",
+      "whole_projection_max_error": 7.232657794854416e-15,
+      "focus_projection_max_error": 7.105427357601002e-15,
+      "moving_line_max_error": 1.831026719408895e-15,
+      "model_size": [
+        5,
+        0.919399316165878,
+        0.41372971614329435
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.206864858071647
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "cableStayedHarp",
+      "whole_projection_max_error": 7.232657794854416e-15,
+      "focus_projection_max_error": 7.105427357601002e-15,
+      "moving_line_max_error": 1.831026719408895e-15,
+      "model_size": [
+        5,
+        0.919399316165878,
+        0.41372971614329435
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.206864858071647
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_stayed_single",
+      "whole_projection_max_error": 7.69505501592758e-15,
+      "focus_projection_max_error": 7.106294666405892e-15,
+      "moving_line_max_error": 1.8610729195778454e-15,
+      "model_size": [
+        5,
+        2.0819533790510034,
+        0.6070534007006799
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.30352670035034
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_stayed_spatial",
+      "whole_projection_max_error": 7.229248575812844e-15,
+      "focus_projection_max_error": 7.108895957933346e-15,
+      "moving_line_max_error": 1.9860273225978185e-15,
+      "model_size": [
+        5,
+        1.7917542740701382,
+        1.336875379230959
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.668437689615479
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_extradosed",
+      "whole_projection_max_error": 7.447602459741819e-15,
+      "focus_projection_max_error": 7.108895957933346e-15,
+      "moving_line_max_error": 2.1065000811460206e-15,
+      "model_size": [
+        5,
+        0.596553248136461,
+        0.5965532761214081
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.298276638060704
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "archBridge",
+      "whole_projection_max_error": 7.588599744428075e-15,
+      "focus_projection_max_error": 7.591847593814708e-15,
+      "moving_line_max_error": 1.8452761694870047e-15,
+      "model_size": [
+        5,
+        1.452609786882333,
+        0.8593936275631274
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.429696813781564
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_arch_inclined",
+      "whole_projection_max_error": 7.229248575812844e-15,
+      "focus_projection_max_error": 7.108895957933346e-15,
+      "moving_line_max_error": 1.9860273225978185e-15,
+      "model_size": [
+        5.000000000000001,
+        1.6150761487327585,
+        0.8907363423790469
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.445368171189523
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_arch_network",
+      "whole_projection_max_error": 7.229248575812844e-15,
+      "focus_projection_max_error": 7.447602459741819e-15,
+      "moving_line_max_error": 1.8343894894033213e-15,
+      "model_size": [
+        5,
+        1.3294600227953475,
+        0.8202323777183687
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.410116188859185
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "suspension",
+      "whole_projection_max_error": 7.588602916834064e-15,
+      "focus_projection_max_error": 7.107378653578542e-15,
+      "moving_line_max_error": 1.9860394443096212e-15,
+      "model_size": [
+        5,
+        0.5475543478260869,
+        0.39130433746006177
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.195652168730031
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_suspension_self",
+      "whole_projection_max_error": 7.591847593814708e-15,
+      "focus_projection_max_error": 7.229248575812844e-15,
+      "moving_line_max_error": 1.790180836524724e-15,
+      "model_size": [
+        5,
+        0.9901371554039764,
+        0.5547850062299576
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.277392503114979
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_suspension_inclined",
+      "whole_projection_max_error": 7.595905452671892e-15,
+      "focus_projection_max_error": 7.589411837077887e-15,
+      "moving_line_max_error": 1.864381496268959e-15,
+      "model_size": [
+        5,
+        0.5451086960408998,
+        0.4402174120363982
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.220108706018199
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_underslung_suspension",
+      "whole_projection_max_error": 7.275350015468898e-15,
+      "focus_projection_max_error": 7.447602459741819e-15,
+      "moving_line_max_error": 1.8610729195778454e-15,
+      "model_size": [
+        4.999999999999999,
+        0.9512386194705986,
+        0.9172154134927473
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.458607706746374
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_millennium_low",
+      "whole_projection_max_error": 7.75573429116031e-15,
+      "focus_projection_max_error": 7.229248575812844e-15,
+      "moving_line_max_error": 2.09494848558852e-15,
+      "model_size": [
+        5,
+        0.2178125358017828,
+        0.13361838590124964
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.0668091929506245
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_stress_ribbon",
+      "whole_projection_max_error": 7.537261513809702e-15,
+      "focus_projection_max_error": 7.231166459299025e-15,
+      "moving_line_max_error": 1.9044451347492378e-15,
+      "model_size": [
+        5,
+        0.6667211220643231,
+        0.4672897196261682
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.233644859813084
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_hybrid_cable",
+      "whole_projection_max_error": 7.601582815929793e-15,
+      "focus_projection_max_error": 7.108895957933346e-15,
+      "moving_line_max_error": 1.900395703982448e-15,
+      "model_size": [
+        4.999999999999999,
+        0.45932539682539675,
+        0.321428586566259
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.16071429328313
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_hybrid_arch",
+      "whole_projection_max_error": 7.588599744428075e-15,
+      "focus_projection_max_error": 7.589411837077887e-15,
+      "moving_line_max_error": 1.8452761694870047e-15,
+      "model_size": [
+        5,
+        1.3209597031365978,
+        0.8593936275631274
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.429696813781564
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "textbook_fink_inverted",
+      "whole_projection_max_error": 7.105427357601002e-15,
+      "focus_projection_max_error": 7.444291678311382e-15,
+      "moving_line_max_error": 1.9389211565826713e-15,
+      "model_size": [
+        5,
+        1.0805214731937154,
+        0.6441717989577213
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.322085899478861
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "drawing_bago",
+      "whole_projection_max_error": 7.105440910115233e-15,
+      "focus_projection_max_error": 7.53971411808758e-15,
+      "moving_line_max_error": 2.094764613337708e-15,
+      "model_size": [
+        5,
+        1.0211913067361582,
+        0.2489130401416965
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.124456520070848
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "drawing_forth",
+      "whole_projection_max_error": 7.107378653578542e-15,
+      "focus_projection_max_error": 7.590426830708075e-15,
+      "moving_line_max_error": 1.92456448814934e-15,
+      "model_size": [
+        4.999999999999999,
+        0.46920194463673665,
+        0.12854847348687734
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.064274236743438
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    },
+    {
+      "id": "drawing_nrg",
+      "whole_projection_max_error": 7.53644380168212e-15,
+      "focus_projection_max_error": 7.591847593814708e-15,
+      "moving_line_max_error": 1.878377932716794e-15,
+      "model_size": [
+        5,
+        1.2785676928932206,
+        0.27954740634250563
+      ],
+      "scene_sizes": {
+        "folded": [
+          12,
+          12,
+          12
+        ],
+        "unfolded": [
+          24,
+          24,
+          6.139773703171253
+        ]
+      },
+      "explicit_camera_fit_max_ndc": 0.9168028882688944
+    }
+  ],
+  "maximum_errors": {
+    "whole": 7.75573429116031e-15,
+    "focus": 7.595905452671892e-15,
+    "lines": 2.1065000811460206e-15
+  },
+  "pass": true,
+  "explicit_camera_fit_max_ndc": 0.9168028882688944,
+  "explicit_camera_fits": true
+}

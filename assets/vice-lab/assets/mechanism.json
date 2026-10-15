@@ -1,0 +1,349 @@
+{
+  "schema": "cn.edu.mechanical-teaching.mechanism/1.0",
+  "asset": {
+    "glb": "glb/虎钳_assembled.glb",
+    "sha256": "3C587B9C62ED43574A29CCB26BD2A99179315B0413B99F5B316996641B158E9B",
+    "assetVersion": "vice-2026.08.11.3",
+    "units": "metre",
+    "upAxis": "+Y",
+    "forwardAxis": "+Z",
+    "sourceAssembly": "new虎钳装配体.SLDASM",
+    "sourceVersion": "SolidWorks 2008-era compound document",
+    "uniqueParts": 11,
+    "instances": 15
+  },
+  "groups": {
+    "fixedStructure": [
+      "fixed_body_01",
+      "jaw_plate_01",
+      "jaw_screw_m8_03",
+      "jaw_screw_m8_04",
+      "washer_gb97_16_01"
+    ],
+    "movingSlide": [
+      "square_nut_01",
+      "moving_body_01",
+      "retaining_screw_01",
+      "jaw_plate_02",
+      "jaw_screw_m8_01",
+      "jaw_screw_m8_02"
+    ],
+    "leadScrewRotor": [
+      "lead_screw_01",
+      "washer_gb97_12_01",
+      "ring_01",
+      "pin_01"
+    ]
+  },
+  "joints": [
+    {
+      "id": "moving_slide",
+      "type": "prismatic",
+      "members": "movingSlide",
+      "axisWorld": [0, 0, 1],
+      "initialPosition_m": -0.056657563979925,
+      "initialJawGap_m": 0.0393424367949351,
+      "jawGapRange_m": [0, 0.055],
+      "rangeStatus": "maximum is a conservative visual estimate from rail clearance; teacher review required"
+    },
+    {
+      "id": "lead_screw_rotation",
+      "type": "revolute",
+      "members": "leadScrewRotor",
+      "axisWorld": [0, 0, 1],
+      "pivotWorld_m": [0, 0.016, 0],
+      "range_rad": null
+    },
+    {
+      "id": "lead_screw_coupling",
+      "type": "helicalCoupling",
+      "driver": "lead_screw_rotation",
+      "driven": "moving_slide",
+      "pitch_m_per_revolution": 0.004,
+      "rotationToSlideSign": -1,
+      "runtimeEquation": "slideDelta = rotationToSlideSign * pitch * angle / (2*pi)",
+      "sourceEvidence": "丝杠.SLDPRT CAD feature: helix pitch 4 mm, rise 100 mm, 24.9938 revolutions",
+      "manufacturingHandedness": "source helix clockwise=false; runtime sign corrected from user visual review"
+    }
+  ],
+  "threadData": [
+    {
+      "partId": "lead_screw",
+      "pitch_m": 0.004,
+      "source": "CAD helix feature"
+    },
+    {
+      "partId": "jaw_screw_m8",
+      "pitch_m": 0.00125,
+      "source": "CAD helix feature"
+    },
+    {
+      "partId": "retaining_screw",
+      "pitch_m": 0.0015,
+      "source": "CAD helix feature"
+    }
+  ],
+  "disassembly": {
+    "mode": "deterministic-guided",
+    "sequenceStatus": "inferred from the supplied assembly and disassembly videos",
+    "steps": [
+      {
+        "id": "remove_retaining_screw",
+        "label": "旋出顶部螺钉",
+        "instanceIds": ["retaining_screw_01"],
+        "motion": "helicalThenLinear",
+        "axisWorld": [0, 1, 0],
+        "totalDistance_m": 0.07,
+        "threadedTravel_m": 0.022,
+        "pitch_m": 0.0015,
+        "rotationSign": -1
+      },
+      {
+        "id": "remove_moving_jaw_screw_left",
+        "label": "旋出活动钳口左螺钉",
+        "instanceIds": ["jaw_screw_m8_01"],
+        "motion": "helicalThenLinear",
+        "axisWorld": [0, 0, -1],
+        "totalDistance_m": 0.055,
+        "threadedTravel_m": 0.02,
+        "pitch_m": 0.00125,
+        "rotationSign": 1
+      },
+      {
+        "id": "remove_moving_jaw_screw_right",
+        "label": "旋出活动钳口右螺钉",
+        "instanceIds": ["jaw_screw_m8_02"],
+        "motion": "helicalThenLinear",
+        "axisWorld": [0, 0, -1],
+        "totalDistance_m": 0.055,
+        "threadedTravel_m": 0.02,
+        "pitch_m": 0.00125,
+        "rotationSign": 1
+      },
+      {
+        "id": "remove_moving_jaw_plate",
+        "label": "取下活动钳口板",
+        "instanceIds": ["jaw_plate_02"],
+        "motion": "linear",
+        "axisWorld": [0, 0, -1],
+        "totalDistance_m": 0.065
+      },
+      {
+        "id": "lift_moving_body",
+        "label": "向上取下活动钳身",
+        "instanceIds": ["moving_body_01"],
+        "motion": "linear",
+        "axisWorld": [0, 1, 0],
+        "totalDistance_m": 0.09
+      },
+      {
+        "id": "remove_fixed_jaw_screw_left",
+        "label": "旋出固定钳口左螺钉",
+        "instanceIds": ["jaw_screw_m8_03"],
+        "motion": "helicalThenLinear",
+        "axisWorld": [0, 0, 1],
+        "totalDistance_m": 0.055,
+        "threadedTravel_m": 0.02,
+        "pitch_m": 0.00125,
+        "rotationSign": 1
+      },
+      {
+        "id": "remove_fixed_jaw_screw_right",
+        "label": "旋出固定钳口右螺钉",
+        "instanceIds": ["jaw_screw_m8_04"],
+        "motion": "helicalThenLinear",
+        "axisWorld": [0, 0, 1],
+        "totalDistance_m": 0.055,
+        "threadedTravel_m": 0.02,
+        "pitch_m": 0.00125,
+        "rotationSign": 1
+      },
+      {
+        "id": "remove_fixed_jaw_plate",
+        "label": "取下固定钳口板",
+        "instanceIds": ["jaw_plate_01"],
+        "motion": "linear",
+        "axisWorld": [0, 0, 1],
+        "totalDistance_m": 0.065
+      },
+      {
+        "id": "remove_pin",
+        "label": "向上抽出销",
+        "instanceIds": ["pin_01"],
+        "motion": "linear",
+        "axisWorld": [0, 1, 0],
+        "totalDistance_m": 0.06
+      },
+      {
+        "id": "remove_ring",
+        "label": "取下挡环",
+        "instanceIds": ["ring_01"],
+        "motion": "linear",
+        "axisWorld": [0, 0, 1],
+        "totalDistance_m": 0.055
+      },
+      {
+        "id": "remove_front_washer",
+        "label": "取下前端垫圈",
+        "instanceIds": ["washer_gb97_12_01"],
+        "motion": "linear",
+        "axisWorld": [0, 0, 1],
+        "totalDistance_m": 0.045
+      },
+      {
+        "id": "withdraw_lead_screw",
+        "label": "沿轴向抽出丝杠",
+        "instanceIds": ["lead_screw_01"],
+        "motion": "linear",
+        "axisWorld": [0, 0, 1],
+        "totalDistance_m": 0.22
+      },
+      {
+        "id": "remove_rear_washer",
+        "label": "取下后端垫圈",
+        "instanceIds": ["washer_gb97_16_01"],
+        "motion": "linear",
+        "axisWorld": [0, 0, -1],
+        "totalDistance_m": 0.06
+      },
+      {
+        "id": "drop_square_nut",
+        "label": "向下取出方块螺母",
+        "instanceIds": ["square_nut_01"],
+        "motion": "linear",
+        "axisWorld": [0, -1, 0],
+        "totalDistance_m": 0.08
+      }
+    ]
+  },
+  "inspection": {
+    "mode": "freeTake",
+    "ignoreSequence": true,
+    "ignoreCollision": true,
+    "description": "Select any part and drag it along its clear extraction axis; partial progress is preserved.",
+    "parts": [
+      {
+        "instanceId": "fixed_body_01",
+        "explodeOffset_m": [0, 0, 0],
+        "freeTakeAxisWorld": [-1, 0, 0],
+        "freeTakeDistance_m": 0.18
+      },
+      {
+        "instanceId": "retaining_screw_01",
+        "explodeOffset_m": [0, 0.22, 0],
+        "freeTakeAxisWorld": [0, 1, 0],
+        "freeTakeDistance_m": 0.16
+      },
+      {
+        "instanceId": "jaw_screw_m8_01",
+        "explodeOffset_m": [-0.055, 0.035, -0.14],
+        "freeTakeAxisWorld": [0, 0, -1],
+        "freeTakeDistance_m": 0.16
+      },
+      {
+        "instanceId": "jaw_screw_m8_02",
+        "explodeOffset_m": [0.055, 0.035, -0.14],
+        "freeTakeAxisWorld": [0, 0, -1],
+        "freeTakeDistance_m": 0.16
+      },
+      {
+        "instanceId": "jaw_plate_02",
+        "explodeOffset_m": [0, 0.06, -0.12],
+        "freeTakeAxisWorld": [0, 0, -1],
+        "freeTakeDistance_m": 0.15
+      },
+      {
+        "instanceId": "moving_body_01",
+        "explodeOffset_m": [0, 0.15, 0.025],
+        "freeTakeAxisWorld": [0, 1, 0],
+        "freeTakeDistance_m": 0.18
+      },
+      {
+        "instanceId": "jaw_screw_m8_03",
+        "explodeOffset_m": [-0.055, 0.035, 0.14],
+        "freeTakeAxisWorld": [0, 0, 1],
+        "freeTakeDistance_m": 0.16
+      },
+      {
+        "instanceId": "jaw_screw_m8_04",
+        "explodeOffset_m": [0.055, 0.035, 0.14],
+        "freeTakeAxisWorld": [0, 0, 1],
+        "freeTakeDistance_m": 0.16
+      },
+      {
+        "instanceId": "jaw_plate_01",
+        "explodeOffset_m": [0, 0.06, 0.12],
+        "freeTakeAxisWorld": [0, 0, 1],
+        "freeTakeDistance_m": 0.15
+      },
+      {
+        "instanceId": "pin_01",
+        "explodeOffset_m": [-0.07, 0.14, 0.045],
+        "freeTakeAxisWorld": [0, 1, 0],
+        "freeTakeDistance_m": 0.14
+      },
+      {
+        "instanceId": "ring_01",
+        "explodeOffset_m": [-0.06, 0.04, 0.12],
+        "freeTakeAxisWorld": [0, 0, 1],
+        "freeTakeDistance_m": 0.13
+      },
+      {
+        "instanceId": "washer_gb97_12_01",
+        "explodeOffset_m": [0.06, 0.025, 0.105],
+        "freeTakeAxisWorld": [0, 0, 1],
+        "freeTakeDistance_m": 0.13
+      },
+      {
+        "instanceId": "lead_screw_01",
+        "explodeOffset_m": [0, -0.025, 0.24],
+        "freeTakeAxisWorld": [0, 0, 1],
+        "freeTakeDistance_m": 0.29
+      },
+      {
+        "instanceId": "washer_gb97_16_01",
+        "explodeOffset_m": [0, 0.025, -0.13],
+        "freeTakeAxisWorld": [0, 0, -1],
+        "freeTakeDistance_m": 0.14
+      },
+      {
+        "instanceId": "square_nut_01",
+        "explodeOffset_m": [0, -0.15, 0],
+        "freeTakeAxisWorld": [0, -1, 0],
+        "freeTakeDistance_m": 0.17
+      }
+    ]
+  },
+  "interactionPolicy": {
+    "blankDrag": "orbit camera",
+    "partTap": "select and identify",
+    "activePartDrag": "guided mode uses the current step; free-take mode accepts any selected part along its authored clear axis",
+    "twoFinger": "zoom and pan",
+    "freePhysics": false,
+    "reason": "teaching sequence and thread coupling are deterministic; generic rigid-body physics would not preserve CAD mates"
+  },
+  "extractionAxisEvidence": {
+    "method": "identify the cap end by the larger radial envelope in the GLB screw mesh, transform its local tail-to-head vector into assembly space, and use that vector as the outward removal axis",
+    "headDirectionByInstance": {
+      "retaining_screw_01": [0, 1, 0],
+      "jaw_screw_m8_01": [0, 0, -1],
+      "jaw_screw_m8_02": [0, 0, -1],
+      "jaw_screw_m8_03": [0, 0, 1],
+      "jaw_screw_m8_04": [0, 0, 1]
+    }
+  },
+  "trainingRules": {
+    "dependencyModel": "linear prerequisites now; can be promoted to a dependency DAG when service tasks branch",
+    "states": ["locked", "ready", "inProgress", "removed", "serviceOptional", "installed"],
+    "wrongPart": "keep its transform fixed and identify the current ready part",
+    "helicalFastener": "couple axial travel to rotation through pitch until threadedTravel_m, then allow clear linear travel",
+    "reverseAssembly": "reverse the step order; approach linearly, engage the thread, then apply the opposite coupled rotation",
+    "collisionPolicy": "author a clear extraction corridor for each step instead of running unconstrained rigid-body physics on mobile",
+    "futureServiceTasks": ["clean", "inspect", "replace"]
+  },
+  "reviewFlags": [
+    "Confirm the 55 mm maximum opening against the physical teaching model.",
+    "Confirm the direction assigned to each washer during disassembly.",
+    "Recheck reconstructed screw handedness against the physical teaching vise before graded assessment; the source assembly contains no screw mate."
+  ]
+}

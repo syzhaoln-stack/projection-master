@@ -43,8 +43,23 @@ export const QUESTION_BANK = Object.freeze([
   },
   {
     id: 'rotate-to-front', modelId: 'throughHolePlate', title: '旋转至主视方向', skill: '空间旋转与视图匹配', difficulty: 1, type: 'rotate-to-view',
-    views: ['front', 'top', 'side'], showHidden: true, targetView: 'front', targetDirection: [0, 0, 1], toleranceDegrees: 9,
-    prompt: '拖动三维模型，将视线旋至与主视图一致的正交方向；出现“已对正”后提交。', evidence: '正交视图由固定观察方向决定。模型外形与主视图卡片匹配时，说明视线已与主视方向一致。', hint: '可先点击“主视”快捷键，再微调观察模型与右侧图样的轮廓。', misconception: 'view-direction-rotation', reflection: '你用外轮廓、孔轴线还是高度关系确认了主视方向？'
+    views: ['front', 'top', 'side'], showHidden: true, targetView: 'front', targetDirection: [0, 0, 1], toleranceDegrees: 7,
+    prompt: '拖动三维模型，将视线旋至与主视图一致的正交方向；出现“已对正”后提交。', evidence: '正交视图由固定观察方向决定。模型外形与主视图卡片匹配时，说明视线已与主视方向一致。', hint: '不要找标准视图按钮。先追踪孔轴线和外轮廓，观察哪一个方向正在缩短并最终积聚。', misconception: 'view-direction-rotation', reflection: '你用外轮廓、孔轴线还是高度关系确认了主视方向？'
+  },
+  {
+    id: 'bridge-rotate-plan', modelId: 'beamBridge', title: '把梁桥转到平面方向', skill: '桥梁坐标与平面投影', difficulty: 1, type: 'rotate-to-view',
+    views: ['front', 'top', 'side'], showHidden: false, targetView: 'top', targetDirection: [0, 1, 0], toleranceDegrees: 6,
+    prompt: '不使用标准视图按钮，拖动梁桥直到视线沿竖向观察，桥高被积聚，只留下桥向与横桥向的平面关系。', evidence: '平面图保留桥向与横桥向，竖向高度在投影方向上被压缩；能主动对准说明学生把坐标方向与视图联系了起来。', hint: '先找桥墩的竖向，再让这条方向在画面里逐渐缩短；不要靠背诵“俯视图在上面”。', misconception: 'bridge-plan-direction', reflection: '你用桥墩、桥面宽度还是桥跨方向确认了平面？'
+  },
+  {
+    id: 'bridge-rotate-elevation', modelId: 'cableStayedFan', title: '把斜拉桥转到立面方向', skill: '桥梁坐标与立面投影', difficulty: 2, type: 'rotate-to-view',
+    views: ['front', 'top', 'side'], showHidden: false, targetView: 'front', targetDirection: [0, 0, 1], toleranceDegrees: 6,
+    prompt: '换成斜拉桥后再次无提示旋转：让横桥向被积聚，在画面中保留桥向与竖向，能够直接看见塔高和拉索斜率。', evidence: '立面图保留桥向与竖向，因此塔高、跨径和拉索斜率可直接比较；横桥向宽度不能由这一张图单独确定。', hint: '观察双索面是否逐渐重合；当横桥向积聚时，桥塔和同一纵向位置的拉索会落到立面关系中。', misconception: 'bridge-elevation-direction', reflection: '哪一个构件的重合最能证明你已经沿横桥向观察？'
+  },
+  {
+    id: 'bridge-rotate-section', modelId: 'beamBridge', title: '把梁桥转到横断面方向', skill: '桥梁坐标与横断面投影', difficulty: 2, type: 'rotate-to-view',
+    views: ['front', 'top', 'side'], showHidden: false, targetView: 'side', targetDirection: [1, 0, 0], toleranceDegrees: 6,
+    prompt: '再次换目标：让桥向长度被积聚，在画面中保留横桥向与竖向，形成桥面、主梁和桥墩的横断面关系。', evidence: '横断面保留横桥向和竖向，桥长在视线方向上被压缩；这一视图负责核对桥宽、梁间距、横坡和断面构件关系。', hint: '先追踪最长的桥向边，让它在画面中逐渐缩短；真正对准时，远近两个桥墩会趋于重合。', misconception: 'bridge-section-direction', reflection: '你通过哪一条长边或哪一组重合关系确认了横断面？'
   },
   {
     id: 'click-model-barrel', modelId: 'bearingSeat', title: '点击圆筒构件', skill: '三维构件识别', difficulty: 1, type: 'click-model',

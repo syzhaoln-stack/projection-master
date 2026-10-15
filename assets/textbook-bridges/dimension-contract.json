@@ -1,0 +1,701 @@
+{
+  "schema": "projection-bridge-dimensions/1",
+  "units": "m",
+  "revision": "4",
+  "axes": {
+    "x": "longitudinal",
+    "y": "transverse",
+    "z": "up"
+  },
+  "coordinateMappingToThree": "(x,y,z) => (x,z,-y)",
+  "sourceStatement": "模型包含原创结构概念变种与注明实桥来源的教学重建；均不构成完整竣工复刻。",
+  "lengthDefinition": "length 为桥面中心线两端的 x 向投影长度；曲线桥实际中心线弧长另算，不将两者混同。",
+  "display": {
+    "uniformScaleOnly": true,
+    "displayExtent": 5,
+    "memberThicknessFactor": 1
+  },
+  "models": [
+    {
+      "id": "girder_reference",
+      "title": "梁桥 · 受弯基准",
+      "geometry_revision": "1",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M01"
+      ],
+      "bridge": {
+        "type": "梁桥",
+        "spans": [
+          24
+        ],
+        "total_length": 24,
+        "deck_width": 6,
+        "girder_depth": 1.2,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 5,
+        "main_span": 24,
+        "shape_height": 1.2,
+        "shape_height_definition": "桥面以上塔顶高度或梁高",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 24
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "girder_reference@1"
+    },
+    {
+      "id": "girder_tree",
+      "title": "树形支承梁桥",
+      "geometry_revision": "1",
+      "sourceIds": [
+        "v2-tree-sbp"
+      ],
+      "bridge": {
+        "type": "梁桥",
+        "spans": [
+          18,
+          36,
+          18
+        ],
+        "total_length": 72,
+        "deck_width": 6,
+        "girder_depth": 1.15,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 12,
+        "main_span": 36,
+        "shape_height": 12,
+        "shape_height_definition": "桥面至基础顶附近基准面的高度",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 72
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "girder_tree@1"
+    },
+    {
+      "id": "stayed_standard",
+      "title": "双塔双索面斜拉桥",
+      "geometry_revision": "2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M97",
+        "cTxm8Y17AWLytFL44JkEBq-M100"
+      ],
+      "bridge": {
+        "type": "斜拉桥",
+        "spans": [
+          48,
+          120,
+          48
+        ],
+        "total_length": 216,
+        "deck_width": 14,
+        "girder_depth": 1.35,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 8,
+        "main_span": 120,
+        "shape_height": 32,
+        "shape_height_definition": "桥面以上塔顶高度",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 216
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "stayed_standard@2"
+    },
+    {
+      "id": "stayed_fan",
+      "title": "扇形索斜拉桥",
+      "geometry_revision": "1",
+      "sourceIds": [
+        "2VH4JDmRRUTQVmnQu1hxuu"
+      ],
+      "bridge": {
+        "type": "斜拉桥",
+        "spans": [
+          48,
+          96,
+          48
+        ],
+        "total_length": 192,
+        "deck_width": 8,
+        "girder_depth": 1.3,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 7,
+        "main_span": 96,
+        "shape_height": 28,
+        "shape_height_definition": "桥面以上塔顶高度",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 192
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "stayed_fan@1"
+    },
+    {
+      "id": "stayed_harp",
+      "title": "竖琴形索斜拉桥",
+      "geometry_revision": "1",
+      "sourceIds": [
+        "2VH4JDmRRUTQVmnQu1hxuu"
+      ],
+      "bridge": {
+        "type": "斜拉桥",
+        "spans": [
+          48,
+          96,
+          48
+        ],
+        "total_length": 192,
+        "deck_width": 8,
+        "girder_depth": 1.3,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 7,
+        "main_span": 96,
+        "shape_height": 28,
+        "shape_height_definition": "桥面以上塔顶高度",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 192
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "stayed_harp@1"
+    },
+    {
+      "id": "stayed_single",
+      "title": "独塔倾塔 · 单索面",
+      "geometry_revision": "1",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M98",
+        "2VH4JDmRRUTQVmnQu1hxuu-M16"
+      ],
+      "bridge": {
+        "type": "斜拉桥",
+        "spans": [
+          40,
+          60
+        ],
+        "total_length": 100,
+        "deck_width": 6,
+        "girder_depth": 1.25,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 6,
+        "main_span": 60,
+        "shape_height": 36,
+        "shape_height_definition": "桥面以上塔顶高度",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 99.99999999999997
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "stayed_single@1"
+    },
+    {
+      "id": "stayed_spatial",
+      "title": "空间曲线斜拉桥",
+      "geometry_revision": "2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M102",
+        "2VH4JDmRRUTQVmnQu1hxuu-M16",
+        "gimsing-katsushika"
+      ],
+      "bridge": {
+        "type": "斜拉桥",
+        "spans": [
+          100
+        ],
+        "total_length": 100,
+        "deck_width": 5.5,
+        "girder_depth": 1.1,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 7,
+        "main_span": 100,
+        "shape_height": 31,
+        "shape_height_definition": "桥面以上塔顶高度",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 104.0449296333009
+      },
+      "parameters": {
+        "towerAzimuthDeg": 150,
+        "towerInclinationDeg": 12
+      },
+      "parameter_schema": [
+        {
+          "key": "towerAzimuthDeg",
+          "label": "倾塔方位角",
+          "unit": "°",
+          "min": 140,
+          "max": 220,
+          "step": 1,
+          "default": 150,
+          "description": "塔脚固定，倾斜方向绕竖向轴旋转；0°朝桥纵向+x，90°朝横向+y。"
+        },
+        {
+          "key": "towerInclinationDeg",
+          "label": "相对竖直倾角",
+          "unit": "°",
+          "min": 8,
+          "max": 16,
+          "step": 1,
+          "default": 12,
+          "description": "固定塔顶高程，改变塔顶水平偏移；范围为可观察的教学几何范围，非设计许可。"
+        }
+      ],
+      "geometry_signature": "stayed_spatial@2"
+    },
+    {
+      "id": "extradosed",
+      "title": "矮塔部分斜拉桥",
+      "geometry_revision": "1",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M99",
+        "cTxm8Y17AWLytFL44JkEBq-M122"
+      ],
+      "bridge": {
+        "type": "斜拉桥",
+        "spans": [
+          36,
+          60,
+          36
+        ],
+        "total_length": 132,
+        "deck_width": 8,
+        "girder_depth": 1.65,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 6,
+        "main_span": 60,
+        "shape_height": 9,
+        "shape_height_definition": "桥面以上塔顶高度",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 132.00000000000003
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "extradosed@1"
+    },
+    {
+      "id": "arch_basket",
+      "title": "提篮拱桥",
+      "geometry_revision": "2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M67",
+        "cTxm8Y17AWLytFL44JkEBq-M93"
+      ],
+      "bridge": {
+        "type": "拱桥",
+        "spans": [
+          80
+        ],
+        "total_length": 80,
+        "deck_width": 7,
+        "girder_depth": 1.15,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 5,
+        "main_span": 80,
+        "shape_height": 18,
+        "shape_height_definition": "拱轴矢高",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 80
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "arch_basket@2"
+    },
+    {
+      "id": "arch_inclined",
+      "title": "单侧倾拱桥",
+      "geometry_revision": "2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M74",
+        "diagonal-parameter-family"
+      ],
+      "bridge": {
+        "type": "拱桥",
+        "spans": [
+          72
+        ],
+        "total_length": 72,
+        "deck_width": 6.5,
+        "girder_depth": 1.15,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 5,
+        "main_span": 72,
+        "shape_height": 18,
+        "shape_height_definition": "拱轴矢高",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 72
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "arch_inclined@2"
+    },
+    {
+      "id": "arch_network",
+      "title": "网状吊杆系杆拱",
+      "geometry_revision": "2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M89",
+        "7Gdua5q7a8eDfhLwkMzTJH:research-assembly"
+      ],
+      "bridge": {
+        "type": "拱桥",
+        "spans": [
+          84
+        ],
+        "total_length": 84,
+        "deck_width": 7,
+        "girder_depth": 1.15,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 5,
+        "main_span": 84,
+        "shape_height": 17,
+        "shape_height_definition": "拱轴矢高",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 84
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "arch_network@2"
+    },
+    {
+      "id": "suspension_ground",
+      "title": "地锚式悬索桥",
+      "geometry_revision": "2",
+      "sourceIds": [
+        "L04",
+        "2VH4JDmRRUTQVmnQu1hxuu-M15"
+      ],
+      "bridge": {
+        "type": "悬索桥",
+        "spans": [
+          27,
+          90,
+          27
+        ],
+        "total_length": 144,
+        "deck_width": 7,
+        "girder_depth": 1.15,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 7,
+        "main_span": 90,
+        "shape_height": 11.65,
+        "shape_height_definition": "桥面以上主跨索鞍中心高差（塔帽另计）",
+        "cable_sag": 9,
+        "cable_lowest_above_deck": 2.65,
+        "cable_saddle_above_deck": 11.65,
+        "tower_cap_above_saddle": 0.45,
+        "anchor_to_anchor_length": 180,
+        "deck_centerline_arc_length": 143.99999999999994
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "suspension_ground@2"
+    },
+    {
+      "id": "suspension_self",
+      "title": "自锚式悬索桥",
+      "geometry_revision": "2",
+      "sourceIds": [
+        "2VH4JDmRRUTQVmnQu1hxuu-M15"
+      ],
+      "bridge": {
+        "type": "悬索桥",
+        "spans": [
+          21,
+          84,
+          21
+        ],
+        "total_length": 126,
+        "deck_width": 7,
+        "girder_depth": 1.55,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 7,
+        "main_span": 84,
+        "shape_height": 17.25,
+        "shape_height_definition": "桥面以上主跨索鞍中心高差（塔帽另计）",
+        "cable_sag": 14,
+        "cable_lowest_above_deck": 3.25,
+        "cable_saddle_above_deck": 17.25,
+        "tower_cap_above_saddle": 0.45,
+        "anchor_to_anchor_length": 126,
+        "deck_centerline_arc_length": 125.99999999999997
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "suspension_self@2"
+    },
+    {
+      "id": "suspension_inclined",
+      "title": "倾斜索面悬索桥",
+      "geometry_revision": "2",
+      "sourceIds": [
+        "gimsing-youngjong",
+        "v2-suspension-sbp"
+      ],
+      "bridge": {
+        "type": "悬索桥",
+        "spans": [
+          27,
+          90,
+          27
+        ],
+        "total_length": 144,
+        "deck_width": 7,
+        "girder_depth": 1.15,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 7,
+        "main_span": 90,
+        "shape_height": 11.65,
+        "shape_height_definition": "桥面以上主跨索鞍中心高差",
+        "cable_sag": 9,
+        "cable_lowest_above_deck": 2.65,
+        "cable_saddle_above_deck": 11.65,
+        "tower_cap_above_saddle": 0,
+        "anchor_to_anchor_length": 180,
+        "deck_centerline_arc_length": 143.99999999999994
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "suspension_inclined@2"
+    },
+    {
+      "id": "underslung_suspension",
+      "title": "下承悬索 · 立杆上托梁",
+      "geometry_revision": "1",
+      "sourceIds": [
+        "v3-underdeck-system"
+      ],
+      "bridge": {
+        "type": "悬索桥",
+        "spans": [
+          60
+        ],
+        "total_length": 60,
+        "deck_width": 5.5,
+        "girder_depth": 0.85,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 10,
+        "main_span": 60,
+        "shape_height": 4.2,
+        "shape_height_definition": "桥面下主索的端点—跨中垂度",
+        "cable_sag": 4.2,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 60
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "underslung_suspension@1"
+    },
+    {
+      "id": "millennium_low",
+      "title": "伦敦千禧桥 · 低位侧索",
+      "geometry_revision": "1",
+      "sourceIds": [
+        "v3-millennium-foster",
+        "v3-millennium-arup"
+      ],
+      "bridge": {
+        "type": "悬索桥",
+        "spans": [
+          81,
+          144,
+          108
+        ],
+        "total_length": 333,
+        "deck_width": 4,
+        "girder_depth": 0.65,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 12,
+        "main_span": 144,
+        "shape_height": 2.3,
+        "shape_height_definition": "主跨主索最高点—最低点垂度（非塔高）",
+        "cable_sag": 2.3,
+        "cable_lowest_above_deck": -0.8,
+        "cable_saddle_above_deck": 1.5,
+        "tower_cap_above_saddle": 0,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 332.9999999999999
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "millennium_low@1"
+    },
+    {
+      "id": "stress_ribbon",
+      "title": "应力带人行桥",
+      "geometry_revision": "2",
+      "sourceIds": [
+        "L02",
+        "cTxm8Y17AWLytFL44JkEBq-M135"
+      ],
+      "bridge": {
+        "type": "悬索桥",
+        "spans": [
+          50
+        ],
+        "total_length": 50,
+        "deck_width": 3.4,
+        "girder_depth": 0.2,
+        "deck_thickness": 0.14,
+        "deck_surface_z": 6,
+        "main_span": 50,
+        "shape_height": 0.9,
+        "shape_height_definition": "桥面端部与跨中垂度",
+        "cable_sag": 0.9,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 50.043149234321504
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "stress_ribbon@2"
+    },
+    {
+      "id": "hybrid_cable",
+      "title": "斜拉—悬索组合桥",
+      "geometry_revision": "2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M02",
+        "gimsing-dischinger"
+      ],
+      "bridge": {
+        "type": "组合桥",
+        "spans": [
+          42,
+          120,
+          42
+        ],
+        "total_length": 204,
+        "deck_width": 8,
+        "girder_depth": 1.15,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 7,
+        "main_span": 120,
+        "shape_height": 14.65,
+        "shape_height_definition": "桥面以上主跨索鞍中心高差（塔帽另计）",
+        "cable_sag": 12,
+        "cable_lowest_above_deck": 2.65,
+        "cable_saddle_above_deck": 14.65,
+        "tower_cap_above_saddle": 0.45,
+        "anchor_to_anchor_length": 248,
+        "deck_centerline_arc_length": 204
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "hybrid_cable@2"
+    },
+    {
+      "id": "hybrid_arch",
+      "title": "梁—拱组合桥",
+      "geometry_revision": "1",
+      "sourceIds": [
+        "L03",
+        "cTxm8Y17AWLytFL44JkEBq-M91"
+      ],
+      "bridge": {
+        "type": "组合桥",
+        "spans": [
+          80
+        ],
+        "total_length": 80,
+        "deck_width": 7,
+        "girder_depth": 1.35,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 20,
+        "main_span": 80,
+        "shape_height": 14,
+        "shape_height_definition": "拱轴矢高",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 80
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "hybrid_arch@1"
+    },
+    {
+      "id": "fink_inverted",
+      "title": "倒置芬克桥",
+      "geometry_revision": "1",
+      "sourceIds": [
+        "v2-fink-lds",
+        "v2-fink-istructe",
+        "v2-fink-haer"
+      ],
+      "bridge": {
+        "type": "组合桥",
+        "spans": [
+          72
+        ],
+        "total_length": 72,
+        "deck_width": 6,
+        "girder_depth": 1.05,
+        "deck_thickness": 0.18,
+        "deck_surface_z": 7,
+        "main_span": 72,
+        "shape_height": 13,
+        "shape_height_definition": "桥面以上最高芬克压杆顶部高度",
+        "cable_sag": null,
+        "cable_lowest_above_deck": null,
+        "cable_saddle_above_deck": null,
+        "tower_cap_above_saddle": null,
+        "anchor_to_anchor_length": null,
+        "deck_centerline_arc_length": 72
+      },
+      "parameters": {},
+      "parameter_schema": [],
+      "geometry_signature": "fink_inverted@1"
+    }
+  ]
+}

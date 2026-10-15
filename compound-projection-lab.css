@@ -48,6 +48,7 @@ body.mode-compound #compound-shell{
   border-bottom:1px solid var(--compound-line);
   background:rgba(255,255,255,.98);
   box-shadow:0 2px 10px rgba(32,54,74,.06);
+  min-width:0;
 }
 
 .compound-course-title{display:flex;align-items:center;gap:10px;white-space:nowrap;}
@@ -122,6 +123,7 @@ body.mode-compound #compound-shell{
   gap:10px;
   min-height:0;
   padding:10px;
+  min-width:0;
 }
 
 .compound-model-panel,
@@ -146,6 +148,16 @@ body.mode-compound #compound-shell{
 .compound-panel-head>div{min-width:0;}
 .compound-panel-head span{display:block;margin-bottom:2px;color:var(--compound-accent);font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;}
 .compound-panel-head strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;}
+.compound-projection-meta{display:flex;align-items:center;gap:7px;}
+.compound-projection-meta>span{
+  margin:0;padding:4px 7px;border:1px solid #ccd7df;border-radius:99px;
+  color:#647889;background:#fff;font-size:8px;letter-spacing:0;text-transform:none;white-space:nowrap;
+}
+.compound-projection-meta>span[data-tone="passed"]{border-color:#7fbea0;color:#246847;background:#effaf4;}
+.compound-projection-meta>span[data-tone="running"]{border-color:#deb275;color:#85500f;background:#fff8ec;}
+.compound-projection-meta>span[data-tone="preview"]{border-color:#b9c7d1;color:#657886;background:#f3f6f8;}
+.compound-projection-meta>span[data-tone="error"]{border-color:#dda09b;color:#8c342e;background:#fff2f0;}
+#compound-stage-progress{font-size:10px;font-weight:800;white-space:nowrap;}
 #compound-operation-tags{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;}
 #compound-operation-tags span{
   margin:0;padding:3px 6px;
@@ -174,13 +186,14 @@ body.mode-compound #compound-shell{
 
 .compound-projection-board{
   display:grid;
-  grid-template-columns:1fr 1fr;
-  grid-template-rows:1fr 1fr;
+  grid-template-columns:minmax(0,var(--compound-front-track,1fr)) minmax(0,var(--compound-side-track,1fr));
+  grid-template-rows:minmax(0,var(--compound-elevation-track,1fr)) minmax(0,var(--compound-plan-track,1fr));
   gap:8px;
   min-height:0;
   padding:8px;
   background:#eef2f5;
 }
+.compound-mobile-view-tabs{display:none;}
 .compound-view-card{
   min-width:0;min-height:0;
   display:grid;grid-template-rows:auto minmax(0,1fr);
@@ -192,6 +205,14 @@ body.mode-compound #compound-shell{
 .compound-view-card header span:last-child{color:#8897a4;font-size:9px;}
 .compound-view-image{position:relative;min-width:0;min-height:0;overflow:hidden;background:#fff;}
 .compound-view-card img{display:block;width:100%;height:100%;min-height:0;object-fit:contain;background:#fff;image-rendering:auto;}
+.compound-projection-board.is-scale-aligned{grid-template-rows:minmax(0,calc(24px + (100% - 56px) * var(--compound-elevation-ratio,.5))) minmax(0,1fr);}
+.compound-projection-board.is-scale-aligned .compound-view-card{position:relative;grid-template-rows:24px minmax(0,1fr);border:0;border-radius:3px;outline:1px solid #bac8d2;outline-offset:-1px;}
+.compound-projection-board.is-scale-aligned .compound-view-card header{
+  position:static;z-index:3;min-width:0;overflow:hidden;
+  padding:5px 8px;border:0;border-bottom:1px solid #e0e6eb;
+  background:#fff;pointer-events:none;white-space:nowrap;
+}
+.compound-projection-board.is-scale-aligned .compound-view-image{grid-row:2;height:100%;}
 .compound-projected-point{
   position:absolute;z-index:3;width:11px;height:11px;
   transform:translate(-50%,-50%);border:2px solid #fff;border-radius:50%;
@@ -212,6 +233,10 @@ body.mode-compound #compound-shell{
   color:#718292;background:#f8fafb;text-align:center;font-size:10px;line-height:1.55;
 }
 .compound-first-angle-note strong{margin-bottom:3px;color:var(--compound-ink);font-size:11px;}
+.compound-alignment-checks{display:grid;gap:3px;margin-top:7px;width:min(170px,100%);}
+.compound-alignment-checks span{padding:3px 5px;border-left:2px solid #d20f68;color:#5d7180;background:#fff;font-size:8px;text-align:left;}
+.compound-projection-board.is-scale-aligned .compound-first-angle-note{border-style:solid;border-color:#c8d9d3;background:#f5faf8;}
+.compound-projection-board.is-scale-aligned .compound-first-angle-note strong::after{content:" · 比例已锁定";color:#23805d;font-size:8px;}
 
 .compound-observation-tools{display:grid;gap:8px;}
 .compound-display-switches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;}
@@ -233,16 +258,34 @@ body.mode-compound #compound-shell{
 .compound-point-readout div{padding:5px 6px;border:1px solid #dde4e9;border-radius:5px;color:#657987;background:#fff;font-size:8px;line-height:1.35;}
 .compound-point-readout div:first-child{grid-column:1/-1;color:#344c5c;font-weight:800;}
 .compound-point-empty{margin:7px 0 0;color:#7d8c97;font-size:8px;line-height:1.45;}
-
 .compound-control-rail{min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px;overflow:auto;padding-right:2px;scrollbar-width:thin;}
 .compound-card{padding:11px 12px;}
 .compound-example-head{border-top:3px solid var(--compound-accent);}
 .compound-source{color:var(--compound-accent);font-size:10px;font-weight:800;}
 .compound-example-head h2{margin:4px 0 5px;font-size:15px;line-height:1.25;}
 .compound-example-head p{margin:0;color:var(--compound-muted);font-size:10px;line-height:1.55;}
+.compound-ai-disclosure{margin-top:8px;border-top:1px solid #e2e7eb;}
+.compound-ai-disclosure summary,
+.compound-tool-disclosure>summary,
+.compound-boolean-more>summary{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  min-height:32px;color:#596e7e;font-size:9px;font-weight:800;cursor:pointer;list-style:none;
+}
+.compound-ai-disclosure summary::-webkit-details-marker,
+.compound-tool-disclosure>summary::-webkit-details-marker,
+.compound-boolean-more>summary::-webkit-details-marker{display:none;}
+.compound-ai-disclosure summary::after,
+.compound-tool-disclosure>summary::after,
+.compound-boolean-more>summary::after{content:"＋";color:#8595a0;font-size:12px;font-weight:500;}
+.compound-ai-disclosure[open] summary::after,
+.compound-tool-disclosure[open]>summary::after,
+.compound-boolean-more[open]>summary::after{content:"−";}
+.compound-tool-disclosure>summary span{margin-left:auto;color:#7d8c97;font-size:8px;font-weight:650;}
+.compound-tool-disclosure[open]>summary{margin-bottom:9px;border-bottom:1px solid #e6ebef;}
+.compound-tool-body{display:grid;gap:7px;}
 .compound-ai-chain{
   display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);align-items:stretch;gap:5px;
-  margin-top:9px;padding-top:9px;border-top:1px solid #e2e7eb;
+  margin-top:2px;padding-top:7px;border-top:1px solid #edf0f2;
 }
 .compound-ai-chain>div{min-width:0;padding:6px;border:1px solid #d8e0e6;border-radius:5px;background:#f8fafb;}
 .compound-ai-chain>div:nth-of-type(2){border-color:#e7b4cb;background:#fff6fa;}
@@ -254,18 +297,17 @@ body.mode-compound #compound-shell{
 .compound-card-title strong{font-size:11px;}
 .compound-card-title span{color:#788895;font-size:9px;}
 
-/* 本页的识别性元素：组合步骤是一条可回退的“装配轨道”。 */
-#compound-sequence{position:relative;display:flex;flex-direction:column;gap:5px;padding-left:4px;}
-#compound-sequence::before{content:"";position:absolute;left:15px;top:13px;bottom:13px;width:1px;background:#cbd6de;}
+/* 步骤与布尔运算合成一个工作记忆单元，避免学生在两块卡片间来回比对。 */
+#compound-sequence{position:relative;display:flex;gap:5px;overflow-x:auto;padding:1px 1px 5px;scrollbar-width:thin;scroll-snap-type:x proximity;}
 .compound-stage{
   position:relative;z-index:1;
-  display:grid;grid-template-columns:23px minmax(0,1fr);align-items:center;gap:7px;
-  min-height:32px;padding:4px 7px 4px 0;
+  flex:0 0 82px;display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:5px;
+  min-height:38px;padding:5px 6px;
   border:1px solid transparent;border-radius:6px;
-  color:#647687;background:transparent;text-align:left;cursor:pointer;
+  color:#647687;background:#f7f9fa;text-align:left;cursor:pointer;scroll-snap-align:start;
 }
-.compound-stage>span{display:grid;place-items:center;width:23px;height:23px;border:1px solid #bdcad4;border-radius:50%;background:#fff;font-size:9px;font-weight:800;}
-.compound-stage b{font-size:10px;font-weight:650;}
+.compound-stage>span{display:grid;place-items:center;width:20px;height:20px;border:1px solid #bdcad4;border-radius:50%;background:#fff;font-size:8px;font-weight:800;}
+.compound-stage b{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;font-size:8px;font-weight:700;line-height:1.25;}
 .compound-stage:hover{border-color:#d2dce4;background:#f8fafb;}
 .compound-stage.complete>span{border-color:var(--compound-add);color:#fff;background:var(--compound-add);}
 .compound-stage.active{border-color:#e9a7c5;color:#8e0e4c;background:var(--compound-accent-soft);}
@@ -348,7 +390,8 @@ body.mode-compound #compound-shell{
 .compound-empty-parameters{margin:0;color:#7a8995;font-size:9px;line-height:1.5;}
 
 /* 本页的核心交互：把CAD差集写成可操作的 A−B 方程。 */
-.compound-boolean-card{border-top:3px solid var(--compound-subtract);}
+.compound-boolean-card{margin-top:8px;padding-top:8px;border-top:1px solid #ead7c1;}
+.compound-boolean-card[hidden]{display:none!important;}
 #compound-boolean-workbench{display:flex;flex-direction:column;gap:8px;}
 .compound-equation{
   display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);
@@ -386,6 +429,11 @@ body.mode-compound #compound-shell{
 .compound-drag-note i{position:absolute;left:7px;top:8px;width:7px;height:7px;border-radius:2px;background:var(--compound-subtract);}
 .compound-boolean-actions{display:grid;grid-template-columns:1.2fr 1fr;gap:5px;}
 .compound-boolean-actions button{min-width:0;font-size:9px;}
+.compound-boolean-more{border-top:1px dashed #dde4e9;}
+.compound-boolean-more>summary{min-height:26px;justify-content:flex-start;color:#7c8b96;font-size:8px;font-weight:700;}
+.compound-boolean-more>summary::after{margin-left:auto;}
+.compound-boolean-more>div{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding-top:4px;}
+.compound-boolean-more button{font-size:8px;}
 
 .compound-question p{margin:0 0 8px;color:#475d70;font-size:10px;line-height:1.5;}
 #compound-answers{display:flex;flex-direction:column;gap:5px;}
@@ -424,13 +472,28 @@ body:not(.mode-compound) #compound-shell{display:none;}
 @media(max-width:740px){
   .compound-coursebar{grid-template-columns:minmax(0,1fr) auto;}
   .compound-course-title small{display:none;}
-  .compound-workspace{display:flex;flex-direction:column;min-height:0;padding:7px;}
-  .compound-model-panel{min-height:420px;}
-  .compound-projection-panel{min-height:520px;}
-  .compound-control-rail{overflow:visible;}
-  .compound-projection-board{grid-template-columns:1fr;grid-template-rows:repeat(3,220px);}
-  .compound-view-card.front,.compound-view-card.side,.compound-view-card.top{grid-column:1;grid-row:auto;}
+  .compound-coursebar,.compound-workspace{width:100%;max-width:100%;min-width:0;}
+  .compound-workspace{display:flex;flex-direction:column;min-height:0;padding:7px;overflow-x:hidden;}
+  .compound-model-panel{order:1;min-height:390px;}
+  .compound-control-rail{display:contents;overflow:visible;}
+  .compound-control-rail>*{order:4;}
+  .compound-step-card{order:2;}
+  .compound-projection-panel{order:3;min-height:360px;}
+  .compound-projection-board,.compound-projection-board.is-scale-aligned{grid-template-columns:1fr;grid-template-rows:44px minmax(250px,1fr);}
+  .compound-mobile-view-tabs{grid-column:1;grid-row:1;display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+  .compound-mobile-view-tabs button{min-height:40px;border:1px solid #cbd6de;border-radius:7px;color:#5d7182;background:#fff;font-size:11px;font-weight:800;}
+  .compound-mobile-view-tabs button.active{border-color:var(--compound-accent);color:#99104f;background:var(--compound-accent-soft);}
+  .compound-view-card.front,.compound-view-card.side,.compound-view-card.top{display:none;grid-column:1;grid-row:2;}
+  .compound-view-card.is-mobile-active{display:grid;}
+  .compound-projection-board.is-scale-aligned .compound-view-card.is-mobile-active{display:grid;}
+  .compound-projection-board.is-scale-aligned .compound-view-card header{position:static;padding:6px 8px;border-bottom:1px solid #e0e6eb;border-radius:0;background:#fff;}
+  .compound-projection-board.is-scale-aligned .compound-view-card{grid-template-rows:auto minmax(0,1fr);}
+  .compound-projection-board.is-scale-aligned .compound-view-image{grid-row:2;}
   .compound-first-angle-note{display:none;}
+  .compound-stage-actions{position:sticky;bottom:6px;z-index:7;margin:8px -4px -4px;padding:6px;border:1px solid #d5dee5;border-radius:8px;background:rgba(255,255,255,.96);box-shadow:0 -4px 14px rgba(32,54,74,.08);}
+  .compound-stage-actions button,.compound-boolean-actions button,.compound-mobile-view-tabs button{min-height:44px;}
+  .compound-tool-disclosure>summary,.compound-ai-disclosure summary{min-height:44px;}
+  .compound-model-help{right:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 }
 
 @media(max-width:520px){
@@ -444,8 +507,8 @@ body:not(.mode-compound) #compound-shell{display:none;}
   .compound-course-title strong{font-size:15px;}
   .compound-course-title>span{width:38px;height:38px;}
   #compound-lesson-nav{grid-template-columns:repeat(3,minmax(138px,1fr));}
-  .compound-model-panel{min-height:380px;}
-  .compound-projection-panel{min-height:470px;}
+  .compound-model-panel{min-height:350px;}
+  .compound-projection-panel{min-height:340px;}
   #compound-components{grid-template-columns:1fr;}
   .compound-ai-chain{grid-template-columns:1fr;}
   .compound-ai-chain i{justify-self:center;transform:rotate(90deg);}

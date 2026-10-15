@@ -1,0 +1,194 @@
+#vice-lab-shell,
+#vice-lab-shell[hidden] {
+  display: none;
+}
+
+body.mode-vice #ribbon,
+body.mode-vice #workspace,
+body.mode-vice #statusbar,
+body.mode-vice #mobile-drawer,
+body.mode-vice #mobile-menu-btn,
+body.mode-vice #panel-toggle-l,
+body.mode-vice #panel-toggle-r,
+body.mode-vice #mobile-unfold-fab {
+  display: none !important;
+}
+
+body.mode-vice #appbar {
+  flex-shrink: 0;
+}
+
+body.mode-vice #vice-lab-shell:not([hidden]) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #dce3df;
+}
+
+.vice-lab-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+  min-height: 38px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--line, #c7d0d7);
+  background: var(--panel, #fff);
+  color: var(--text, #263746);
+}
+
+.vice-lab-information,
+.vice-lab-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.vice-lab-information strong {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.vice-lab-source,
+.vice-lab-reset-note {
+  color: var(--muted, #617684);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.vice-lab-open {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid var(--line, #c7d0d7);
+  border-radius: 4px;
+  color: var(--accent, #0a66c2);
+  background: var(--panel, #fff);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.vice-lab-open:hover {
+  background: var(--accent-soft, #e8f2fc);
+}
+
+.vice-lab-open:focus-visible {
+  outline: 2px solid var(--accent, #0a66c2);
+  outline-offset: 3px;
+}
+
+.vice-lab-frame-host {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.vice-lab-frame {
+  display: block;
+  flex: 1 1 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: #dce3df;
+}
+
+.vice-lab-notice {
+  position: absolute;
+  z-index: 1;
+  top: 12px;
+  left: 50%;
+  max-width: calc(100% - 24px);
+  margin: 0;
+  padding: 9px 13px;
+  transform: translateX(-50%);
+  border: 1px solid var(--line, #c7d0d7);
+  border-radius: 4px;
+  background: var(--panel, #fff);
+  color: var(--text, #263746);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.vice-lab-notice[hidden] {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  body.mode-vice #appbar {
+    height: auto;
+    min-height: 40px;
+    flex-wrap: wrap;
+    gap: 0;
+    padding: 4px 7px 0;
+  }
+
+  body.mode-vice #brand .sub {
+    display: none;
+  }
+
+  body.mode-vice #doc-tabs {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    height: 35px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  body.mode-vice #doc-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.mode-vice .mode-tab {
+    flex: 0 0 auto;
+    padding-inline: 8px;
+    white-space: nowrap;
+  }
+
+  .vice-lab-toolbar {
+    flex-wrap: wrap;
+    gap: 3px 8px;
+    padding: 5px 8px;
+  }
+
+  .vice-lab-information {
+    gap: 8px;
+  }
+
+  .vice-lab-source {
+    font-size: 10px;
+  }
+
+  .vice-lab-actions {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .vice-lab-reset-note {
+    font-size: 10px;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .vice-lab-toolbar {
+    min-height: 28px;
+    padding-block: 2px;
+  }
+
+  .vice-lab-source {
+    display: none;
+  }
+}

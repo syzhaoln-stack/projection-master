@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#e9ecf0">
 <link rel="icon" href="data:,">
-<title>工图投影大师 v8.2 · 教材切割实验与空间智能教学</title>
+<title>工图投影大师 v8.3.1 · 三视图、拆分与剖切</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -300,6 +300,7 @@ body{
 .tiled-view-card.sparkle::after{content:"✦";position:absolute;right:10px;top:28px;color:#e8b126;font-size:27px;text-shadow:0 0 8px #fff,0 0 16px #efb626;animation:view-sparkle .9s ease-out both;pointer-events:none;}
 .standard-view-actions{position:absolute;left:12px;bottom:12px;z-index:11;display:none;gap:6px;padding:6px;border:1px solid var(--line);border-radius:var(--radius-sm);background:rgba(255,255,255,.92);box-shadow:var(--shadow-sm);}
 #viewport.tiled-mode .standard-view-actions{display:flex;}
+body.quiz-rotate-task .standard-view-actions{display:none!important;}
 .standard-view-actions button{border:1px solid var(--line);border-radius:4px;background:#fff;padding:4px 7px;color:var(--text-2);font:inherit;font-size:11px;font-weight:700;cursor:pointer;}.standard-view-actions button:hover{background:var(--accent-soft);border-color:#bcd9f5;color:var(--accent);}
 @keyframes view-sparkle{0%{opacity:0;transform:scale(.35) rotate(-18deg)}35%{opacity:1;transform:scale(1.25) rotate(12deg)}100%{opacity:0;transform:scale(1.9) rotate(25deg)}}
 .vp-corner{
@@ -477,6 +478,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 .quiz-pill{padding:3px 9px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-size:10.5px;font-weight:800;letter-spacing:.04em;white-space:nowrap;}
 .quiz-body{padding:14px;}
 .quiz-intro{color:var(--muted);font-size:11.5px;line-height:1.55;margin-bottom:10px;}
+.quiz-memory{margin:0 0 10px;padding:9px 10px;border:1px solid #d8cfbf;border-left:3px solid #8b7c69;border-radius:var(--radius-sm);background:#fffdf8;}.quiz-memory[hidden]{display:none}.quiz-memory-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}.quiz-memory-head span:first-child{color:#756b5d;font-size:10.5px;font-weight:800}.quiz-memory-head span:last-child{color:var(--muted-2);font-size:9.5px;letter-spacing:.08em}.quiz-memory svg{display:block;width:100%;height:92px;border:1px solid var(--line-soft);border-radius:5px;background:#f8fafb}.quiz-memory p{margin:6px 0 0;color:var(--text-2);font-size:10.5px;line-height:1.5}.quiz-memory-pulse{animation:quizMemoryPulse 1.2s ease-in-out infinite}@keyframes quizMemoryPulse{0%,100%{opacity:.38}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.quiz-memory-pulse{animation:none!important}}
 .progress-bar{width:100%;height:5px;border-radius:999px;background:var(--panel-3);overflow:hidden;margin-bottom:12px;}
 .progress-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width var(--tx);}
 .quiz-question{padding:11px 12px;border-radius:var(--radius);background:var(--panel-2);border:1px solid var(--line-soft);}
@@ -557,7 +559,9 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 }
 </style>
 <link rel="stylesheet" href="./basic-projection-lab.css?v=8.0.0">
-<link rel="stylesheet" href="./compound-projection-lab.css?v=8.2.1">
+<link rel="stylesheet" href="./compound-projection-lab.css?v=8.3.1">
+<link rel="stylesheet" href="./vice-lab.css">
+<link rel="stylesheet" href="./integrated-library.css">
 </head>
 <body class="mode-lab">
 
@@ -567,13 +571,14 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     <div id="logo" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M5 4.5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6.5l-3 2v-2h-1a1.5 1.5 0 0 1-1.5-1.5v-11A1 1 0 0 1 5 4.5zm3.5 2h-2v2h2v-2zm0 4h-2v2h2v-2zm0 4h-2v2h2v-2zm4-8h7v2h-7v-2zm0 4h7v2h-7v-2zm0 4h7v2h-7v-2z"/></svg>
     </div>
-    <h1>工图投影大师<span class="ver">v8.2</span></h1>
+    <h1>工图投影大师<span class="ver">v8.3.1</span></h1>
     <span class="sub">空间智能教学工作台 · 第一角投影</span>
   </div>
   <div id="doc-tabs" role="tablist">
     <button class="mode-tab active" data-mode="lab" role="tab" aria-selected="true">第3章·投影基础</button>
     <button class="mode-tab" data-mode="compound" role="tab" aria-selected="false">第5章·组合体投影</button>
-    <button class="mode-tab" data-mode="explore" role="tab" aria-selected="false">自由探索</button>
+    <button class="mode-tab" data-mode="explore" role="tab" aria-selected="false">模型与三视图</button>
+    <button class="mode-tab" data-mode="vice" role="tab" aria-selected="false">虎钳拆装</button>
     <button class="mode-tab" data-mode="quiz" role="tab" aria-selected="false">空间练习</button>
   </div>
 </header>
@@ -598,12 +603,12 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       </div>
       <div class="rib-group">
         <div class="rib-group-row quick-col">
-          <button class="quick-chip" data-url="assets/cable_stayed_fan.obj">斜拉桥 资产</button>
-          <button class="quick-chip" data-url="assets/basket_arch.obj">提篮拱 资产</button>
-          <button class="quick-chip" data-url="assets/baybridge.stl">海湾大桥 资产</button>
-          <button class="quick-more" data-cat="bridge-asset">更多资产 ▾</button>
+          <button class="quick-chip" data-model="drawing_bago">Bago 斜拉桥</button>
+          <button class="quick-chip" data-model="drawing_nrg">新河峡谷拱桥</button>
+          <button class="quick-chip" data-model="drawing_forth">Forth 悬索桥</button>
+          <button class="quick-more" data-cat="bridge-asset">更多图纸模型 ▾</button>
         </div>
-        <div class="rib-group-label">桥梁资产·OBJ/STL</div>
+        <div class="rib-group-label">按图纸重构</div>
       </div>
       <div class="rib-group">
         <div class="rib-group-row quick-col">
@@ -632,15 +637,19 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     <div class="rib-panel" data-rib-panel="view">
       <div class="rib-group">
         <div class="rib-group-row">
-          <button class="rib-cmd check on" id="tog-projlines" title="显示/隐藏投影连线">
+          <button class="rib-cmd check" id="tog-projlines" title="按需显示模型到投影面的连线（默认关闭）" aria-pressed="false">
             <span class="ico"><svg viewBox="0 0 24 24"><path d="M4 20L20 4"/><path d="M4 12h16M12 4v16" stroke-dasharray="2 3"/></svg></span>
             <span class="cap">投影连线</span>
           </button>
-          <button class="rib-cmd check on" id="tog-hidden" title="显示/隐藏虚线与中心线">
+          <button class="rib-cmd check on" id="tog-hidden" title="显示/隐藏被遮挡的轮廓虚线" aria-pressed="true">
             <span class="ico"><svg viewBox="0 0 24 24"><path d="M4 8h16" stroke-dasharray="3 3"/><path d="M4 14h16"/><path d="M4 19h16" stroke-dasharray="1 3"/></svg></span>
-            <span class="cap wrap">虚线·中心线</span>
+            <span class="cap">隐藏虚线</span>
           </button>
-          <button class="rib-cmd check on" id="tog-axes" title="显示/隐藏坐标轴">
+          <button class="rib-cmd check" id="tog-centers" title="按需显示模型已有的孔轴与对称中心线" aria-pressed="false">
+            <span class="ico"><svg viewBox="0 0 24 24"><path d="M3 12h18M12 3v18" stroke-dasharray="7 2 1 2"/></svg></span>
+            <span class="cap">中心线</span>
+          </button>
+          <button class="rib-cmd check" id="tog-axes" title="按需显示模型坐标方向（默认关闭）" aria-pressed="false">
             <span class="ico"><svg viewBox="0 0 24 24"><path d="M5 19V5m0 14h14M5 19l-2-2m2 2l2-2M19 19l-2-2m2 2l2 2"/></svg></span>
             <span class="cap">坐标轴</span>
           </button>
@@ -653,12 +662,12 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       </div>
       <div class="rib-group">
         <div class="rib-group-row">
-          <button class="rib-cmd" id="tile-btn" aria-pressed="false" title="左侧自由旋转模型，右侧平铺第一角三视图">
+          <button class="rib-cmd" id="tile-btn" aria-pressed="false" title="辅助读图：左侧自由旋转模型，右侧平铺第一角三视图；常用展示为三投影面展开/合并">
             <span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="14" y="4" width="7" height="4" rx="1"/><rect x="14" y="10" width="7" height="4" rx="1"/><rect x="14" y="16" width="7" height="4" rx="1"/></svg></span>
             <span class="cap wrap">平铺三视图</span>
           </button>
         </div>
-        <div class="rib-group-label">对照学习</div>
+        <div class="rib-group-label">辅助读图（可选）</div>
       </div>
       <div class="rib-group">
         <div class="rib-group-row">
@@ -682,40 +691,22 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     </div>
     <div class="panel-scroll">
 
-      <!-- 桥梁结构（占位，下一轮接入） -->
+      <!-- 教材模型：保持命名构件与米制方向，供三视图和单件识读 -->
       <div class="tree-group open">
-        <div class="tree-group-head" data-group="bridge">
-          <span class="caret"></span>
-          <span class="grp-ico"><svg viewBox="0 0 24 24"><path d="M2 16h20M5 16v-3m14 3v-3M3 13c3-5 15-5 18 0M9 16v-2m6 2v-2"/></svg></span>
-          桥梁结构
-          <span class="grp-badge">专项</span>
-        </div>
-        <div class="tree-children">
-          <button class="model-btn" data-model="beamBridge"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M3 14h18M6 14v4M18 14v4M12 14v4"/></svg></span><span><span class="name">梁桥</span><span class="desc">简支/连续，墩+梁+桥面</span></span></button>
-          <button class="model-btn" data-model="archBridge"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M3 18h18M4 18c2-8 14-8 16 0M8 18v-4m4 4v-5m4 5v-4"/></svg></span><span><span class="name">拱桥</span><span class="desc">提篮/系杆，拱肋+吊杆</span></span></button>
-          <button class="model-btn" data-model="cableStayedFan"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M12 3v15M12 4l-7 14M12 4l7 14M3 18h18"/></svg></span><span><span class="name">斜拉桥·扇形</span><span class="desc">塔+扇形索面+主梁</span></span></button>
-          <button class="model-btn" data-model="cableStayedHarp"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M9 3v15M9 6l8 12M9 10l5 8M9 14l2.5 4M3 18h18"/></svg></span><span><span class="name">斜拉桥·竖琴</span><span class="desc">塔+平行索面+主梁</span></span></button>
-          <button class="model-btn" data-model="suspension"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M3 6v12m18-12v12M3 8c6 7 12 7 18 0M3 18h18M8 12v5m4-6v6m4-5v5"/></svg></span><span><span class="name">悬索桥</span><span class="desc">主缆+吊杆+桥塔</span></span></button>
-          <button class="model-btn" data-model="jointDetail"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 14h16M12 14V5M9 9h6M7 14l-1 5m12-5l1 5"/></svg></span><span><span class="name">节点构造</span><span class="desc">吊杆-横梁-主梁连接</span></span></button>
-        </div>
+        <div class="tree-group-head" data-group="bridge"><span class="caret"></span>桥梁模型墙<span class="grp-badge">20</span></div>
+        <p class="library-note">教材新版 · 桥向水平、竖向向上<br>点击构件可单独查看三视图</p>
+        <div class="tree-children" id="bridge-library-list"></div>
+      </div>
+      <div class="tree-group open">
+        <div class="tree-group-head" data-group="bridge-asset"><span class="caret"></span>按图纸重构的桥梁<span class="grp-badge">3</span></div>
+        <p class="library-note">保留零件与材质 · 含教学简化</p>
+        <div class="tree-children" id="drawing-bridge-list"></div>
       </div>
 
-      <!-- 桥梁资产（OBJ 导入，z 轴向上自动校正）—— 较复杂的真实参数化资产 -->
       <div class="tree-group open">
-        <div class="tree-group-head" data-group="bridge-asset">
-          <span class="caret"></span>
-          <span class="grp-ico"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4zM4 7v10l8 4M20 7v10l-8 4"/></svg></span>
-          桥梁资产·导入
-          <span class="grp-badge">OBJ</span>
-        </div>
+        <div class="tree-group-head" data-group="engineering-joints"><span class="caret"></span>工程节点<span class="grp-badge">1</span></div>
         <div class="tree-children">
-          <button class="model-btn" data-url="assets/cable_stayed_fan.obj" data-name="斜拉桥·扇形（资产）" data-zup="1"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M12 3v15M12 4l-7 14M12 4l7 14M3 18h18"/></svg></span><span><span class="name">斜拉桥·扇形 资产</span><span class="desc">~2900 面，真实索面 OBJ</span></span></button>
-          <button class="model-btn" data-url="assets/cable_stayed_harp.obj" data-name="斜拉桥·竖琴（资产）" data-zup="1"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M9 3v15M9 6l8 12M9 10l5 8M3 18h18"/></svg></span><span><span class="name">斜拉桥·竖琴 资产</span><span class="desc">平行索面 OBJ</span></span></button>
-          <button class="model-btn" data-url="assets/basket_arch.obj" data-name="提篮拱（资产）" data-zup="1"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M3 18h18M4 18c2-8 14-8 16 0"/></svg></span><span><span class="name">提篮拱 资产</span><span class="desc">真实拱肋+吊杆 OBJ</span></span></button>
-          <button class="model-btn" data-url="assets/basket_arch_tall.obj" data-name="提篮拱·高耸（资产）" data-zup="1"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M3 18h18M5 18c1.5-10 12.5-10 14 0"/></svg></span><span><span class="name">提篮拱·高耸 资产</span><span class="desc">瘦高变体 OBJ</span></span></button>
-          <button class="model-btn" data-url="assets/opensees_bridge_veux.stl" data-name="OpenSees 桥（资产）" data-zup="1"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M3 16h18M6 16v-3m12 3v-3M4 13c3-4 13-4 16 0"/></svg></span><span><span class="name">OpenSees 桥 资产</span><span class="desc">有限元桥 STL · ~8k 面</span></span></button>
-          <button class="model-btn" data-url="assets/dragon_bridge_da_nang.obj" data-name="岘港龙桥（资产）" data-zup="1"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M3 17c3-1 5-4 9-4s6 3 9 4M3 17h18"/></svg></span><span><span class="name">岘港龙桥 资产</span><span class="desc">真实桥 OBJ · ~76k 面</span></span></button>
-          <button class="model-btn" data-url="assets/baybridge.stl" data-name="海湾大桥（资产）" data-zup="1"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M3 7v10m18-10v10M3 9c6 6 12 6 18 0M3 17h18M9 12v5m6-5v5"/></svg></span><span><span class="name">海湾大桥 资产</span><span class="desc">大型 STL · ~23万面(较重)</span></span></button>
+          <button class="model-btn" data-model="jointDetail"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 14h16M12 14V5M9 9h6M7 14l-1 5m12-5l1 5"/></svg></span><span><span class="name">节点构造</span><span class="desc">吊杆、横梁与主梁连接</span></span></button>
         </div>
       </div>
 
@@ -813,7 +804,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       <header class="compound-coursebar">
         <div class="compound-course-title">
           <span>第 5<br>章</span>
-          <div><strong>组合体切割实验</strong><small>三个教材例题 · 实时差集与三视图</small></div>
+          <div><strong>组合体构形实验</strong><small>三个教材例题 · 精确 BRep 与第一角三视图</small></div>
         </div>
         <nav id="compound-lesson-nav" aria-label="第五章例题选择"></nav>
         <button type="button" id="compound-reset" class="compound-quiet-action" title="复位当前例题">复位本例</button>
@@ -834,13 +825,18 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
         <section class="compound-projection-panel" aria-label="同步生成的第一角三视图">
           <header class="compound-panel-head">
             <div><span>实时成图</span><strong>当前组合步骤的三视图</strong></div>
-            <div id="compound-stage-progress">1 / 1</div>
+            <div class="compound-projection-meta"><span id="compound-kernel-status" data-tone="idle">精确内核待算</span><div id="compound-stage-progress">1 / 1</div></div>
           </header>
           <div class="compound-projection-board">
+            <div class="compound-mobile-view-tabs" role="tablist" aria-label="手机端三视图切换">
+              <button type="button" class="active" role="tab" aria-selected="true" data-compound-view-tab="front">主视</button>
+              <button type="button" role="tab" aria-selected="false" data-compound-view-tab="side">左视</button>
+              <button type="button" role="tab" aria-selected="false" data-compound-view-tab="top">俯视</button>
+            </div>
             <article class="compound-view-card front"><header><strong>主视图</strong><span>从前向后</span></header><div class="compound-view-image"><img data-compound-image="front" alt="当前组合步骤主视图"><span class="compound-projected-point" data-compound-point="front" hidden><b>P</b></span></div></article>
             <article class="compound-view-card side"><header><strong>左视图</strong><span>置于主视图右侧</span></header><div class="compound-view-image"><img data-compound-image="side" alt="当前组合步骤左视图"><span class="compound-projected-point" data-compound-point="side" hidden><b>P</b></span></div></article>
             <article class="compound-view-card top"><header><strong>俯视图</strong><span>置于主视图下方</span></header><div class="compound-view-image"><img data-compound-image="top" alt="当前组合步骤俯视图"><span class="compound-projected-point" data-compound-point="top" hidden><b>P</b></span></div></article>
-            <div class="compound-first-angle-note"><strong>第一角画法</strong><span>长对正 · 高平齐 · 宽相等</span><span>切换步骤后，三视图只投影当前可见实体。</span></div>
+            <div class="compound-first-angle-note"><strong>第一角画法</strong><span>三个视图共用一把比例尺</span><div class="compound-alignment-checks"><span>↕ 主视—俯视：X 坐标同列（长对正）</span><span>↔ 主视—左视：Z 坐标同行（高平齐）</span><span>⌞ 俯视—左视：Y 尺寸等长（宽相等）</span></div></div>
           </div>
         </section>
 
@@ -849,54 +845,57 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
             <span class="compound-source" id="compound-source-label">教材原例</span>
             <h2 id="compound-title-label">观察组合体形成</h2>
             <p id="compound-objective">按教材顺序装载构件，并观察对应投影变化。</p>
-            <div class="compound-ai-chain" aria-label="AI到CAD再到成图核验的执行链">
-              <div><span>AI 识别</span><b id="compound-ai-input">识别组成形体</b></div>
-              <i aria-hidden="true">→</i>
-              <div><span>CAD / SOLIDWORKS</span><b id="compound-cad-action">建立参数特征</b></div>
-              <i aria-hidden="true">→</i>
-              <div><span>平台核验</span><b>重投影并对照题图</b></div>
-            </div>
+            <details class="compound-ai-disclosure">
+              <summary>AI 如何把题图变成 CAD</summary>
+              <div class="compound-ai-chain" aria-label="AI到CAD再到成图核验的执行链">
+                <div><span>AI 识别</span><b id="compound-ai-input">识别组成形体</b></div>
+                <i aria-hidden="true">→</i>
+                <div><span>CAD / SOLIDWORKS</span><b id="compound-cad-action">建立参数特征</b></div>
+                <i aria-hidden="true">→</i>
+                <div><span>平台核验</span><b>OpenCascade 重建并投影</b></div>
+              </div>
+            </details>
           </section>
 
-          <section class="compound-card">
-            <div class="compound-card-title"><strong>组合顺序轨道</strong><span>可前进、回退或直达</span></div>
+          <section class="compound-card compound-step-card">
+            <div class="compound-card-title"><strong>本步任务</strong><span>选步骤 → 调刀具 → 看结果</span></div>
             <div id="compound-sequence"></div>
             <p id="compound-stage-note" aria-live="polite"></p>
+            <div class="compound-boolean-card" id="compound-boolean-card">
+              <div id="compound-boolean-workbench"></div>
+            </div>
             <div class="compound-stage-actions">
               <button type="button" id="compound-prev-stage" class="compound-secondary-action">退回一步</button>
               <button type="button" id="compound-next-stage" class="compound-primary-action">装载下一步</button>
             </div>
           </section>
 
-          <section class="compound-card compound-boolean-card" id="compound-boolean-card">
-            <div class="compound-card-title"><strong>布尔运算台</strong><span>选刀 → 定位 → 执行 A−B</span></div>
-            <div id="compound-boolean-workbench"></div>
-          </section>
-
-          <section class="compound-card compound-observation-card" id="compound-observation-card" hidden>
-            <div class="compound-card-title"><strong>例5-5观察显示</strong><span>弱化阴影 · 强化边线 · 点投影</span></div>
+          <details class="compound-card compound-tool-disclosure compound-observation-card" id="compound-observation-card" hidden>
+            <summary><strong>显示与精确校核</strong><span>边线 · 透明 · 点投影</span></summary>
             <div id="compound-observation-tools"></div>
-          </section>
+          </details>
 
-          <section class="compound-card">
-            <div class="compound-card-title"><strong>构件独立观察</strong><span>再次点击恢复组合</span></div>
+          <details class="compound-card compound-tool-disclosure">
+            <summary><strong>构件独立观察</strong><span>按需拆看</span></summary>
             <div id="compound-components"></div>
-          </section>
+          </details>
 
-          <section class="compound-card compound-assembly-card" id="compound-assembly-card" hidden>
-            <div class="compound-card-title"><strong>叠加装配台</strong><span>拿开 ⇄ 移位 ⇄ 装回</span></div>
+          <details class="compound-card compound-tool-disclosure compound-assembly-card" id="compound-assembly-card" hidden>
+            <summary><strong>叠加装配台</strong><span>拿开 ⇄ 装回</span></summary>
             <div id="compound-assembly-workbench"></div>
-          </section>
+          </details>
 
-          <section class="compound-card">
-            <div class="compound-card-title"><strong>拆装与教材参数</strong><span>实体和投影同步</span></div>
+          <details class="compound-card compound-tool-disclosure">
+            <summary><strong>参数与爆炸</strong><span>进阶探索</span></summary>
+            <div class="compound-tool-body">
             <label class="compound-explode-row" for="compound-explode"><span>爆炸距离</span><input id="compound-explode" type="range" min="0" max="100" step="1" value="0"><output id="compound-explode-output">0%</output></label>
             <div class="compound-explode-actions">
               <button type="button" id="compound-assemble" class="compound-secondary-action">恢复装配</button>
               <button type="button" id="compound-explode-all" class="compound-secondary-action">完全爆炸</button>
             </div>
             <div id="compound-parameters"></div>
-          </section>
+            </div>
+          </details>
 
           <section class="compound-card compound-question">
             <div class="compound-card-title"><strong>用题检验读图</strong><span>依据当前例题</span></div>
@@ -916,6 +915,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
         <article class="tiled-view-card front" data-tiled-card="front"><header><span>主视图</span><span>前</span></header><img data-tiled-image="front" alt="主视图工程图"></article>
         <article class="tiled-view-card top" data-tiled-card="top"><header><span>俯视图</span><span>上</span></header><img data-tiled-image="top" alt="俯视图工程图"></article>
         <article class="tiled-view-card side" data-tiled-card="side"><header><span>左视图</span><span>左</span></header><img data-tiled-image="side" alt="左视图工程图"></article>
+        <aside class="tiled-alignment-note"><strong>长对正 · 高平齐 · 宽相等</strong><span>三张视图采用同一比例。<br>俯视图在下，左视图在右。</span></aside>
       </section>
     </div>
     <div class="standard-view-actions" aria-label="对准标准视图">
@@ -948,6 +948,11 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
         </div>
         <div class="quiz-body">
           <p class="quiz-intro">先观察当前模型和已展开的真实三视图，再作答；提交后用图学证据核对判断。</p>
+          <div class="quiz-memory" id="quiz-memory" hidden>
+            <div class="quiz-memory-head"><span>前一步缩略 · 随时可借用</span><span>VISUAL MEMORY</span></div>
+            <svg id="quiz-memory-svg" viewBox="0 0 300 92" role="img" aria-label="目标视图、观察轴与保留投影面的缩略示意"></svg>
+            <p id="quiz-memory-text"></p>
+          </div>
           <div class="progress-bar"><div class="progress-fill" id="quiz-progress-fill"></div></div>
           <div class="quiz-question">
             <div class="quiz-qmeta"><span id="quiz-skill">第一角投影展开</span><span id="quiz-difficulty">难度 1</span></div>
@@ -1116,6 +1121,6 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 })();
 </script>
 
-<script type="module" src="projection-master.js?v=8.2.1"></script>
+<script type="module" src="projection-master.js?v=8.3.1"></script>
 </body>
 </html>

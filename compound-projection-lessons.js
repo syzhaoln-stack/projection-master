@@ -100,7 +100,8 @@ export const COMPOUND_LESSONS = Object.freeze([
       { label: '完整四棱柱A', action: '建立完整四棱柱作为被切基体A', note: '教材先假定完整四棱柱，再反向分析被切去的实体。', visible: ['body'], appliedCutters: [], activeCutter: 'cut-p' },
       { label: 'P面切除Ⅰ', action: '正垂面P定义楔形刀具B1 → A−B1', note: 'P面在主视图中积聚为斜线，切去左上方立体Ⅰ。', visible: ['body', 'cut-p'], appliedCutters: ['cut-p'], activeCutter: 'cut-p' },
       { label: 'Q面切除Ⅱ', action: '侧垂面Q镜像为前、后两个刀具 → 连续差集', note: 'Q面切去前、后两个对称立体Ⅱ；B2包含一对刀具。', visible: ['body', 'cut-q'], appliedCutters: ['cut-p', 'cut-q'], activeCutter: 'cut-q' },
-      { label: '切除Ⅲ贯穿槽', action: '正平面+水平面定义长方体B3 → 默认沿全长贯穿差集', note: 'B3默认穿过完整四棱柱全长，形成图5-14b的U形贯穿槽；可用下方长度参数改为局部切槽。', visible: ['body', 'cut-slot'], appliedCutters: ['cut-p', 'cut-q', 'cut-slot'], activeCutter: 'cut-slot' }
+      { label: '切除Ⅲ贯穿槽', action: '正平面+水平面定义长方体B3 → 默认沿全长贯穿差集', note: 'B3默认穿过完整四棱柱全长，形成图5-14b的U形贯穿槽；本步保留黄色刀具，便于核对切除范围。', visible: ['body', 'cut-slot'], appliedCutters: ['cut-p', 'cut-q', 'cut-slot'], activeCutter: 'cut-slot' },
+      { label: '整体重投影', action: '隐藏刀具 → 检查贯穿空腔 → 由同一实体重算三视图', note: '最终只显示差集结果：两端U形洞口相通，槽顶在主视图中按遮挡关系画虚线；改变B3长度后须重新判断贯穿或局部切槽。', visible: ['body'], appliedCutters: ['cut-p', 'cut-q', 'cut-slot'], activeCutter: 'cut-slot', showCutter: false }
     ],
     parameters: [
       { id: 'slotLength', label: 'B3切槽长度', unit: '格', min: 1.4, max: 5.4, step: 0.1, default: 5, textbook: 5, referenceLabel: '默认：贯穿全长' }
@@ -123,35 +124,37 @@ export const COMPOUND_LESSONS = Object.freeze([
     shortTitle: '方槽与拱形槽',
     title: '空心圆柱Ⅰ与底板Ⅱ：方形槽和倒置拱形槽',
     source: '第5章 · 例5-6，图5-16～图5-17',
-    objective: '先把空心圆柱Ⅰ与底板Ⅱ合并成一个封闭整体，再用Ⅲ、Ⅳ、Ⅴ依次切出前部方形槽、后部倒置拱形槽和底板方形槽。',
+    objective: '先把空心圆柱Ⅰ与底板Ⅱ合并成一个封闭整体，再按图5-17的作图次序，先切底板方形槽Ⅴ，后切圆柱前部方形槽Ⅲ和后部倒置拱形槽Ⅳ。',
     aiInput: '由两面投影识别Ⅰ+Ⅱ，并反推Ⅲ、Ⅳ、Ⅴ三个封闭切除体',
-    operations: ['Ⅰ+Ⅱ并集', 'Ⅲ方槽差集', 'Ⅳ倒置拱形槽差集', 'Ⅴ底板方槽差集'],
+    operations: ['Ⅰ+Ⅱ并集', 'Ⅴ底板方槽差集', 'Ⅲ方槽差集', 'Ⅳ倒置拱形槽差集'],
+    displayDefaults: { shadows: false, boldEdges: true, transparent: false, showHidden: true },
     components: [
       { id: 'body', label: 'A·Ⅰ+Ⅱ并集整体', operation: 'base', step: 0 },
-      { id: 'cut-iii', label: 'B1·前部方槽Ⅲ', operation: 'subtract', step: 1 },
-      { id: 'cut-iv', label: 'B2·后部倒置拱形槽Ⅳ', operation: 'subtract', step: 2 },
-      { id: 'cut-v', label: 'B3·底板方形槽Ⅴ', operation: 'subtract', step: 3 }
+      { id: 'cut-v', label: 'B3·底板方形槽Ⅴ', operation: 'subtract', step: 1 },
+      { id: 'cut-iii', label: 'B1·前部方槽Ⅲ', operation: 'subtract', step: 2 },
+      { id: 'cut-iv', label: 'B2·后部倒置拱形槽Ⅳ', operation: 'subtract', step: 3 }
     ],
     cutters: [
-      { id: 'cut-iii', symbol: 'B1 / Ⅲ', label: '前部方槽', toolType: '长方体刀具', dragPlane: 'xy', target: '整体A的圆柱区', defaults: { x: 0.55, y: 2.55 }, axes: [
+      { id: 'cut-iii', symbol: 'B1 / Ⅲ', label: '前部方槽', toolType: '长方体刀具', dragPlane: 'xy', target: '整体A的圆柱区', defaults: { x: 0.55, y: 2.4 }, axes: [
         { id: 'x', label: '槽中心 X', min: 0.25, max: 0.85, step: 0.02, unit: '格' },
-        { id: 'y', label: '槽深位置 Y', min: 2.35, max: 2.72, step: 0.02, unit: '格' }
+        { id: 'y', label: '槽深位置 Y', min: 2.2, max: 2.55, step: 0.02, unit: '格' }
       ] },
-      { id: 'cut-iv', symbol: 'B2 / Ⅳ', label: '后部倒置拱形槽', toolType: '直边＋半圆底的倒置拱形棱柱', dragPlane: 'xy', target: '整体A的圆柱区', defaults: { x: 0.55, y: 2.43 }, axes: [
+      { id: 'cut-iv', symbol: 'B2 / Ⅳ', label: '后部倒置拱形槽', toolType: '直边＋半圆底的倒置拱形棱柱', dragPlane: 'xy', target: '整体A的圆柱区', defaults: { x: 0.55, y: 1.9 }, axes: [
         { id: 'x', label: '圆弧槽 X', min: 0.25, max: 0.85, step: 0.02, unit: '格' },
-        { id: 'y', label: '圆弧底 Y', min: 2.28, max: 2.58, step: 0.02, unit: '格' }
+        { id: 'y', label: '圆弧中心 Y', min: 1.72, max: 2.12, step: 0.02, unit: '格' }
       ] },
-      { id: 'cut-v', symbol: 'B3 / Ⅴ', label: '底板方形槽', toolType: '薄长方体刀具', dragPlane: 'xy', target: '整体A的底板区', defaults: { x: -1.62, y: 0.36 }, axes: [
-        { id: 'x', label: '槽止端 X', min: -1.9, max: -1.25, step: 0.02, unit: '格' },
-        { id: 'y', label: '槽中心 Y', min: 0.28, max: 0.44, step: 0.01, unit: '格' }
+      { id: 'cut-v', symbol: 'B3 / Ⅴ', label: '底板方形槽', toolType: '从底板左端进入并横向贯穿的长方体刀具', dragPlane: 'xy', target: '整体A的底板区', defaults: { x: -1.4, y: 0.475, height: 0.36 }, axes: [
+        { id: 'x', label: '槽止端 X', min: -1.7, max: -1.05, step: 0.01, unit: '格' },
+        { id: 'y', label: '槽中心 Y', min: 0.38, max: 0.57, step: 0.005, unit: '格' },
+        { id: 'height', label: '槽高 H', min: 0.22, max: 0.5, step: 0.02, unit: '格' }
       ] }
     ],
     stages: [
-      { label: 'Ⅰ+Ⅱ整体并集', action: '空心圆柱Ⅰ + 底板Ⅱ → 合并为封闭实体A', note: '圆柱与底板先做实体并集，接触处不保留重叠面和内部壳层。', visible: ['body'], appliedCutters: [], activeCutter: 'cut-iii', showCutter: false },
-      { label: '切除Ⅲ前方槽', action: '方形刀具B1从前方进入整体A → A−B1', note: '主视图顶部的矩形缺口由前部方形刀具Ⅲ形成。', visible: ['body', 'cut-iii'], appliedCutters: ['cut-iii'], activeCutter: 'cut-iii' },
-      { label: '切除Ⅳ倒置拱形槽', action: '直槽+半圆底刀具B2从后方进入 → A−B2', note: '教材称其为“后部倒置的拱形槽”：上部为直边、底部为半圆弧，二者组成一个封闭刀具。', visible: ['body', 'cut-iv'], appliedCutters: ['cut-iii', 'cut-iv'], activeCutter: 'cut-iv' },
-      { label: '切除Ⅴ底板方槽', action: '薄方体B3从底板左端进入 → A−B3', note: 'Ⅴ作用于同一个整体A的底板区域，形成向左开口的水平方槽。', visible: ['body', 'cut-v'], appliedCutters: ['cut-iii', 'cut-iv', 'cut-v'], activeCutter: 'cut-v' },
-      { label: '整体重投影', action: '隐藏刀具 → 对单一差集实体重新生成三视图', note: '最终只保留一个封闭结果实体，三视图不再混入相交壳层和多余接缝。', visible: ['body'], appliedCutters: ['cut-iii', 'cut-iv', 'cut-v'], showCutter: false }
+      { label: 'Ⅰ+Ⅱ整体并集', action: '全高空心圆柱Ⅰ + 相切底板Ⅱ → 合并为封闭实体A', note: '对应图5-17a：圆柱从共同底面贯穿全高，底板从左侧与外圆相切接入；圆柱下段与贯通内孔均须完整保留。', visible: ['body'], appliedCutters: [], activeCutter: 'cut-v', showCutter: false },
+      { label: '切除Ⅴ底板方槽', action: '长方体B3从底板左端进入并横向贯穿 → A−B3', note: '对应图5-17b：Ⅴ把底板左端分成上下两叉；主视图的槽止端为粗实线，俯视图只画横贯局部全宽的止端虚线，并将这段虚线长度y₃转量到左视图。', visible: ['body', 'cut-v'], appliedCutters: ['cut-v'], activeCutter: 'cut-v' },
+      { label: '切除Ⅲ前方槽', action: '方形刀具B1从前方进入整体A → A−B1', note: '对应图5-17c：主视图顶部的矩形缺口由前部方形刀具Ⅲ形成，槽底为可见水平线。', visible: ['body', 'cut-iii'], appliedCutters: ['cut-v', 'cut-iii'], activeCutter: 'cut-iii' },
+      { label: '切除Ⅳ倒置拱形槽', action: '直槽+半圆底刀具B2从后方进入 → A−B2', note: '对应图5-17d：后部槽Ⅳ上部为直边、底部为半圆弧；在主视图中被前部材料遮挡的圆弧应画虚线。', visible: ['body', 'cut-iv'], appliedCutters: ['cut-v', 'cut-iii', 'cut-iv'], activeCutter: 'cut-iv' },
+      { label: '整体重投影', action: '隐藏刀具 → 对单一差集实体重新生成三视图', note: '最终只保留一个封闭结果实体，并由同一组布尔参数重算主视、俯视和左视，避免混入相交壳层及多余接缝。', visible: ['body'], appliedCutters: ['cut-v', 'cut-iii', 'cut-iv'], showCutter: false }
     ],
     question: {
       prompt: '例5-6的“后部倒置拱形槽Ⅳ”应使用哪一种刀具体？',

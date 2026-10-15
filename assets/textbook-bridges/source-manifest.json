@@ -1,0 +1,1157 @@
+{
+  "schema": "projection-textbook-bridges/1",
+  "preparedOn": "2026-10-15",
+  "sourceDirectory": "D:/claude_work/20260727_桥梁工程教材/申报数字化教材/数字教材全书初稿/interactive/bridge-office",
+  "sourceGeometryDate": "2026-09-26",
+  "scope": "20 canonical teaching reconstructions from the current textbook source; copied geometry modules are unchanged.",
+  "units": "m",
+  "canonicalAxes": {
+    "x": "longitudinal",
+    "y": "transverse",
+    "z": "up"
+  },
+  "coordinateMapping": "(x,y,z) -> (x,z,-y)",
+  "display": {
+    "extent": 5,
+    "method": "uniform scale and translation on the outer Group only",
+    "memberThicknessFactor": 1
+  },
+  "includes": "Finished structural components, member radii, source stations, railings and permanent anchors.",
+  "excludes": [
+    "people",
+    "vehicles",
+    "environment",
+    "road-furniture",
+    "temporary works"
+  ],
+  "tessellation": "Six radial sides for tubes; every original polyline centreline station is retained. No path decimation or radius enlargement.",
+  "sourceFiles": [
+    "sources.json",
+    "dimension-contract.json",
+    "variant-references.json",
+    "cases-v3.json"
+  ],
+  "copiedFiles": [
+    {
+      "path": "model.js",
+      "sha256": "83adf2e2991e970428920a78ea183d2128d3b11f1555c5689e05572878704f7a"
+    },
+    {
+      "path": "mobility.js",
+      "sha256": "56b47b8878dd75142d31d2ec60e8e6705c6b01dde10f3c330ae59edea59604a1"
+    }
+  ],
+  "models": [
+    {
+      "id": "girder_reference",
+      "title": "梁桥 · 受弯基准",
+      "family": "梁桥",
+      "geometrySignature": "girder_reference@1",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M01"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "解析基准梁采用同种材料全钢教学等效截面：顶板6×0.18 m，底板5.2×0.12 m，双腹板0.12×0.90 m；此厚板截面用于演示公式，不是实际桥梁经济设计。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "girder_tree",
+      "title": "树形支承梁桥",
+      "family": "梁桥",
+      "geometrySignature": "girder_tree@1",
+      "sourceIds": [
+        "v2-tree-sbp"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "树形模型为两棵树状桥墩，每棵主干分成两个纵向枝，再分成八个空间枝端；各枝端均通过实体支座接至箱梁底板。",
+        "主分叉作为刚接传力节点展示；未据形态自动假定为铰接桁架，也未求节点应力或屈曲承载力。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "stayed_standard",
+      "title": "双塔双索面斜拉桥",
+      "family": "斜拉桥",
+      "geometrySignature": "stayed_standard@2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M97",
+        "cTxm8Y17AWLytFL44JkEBq-M100"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "stayed_fan",
+      "title": "扇形索斜拉桥",
+      "family": "斜拉桥",
+      "geometrySignature": "stayed_fan@1",
+      "sourceIds": [
+        "2VH4JDmRRUTQVmnQu1hxuu"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "扇形与竖琴形比较共用48+96+48 m分跨、8 m桥宽、桥面以上28 m塔高、双索面及56根斜索；只改变塔端锚点的竖向分布。",
+        "扇形索在塔顶3.0 m高锚固区内放射，锚具沿高度间隔0.50 m且左右面分开；这是允许独立锚具的集中扇形教学近似，不将所有索压成一个无尺寸点。",
+        "本比较没有由索斜率自动计算全桥索力；平行或扇形外观不构成最优性结论。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "stayed_harp",
+      "title": "竖琴形索斜拉桥",
+      "family": "斜拉桥",
+      "geometrySignature": "stayed_harp@1",
+      "sourceIds": [
+        "2VH4JDmRRUTQVmnQu1hxuu"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "扇形与竖琴形比较共用48+96+48 m分跨、8 m桥宽、桥面以上28 m塔高、双索面及56根斜索；只改变塔端锚点的竖向分布。",
+        "竖琴索按实际塔端偏置后的水平距离配置锚点高度，使每一方向的7根索严格平行；两侧斜索在索塔不同纵向表面锚固。",
+        "本比较没有由索斜率自动计算全桥索力；平行或扇形外观不构成最优性结论。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "stayed_single",
+      "title": "独塔倾塔 · 单索面",
+      "family": "斜拉桥",
+      "geometrySignature": "stayed_single@1",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M98",
+        "2VH4JDmRRUTQVmnQu1hxuu-M16"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "stayed_spatial",
+      "title": "空间曲线斜拉桥",
+      "family": "斜拉桥",
+      "geometrySignature": "stayed_spatial@2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M102",
+        "2VH4JDmRRUTQVmnQu1hxuu-M16",
+        "gimsing-katsushika"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "此模型为原创直线斜拉索体系；不是加伦索大街人行桥，不能把该实桥的空间主缆与吊索改称斜拉索。",
+        "曲线箱梁的扭转、偏置塔横向弯曲与背索预应力均需空间分析，本模型只展示连接关系。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "extradosed",
+      "title": "矮塔部分斜拉桥",
+      "family": "斜拉桥",
+      "geometrySignature": "extradosed@1",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M99",
+        "cTxm8Y17AWLytFL44JkEBq-M122"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "arch_basket",
+      "title": "提篮拱桥",
+      "family": "拱桥",
+      "geometrySignature": "arch_basket@2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M67",
+        "cTxm8Y17AWLytFL44JkEBq-M93"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "arch_inclined",
+      "title": "单侧倾拱桥",
+      "family": "拱桥",
+      "geometrySignature": "arch_inclined@2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M74",
+        "diagonal-parameter-family"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "arch_network",
+      "title": "网状吊杆系杆拱",
+      "family": "拱桥",
+      "geometrySignature": "arch_network@2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M89",
+        "7Gdua5q7a8eDfhLwkMzTJH:research-assembly"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "交叉吊杆的相交投影不设连接节点；它们是独立受拉构件。该网形未经吊杆松弛、疲劳及预张力设计。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "suspension_ground",
+      "title": "地锚式悬索桥",
+      "family": "悬索桥",
+      "geometrySignature": "suspension_ground@2",
+      "sourceIds": [
+        "L04",
+        "2VH4JDmRRUTQVmnQu1hxuu-M15"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "悬吊区采用公开实桥的短吊索构造量级：福斯公路桥最短吊索8 ft约2.44 m，本教学例主跨跨中吊杆取2.40 m；下吊点在桥面以上0.25 m，所以主缆低点高差为2.65 m。垂跨比取1/10，可对照四渡河桥公开算例。不同跨度的模型不是按比例复刻实桥。",
+        "主跨索鞍中心高差=主索垂度9 m+主缆最低点高差2.65 m=11.65 m，塔帽另高0.45 m；主缆低点不等于塔高或垂度。",
+        "地锚在桥面端部之外后退18 m，以保留边缆通过桥端时的实体净空；该锚距按本模型几何推定，非所引实桥的锚距。桥面总长144 m，岸端索锚间距180 m。"
+      ],
+      "geometryReferences": [
+        {
+          "title": "Forth Road Bridge Facts & Figures",
+          "url": "https://control.theforthbridges.org/about-the-forth-bridges/forth-road-bridge/forth-road-bridge-facts-figures/",
+          "locator": "Vital Statistics: Shortest hanger rope",
+          "facts": "最短吊索8 ft=2.4384 m；这是吊索长度，不是主缆距桥面高度。"
+        },
+        {
+          "title": "悬索桥纵向和竖向耦合自振研究",
+          "url": "https://pubs.cstam.org.cn/data/article/em/preview/pdf/20120222.pdf",
+          "locator": "表1：四渡河大桥算例",
+          "facts": "主跨900 m、垂度90 m，垂跨比1/10。"
+        }
+      ]
+    },
+    {
+      "id": "suspension_self",
+      "title": "自锚式悬索桥",
+      "family": "悬索桥",
+      "geometrySignature": "suspension_self@2",
+      "sourceIds": [
+        "2VH4JDmRRUTQVmnQu1hxuu-M15"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "自锚教学例参照日晖桥公开方案的1/6垂跨比与3 m最短吊索量级；本例84 m主跨取垂度14 m，下吊点桥面以上0.25 m，主缆低点以上3.25 m。该移植是教学假设，不是日晖桥复刻，也未将吊索长度直接当作桥面高差。",
+        "主跨索鞍中心高差=主索垂度14 m+主缆最低点高差3.25 m=17.25 m，塔帽另高0.45 m；主缆低点不等于塔高或垂度。"
+      ],
+      "geometryReferences": [
+        {
+          "title": "南浔至临安公路南浔区南浔至练市段工程环境影响报告书",
+          "url": "https://zjjcmspublic.oss-cn-hangzhou-zwynet-d01-a.internet.cloud.zj.gov.cn/jcms_files/jcms1/web1756/site/attach/0/3371989344bc46aa8d8c5d6525e50c14.pdf",
+          "locator": "PDF第56页 / 印刷46页，日晖桥方案",
+          "facts": "48+110+48 m自锚；主缆垂跨比1/6；最短吊索3 m。"
+        }
+      ]
+    },
+    {
+      "id": "suspension_inclined",
+      "title": "倾斜索面悬索桥",
+      "family": "悬索桥",
+      "geometrySignature": "suspension_inclined@2",
+      "sourceIds": [
+        "gimsing-youngjong",
+        "v2-suspension-sbp"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "最低点的吊点竖向高差取2.40 m，配合桥面以上0.25 m下锚点，主缆低点距桥面2.65 m；参照福斯公路桥约2.44 m最短吊索的构造量级，倾斜吊杆实际长度约2.42 m，非实桥移植尺寸。",
+        "保留主跨90 m、垂度9 m（1/10），索鞍高差由9+2.65=11.65 m确定；地锚后退18 m，桥端边缆高于桥面约1.66 m，避免压低塔后边缆穿入桥面。",
+        "双索面相对竖直面外倾，y方向偏移/高差=0.13；主缆、索夹和吊杆上端严格落在同一倾斜平面中。该角度和全部尺寸为原创教学选择。",
+        "桥面荷载先经斜吊杆进入连续曲线主缆，再经索鞍和地锚传递；不将吊杆直接接到塔顶，因此仍为悬索体系。",
+        "主缆采用最终状态抛物线教学近似，未由恒载、预张力和空间平衡求解；两侧横向分力由横梁、主梁及横向体系承担，大小未计算。"
+      ],
+      "geometryReferences": [
+        {
+          "title": "Forth Road Bridge Facts & Figures",
+          "url": "https://control.theforthbridges.org/about-the-forth-bridges/forth-road-bridge/forth-road-bridge-facts-figures/",
+          "locator": "Vital Statistics: Shortest hanger rope",
+          "facts": "最短吊索8 ft=2.4384 m；借用短吊索构造量级，不照搬实桥索面。"
+        },
+        {
+          "title": "悬索桥纵向和竖向耦合自振研究",
+          "url": "https://pubs.cstam.org.cn/data/article/em/preview/pdf/20120222.pdf",
+          "locator": "表1：四渡河大桥算例",
+          "facts": "主跨900 m、主缆垂度90 m。"
+        }
+      ]
+    },
+    {
+      "id": "underslung_suspension",
+      "title": "下承悬索 · 立杆上托梁",
+      "family": "悬索桥",
+      "geometrySignature": "underslung_suspension@1",
+      "sourceIds": [
+        "v3-underdeck-system"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "本例是主索下置、撑杆上托桥面的原创教学模型。桥面保持独立平顺主梁；它与桥面直接随受拉带下垂的应力带桥不是同一种几何。",
+        "两片下部索在梁端自锚，压杆顶端连接梁底横梁，索端水平分力通过主梁闭合；跨度、垂度、截面及自锚构造均为教学假设。",
+        "索与撑杆的拉压名称只表示预期受力角色；尚未计算初始预应力、非线性索形、压杆稳定和整桥内力。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "millennium_low",
+      "title": "伦敦千禧桥 · 低位侧索",
+      "family": "悬索桥",
+      "geometrySignature": "millennium_low@1",
+      "sourceIds": [
+        "v3-millennium-foster",
+        "v3-millennium-arup"
+      ],
+      "assumptions": [
+        "伦敦千禧桥的来源约束教学重建；采用已核主要尺寸及构型，缺少完整竣工图的细节为明确教学假设。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "千禧桥教学重建采用已核实的81+144+108 m跨径、4 m桥面、左右各4根主索及主跨2.3 m垂度。两座Y形支承与约8 m间距钢臂体现其低轮廓悬索特征。",
+        "为了清楚显示索与梁的关系，本模型取索鞍高于桥面1.5 m、跨中主索低于桥面0.8 m；该相对高程、索束间距、截面、锚块及梁底细节为教学假设，不能读作竣工尺寸。",
+        "两岸锚固采用地锚传力示意。侧索通过横向钢臂与桥面连接，不能把本桥画成高塔加长竖吊杆的普通悬索桥。",
+        "本模型不含实际减振器系统和行人横向振动计算，不能以静态外形判断千禧桥的动态舒适性。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "stress_ribbon",
+      "title": "应力带人行桥",
+      "family": "悬索桥",
+      "geometrySignature": "stress_ribbon@2",
+      "sourceIds": [
+        "L02",
+        "cTxm8Y17AWLytFL44JkEBq-M135"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "本原创应力带示例L=50 m、垂度0.90 m、桥宽3.40 m；不是恩茨奥恩Ⅲ既有教学重建的尺寸复刻。",
+        "钢带采用400×50 mm矩形截面、双带间距1.88 m，为本例假设；其线形未按恒载与预应力求解。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "hybrid_cable",
+      "title": "斜拉—悬索组合桥",
+      "family": "组合桥",
+      "geometrySignature": "hybrid_cable@2",
+      "sourceIds": [
+        "cTxm8Y17AWLytFL44JkEBq-M02",
+        "gimsing-dischinger"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "悬吊区采用公开实桥的短吊索构造量级：福斯公路桥最短吊索8 ft约2.44 m，本教学例主跨跨中吊杆取2.40 m；下吊点在桥面以上0.25 m，所以主缆低点高差为2.65 m。垂跨比取1/10，可对照四渡河桥公开算例。不同跨度的模型不是按比例复刻实桥。",
+        "主跨索鞍中心高差=主索垂度12 m+主缆最低点高差2.65 m=14.65 m，塔帽另高0.45 m；主缆低点不等于塔高或垂度。",
+        "地锚在桥面端部之外后退22 m，以保留边缆通过桥端时的实体净空；该锚距按本模型几何推定，非所引实桥的锚距。桥面总长204 m，岸端索锚间距248 m。",
+        "斜拉区与悬吊区在近塔/跨中交界处衔接；图中不据外观分配两系统的真实刚度、内力或协同份额。"
+      ],
+      "geometryReferences": [
+        {
+          "title": "Forth Road Bridge Facts & Figures",
+          "url": "https://control.theforthbridges.org/about-the-forth-bridges/forth-road-bridge/forth-road-bridge-facts-figures/",
+          "locator": "Vital Statistics: Shortest hanger rope",
+          "facts": "最短吊索8 ft=2.4384 m；这是吊索长度，不是主缆距桥面高度。"
+        },
+        {
+          "title": "悬索桥纵向和竖向耦合自振研究",
+          "url": "https://pubs.cstam.org.cn/data/article/em/preview/pdf/20120222.pdf",
+          "locator": "表1：四渡河大桥算例",
+          "facts": "主跨900 m、垂度90 m，垂跨比1/10。"
+        }
+      ]
+    },
+    {
+      "id": "hybrid_arch",
+      "title": "梁—拱组合桥",
+      "family": "组合桥",
+      "geometrySignature": "hybrid_arch@1",
+      "sourceIds": [
+        "L03",
+        "cTxm8Y17AWLytFL44JkEBq-M91"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "此为上承式梁—拱组合的原创对照模型，不是博斯特尔拱托钢带桥；两者来源关系在案例卡中分别标注。"
+      ],
+      "geometryReferences": []
+    },
+    {
+      "id": "fink_inverted",
+      "title": "倒置芬克桥",
+      "family": "组合桥",
+      "geometrySignature": "fink_inverted@1",
+      "sourceIds": [
+        "v2-fink-lds",
+        "v2-fink-istructe",
+        "v2-fink-haer"
+      ],
+      "assumptions": [
+        "原创参数化教学模型；来源用于结构概念比较，不是实桥竣工复刻。",
+        "尺寸、截面、锚块、基础、材料外观均为教学假设，未进行承载力、稳定性或风振验算。",
+        "施工为最终几何的安装与拆除过程示意；各阶段未求平衡索形、预应力及施工变形。",
+        "本模型是倒置芬克式杆索梁的原创教学变体：桥面箱梁作连续下弦，两片索面每片6根变高压杆，由两端向跨中逐级降低；没有连续上弦。",
+        "取皇家维多利亚码头桥的变高杆、杆索联系与端部伸臂回锚作为概念参照，并参考Forthside对“桥面下弦、无上弦”的体系描述；不复刻其跨度、杆数、横向倾角或构造尺寸。",
+        "各杆顶分别连接前后相邻桥面节点；内侧压杆的底部荷载经前一级拉杆递接，端部最高压杆经伸臂与地锚闭合。不是把普通沃伦桁架或中央单一人字架改名芬克桥。",
+        "压杆和拉杆名称表示本教学体系的预期工作角色；真实内力、预张力、非对称荷载及稳定性尚未求解，不能凭颜色或杆件粗细判定应力。"
+      ],
+      "geometryReferences": []
+    }
+  ],
+  "sourceBooks": [
+    {
+      "id": "2VH4JDmRRUTQVmnQu1hxuu",
+      "title": "Cable Supported Bridges: Concept and Design（Gimsing、Georgakis，第3版，2012）",
+      "url": "https://www.wolai.com/2VH4JDmRRUTQVmnQu1hxuu"
+    },
+    {
+      "id": "7Gdua5q7a8eDfhLwkMzTJH",
+      "title": "Design of Network Arch Bridges",
+      "url": "https://www.wolai.com/7Gdua5q7a8eDfhLwkMzTJH"
+    },
+    {
+      "id": "7MDwTG8a9NgRXDYpdUNWyL",
+      "title": "Bridge Design: Concepts and Analysis",
+      "url": "https://www.wolai.com/7MDwTG8a9NgRXDYpdUNWyL"
+    },
+    {
+      "id": "aqXV5VfsDvKTunJ1P3rmrL",
+      "title": "2021年度进展06：桥梁美学",
+      "url": "https://www.wolai.com/aqXV5VfsDvKTunJ1P3rmrL"
+    },
+    {
+      "id": "c9DawFTWJ2BEE2yZufXm9o",
+      "title": "How Structures Work: Design and Behaviour from Bridges to Buildings",
+      "url": "https://www.wolai.com/c9DawFTWJ2BEE2yZufXm9o"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq",
+      "title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "url": "https://www.wolai.com/cTxm8Y17AWLytFL44JkEBq"
+    },
+    {
+      "id": "hegYggsQV47pkEiTa6ipXy",
+      "title": "Bridge Engineering Handbook, Second Edition: Construction and Maintenance",
+      "url": "https://www.wolai.com/hegYggsQV47pkEiTa6ipXy"
+    },
+    {
+      "id": "igkG876CojRhbWyVPD1c6T",
+      "title": "轻·远：德国约格·施莱希和鲁道夫·贝格曼的轻型结构（2004，中英文本）",
+      "url": "https://www.wolai.com/igkG876CojRhbWyVPD1c6T"
+    },
+    {
+      "id": "ihXGNWw5BN1fqG3b83yqhf",
+      "title": "德国莱昂哈特—安德拉公司设计的桥梁简介",
+      "url": "https://www.wolai.com/ihXGNWw5BN1fqG3b83yqhf"
+    },
+    {
+      "id": "oimDK4gE3KMz3qZK7cpD42",
+      "title": "The Messina Strait Bridge: A Challenge and a Dream",
+      "url": "https://www.wolai.com/oimDK4gE3KMz3qZK7cpD42"
+    },
+    {
+      "id": "qBF1WUz4fjbK3iEuPMf4mL",
+      "title": "The Diagonal Arch Bridge, a Particular Case of Spatial Arch Bridges",
+      "url": "https://www.wolai.com/qBF1WUz4fjbK3iEuPMf4mL"
+    },
+    {
+      "id": "rLUX4qMiF2Ni7Fv6LaEbgD",
+      "title": "形式服从功能—论桥梁的结构诚实性",
+      "url": "https://www.wolai.com/rLUX4qMiF2Ni7Fv6LaEbgD"
+    }
+  ],
+  "conceptReferences": [
+    {
+      "id": "L02",
+      "registry_id": "igkG876CojRhbWyVPD1c6T-L02",
+      "title": "普福尔茨海姆Enzauen III钢带人行桥",
+      "family": "suspension",
+      "model_id": "stress_ribbon",
+      "source_title": "轻·远：德国约格·施莱希和鲁道夫·贝格曼的轻型结构（中英文本）",
+      "pages": [
+        259,
+        260
+      ],
+      "summary": "用极薄钢带直接承担桥面，使小跨径桥的悬索与加劲构件在形式上合一。"
+    },
+    {
+      "id": "L03",
+      "registry_id": "igkG876CojRhbWyVPD1c6T-L03",
+      "title": "博斯特尔斜拱与钢带组合人行桥",
+      "family": "hybrid",
+      "model_id": "hybrid_arch",
+      "source_title": "轻·远：德国约格·施莱希和鲁道夫·贝格曼的轻型结构（中英文本）",
+      "pages": [
+        262
+      ],
+      "summary": "把局部混凝土受压拱放在连续受拉钢带下方，形成拱与悬垂带交替的步行曲线。"
+    },
+    {
+      "id": "L04",
+      "registry_id": "igkG876CojRhbWyVPD1c6T-L04",
+      "title": "斯图加特马克斯·埃特湖人行桥",
+      "family": "suspension",
+      "model_id": "suspension_ground",
+      "source_title": "轻·远：德国约格·施莱希和鲁道夫·贝格曼的轻型结构（中英文本）",
+      "pages": [
+        253,
+        254,
+        255,
+        256
+      ],
+      "summary": "用后锚固悬索体系、斜吊索和起伏桥面回应两岸不同地形，并以预制吊装避开河道支架。"
+    },
+    {
+      "id": "2VH4JDmRRUTQVmnQu1hxuu-M14",
+      "title": "重力锚碇的净竖向力与基底反力",
+      "family": "suspension",
+      "model_id": "suspension_ground",
+      "source_title": "Cable Supported Bridges: Concept and Design（第3版，2012）",
+      "pages": [
+        460,
+        457,
+        458,
+        459,
+        461,
+        462,
+        463,
+        464,
+        465,
+        466
+      ],
+      "summary": "锚碇整体/地基界面；剖开锚碇，交互显示G与索力H/V及合力位置；补充资料：重心/锚固点、基底、摩擦、地下水、土岩约束"
+    },
+    {
+      "id": "2VH4JDmRRUTQVmnQu1hxuu-M15",
+      "title": "自锚、地锚与部分地锚的水平力闭合",
+      "family": "suspension",
+      "model_id": "suspension_self",
+      "source_title": "Cable Supported Bridges: Concept and Design（第3版，2012）",
+      "pages": [
+        348,
+        346,
+        347,
+        349,
+        350,
+        351,
+        352,
+        353,
+        354,
+        355,
+        356,
+        357,
+        358
+      ],
+      "summary": "整桥体系；三维隔离梁/塔/索/锚，逐节点追踪力流；补充资料：体系几何、各支点约束、索力及主梁EA"
+    },
+    {
+      "id": "2VH4JDmRRUTQVmnQu1hxuu-M16",
+      "title": "空间索面与桥面净空",
+      "family": "cable_stayed",
+      "model_id": "stayed_spatial",
+      "source_title": "Cable Supported Bridges: Concept and Design（第3版，2012）",
+      "pages": [
+        283,
+        272,
+        273,
+        274,
+        275,
+        276,
+        277,
+        278,
+        279,
+        280,
+        281,
+        282,
+        284,
+        285
+      ],
+      "summary": "整桥空间体系；空间索可旋转；透明人/车净空体；剖切查交叉；补充资料：索节点三维坐标、塔梁截面、交通净空包络"
+    },
+    {
+      "id": "7Gdua5q7a8eDfhLwkMzTJH:research-assembly",
+      "title": "100m网络拱研究模型组成",
+      "family": "arch",
+      "model_id": "arch_network",
+      "source_title": "Design of Network Arch Bridges（Brito硕士论文）",
+      "pages": [
+        45,
+        46,
+        51,
+        52
+      ],
+      "summary": "双拱肋、系杆、桥面板、5m间距横梁、吊杆；按论文100m方案建研究模型，17m拱面矢高与15.87m投影分开；HEM等效梁不画成真实横梁"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M01",
+      "title": "同一桥跨的梁式体系连接与支承",
+      "family": "component",
+      "model_id": "girder_reference",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        10
+      ],
+      "summary": "整桥体系/墩梁连接；建立简支/连续/T形刚构/连续刚构；同模型剖开接头，显示自由度；补SI截面、刚度和荷载并用解析例验证"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M02",
+      "title": "组合体系交界区的真实连接",
+      "family": "hybrid",
+      "model_id": "hybrid_cable",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        12
+      ],
+      "summary": "整桥组合/交界局部；选拱梁或斜拉—连续梁一种桥，放大接口、隔离自由体；补连接细部与约束，不能用两个外形叠加冒充组合设计"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M100",
+      "title": "斜拉桥的竖向传力与梁内累积压轴力",
+      "family": "cable_stayed",
+      "model_id": "stayed_standard",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        180,
+        179
+      ],
+      "summary": "整桥/自由体与辅助墩；同一3D模型选取一段梁、单索、索塔和支座，核矢量平衡；显示辅助墩直接传力，部分地锚复用Gimsing M15"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M102",
+      "title": "四种空间斜拉索面的横向传力",
+      "family": "cable_stayed",
+      "model_id": "stayed_spatial",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        183,
+        182
+      ],
+      "summary": "空间整桥/索面与锚点；建立四种明确三维锚点配置，显示交叉不连接/真实连接；同一教学横载独立核平衡，稳定和气动不伪造"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M122",
+      "title": "索梁荷载分担与部分斜拉桥",
+      "family": "cable_stayed",
+      "model_id": "extradosed",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        241,
+        242,
+        243,
+        244
+      ],
+      "summary": "整桥/梁与索联合；连续滑动梁/索相对刚度，定义ρ=qc/qG与份额ρ/(1+ρ)；用统一初态/荷载验证，塔高经验范围放折叠层"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M67",
+      "title": "费马恩提篮拱与斜吊杆",
+      "family": "arch",
+      "model_id": "arch_basket",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        115,
+        116
+      ],
+      "summary": "整桥/吊杆锚固；复用系杆拱吊杆比较，增加内倾双肋与侧向联系，补初始张力和受拉单边验证"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M74",
+      "title": "Alameda单肋斜拱与悬挑桥面",
+      "family": "arch",
+      "model_id": "arch_inclined",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        119,
+        118
+      ],
+      "summary": "空间整桥/拱脚与桥面；补130m跨/26m宽的完整几何，模型显示吊杆空间连线、箱梁扭转与支座"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M89",
+      "title": "同一120m系杆拱的直索、斜索与网索",
+      "family": "arch",
+      "model_id": "arch_network",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        160,
+        159,
+        161,
+        162
+      ],
+      "summary": "整桥/索交叉与锚点；补A/I、索初力、支承、横梁与质量；交叉索不默认共节点，旋转看双索面与横撑；活载增量与总拉力分开"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M91",
+      "title": "菜园坝Y形刚构与三套独立系杆锚定",
+      "family": "hybrid",
+      "model_id": "hybrid_arch",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        164,
+        165
+      ],
+      "summary": "整桥/钢混界面与索锚局部；复用整桥M70，补空间Y刚构、钢混接口、中边系杆和竖索锚固；施工调索与活载状态分层"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M97",
+      "title": "稀索与密索斜拉桥的同跨受力和锚固尺度",
+      "family": "cable_stayed",
+      "model_id": "stayed_standard",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        174,
+        173,
+        175
+      ],
+      "summary": "整桥索距/局部锚固；统一SI跨度/荷载做稀索和密索模型，显示梁弯矩/压轴力；锚区复用已有局部原型，施工阶段与换索另验"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M98",
+      "title": "无背索Alamillo桥的斜塔力矩平衡",
+      "family": "cable_stayed",
+      "model_id": "stayed_single",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        176
+      ],
+      "summary": "异形整桥/塔底与索锚；补斜塔材料/重心/倾角/基础详图，实体剖切显示重量、索力、塔底反力；只靠照片不得定尺寸"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M99",
+      "title": "Ganter板拉与Odawara矮塔鞍座、芜湖索辅梁",
+      "family": "hybrid",
+      "model_id": "extradosed",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        177,
+        176
+      ],
+      "summary": "整桥体系/索鞍与板拉局部；同组对照三个独立原型，剖开板内筋、塔顶鞍座/主梁锚点；按实际材料/连接补参，活载索力增量独立算"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M135",
+      "title": "Rogue River预应力混凝土悬带桥",
+      "family": "suspension",
+      "model_id": "stress_ribbon",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        260,
+        259
+      ],
+      "summary": "整桥/悬带锚固；以84.73m主跨/1.54m垂度做来源几何起点，补钢带或预应力束及桥台资料；未知截面不冒充实桥"
+    },
+    {
+      "id": "cTxm8Y17AWLytFL44JkEBq-M93",
+      "title": "新浜寺提篮拱与60度斜吊索",
+      "family": "arch",
+      "model_id": "arch_basket",
+      "source_title": "桥梁结构体系（肖汝诚；文件前言2013）",
+      "pages": [
+        168,
+        167
+      ],
+      "summary": "整桥空间几何；核矢高/横宽矛盾并补三维坐标；展示倾拱、索面、顶横撑、正投影视角匹配"
+    },
+    {
+      "id": "diagonal-parameter-family",
+      "title": "空间拱的参数族：转角、倾角、曲线与多拱",
+      "family": "arch",
+      "model_id": "arch_inclined",
+      "source_title": "The Diagonal Arch Bridge, a Particular Case of Spatial Arch Bridges",
+      "pages": [
+        13
+      ],
+      "summary": "拱绕竖轴的平面角、拱平面倾角、支承斜交角是三种不同参数。"
+    },
+    {
+      "id": "gimsing-dischinger",
+      "title": "Dischinger悬索—斜拉组合概念",
+      "family": "hybrid",
+      "model_id": "hybrid_cable",
+      "source_title": "Cable Supported Bridges: Concept and Design（Gimsing、Georgakis，第3版，2012）",
+      "pages": [
+        32
+      ],
+      "summary": "主缆与直斜索共同分担，作用比例须由平衡、协调和初态求得。"
+    },
+    {
+      "id": "gimsing-katsushika",
+      "title": "Katsushika Harp：S形桥面与空间索力",
+      "family": "cable_stayed",
+      "model_id": "stayed_spatial",
+      "source_title": "Cable Supported Bridges: Concept and Design（Gimsing、Georgakis，第3版，2012）",
+      "pages": [
+        61,
+        62
+      ],
+      "summary": "对称索力下部分水平分量可相互平衡，偏载不保此条件。"
+    },
+    {
+      "id": "gimsing-youngjong",
+      "title": "Youngjong：自锚、倾斜索面与双层桁架",
+      "family": "suspension",
+      "model_id": null,
+      "source_title": "Cable Supported Bridges: Concept and Design（Gimsing、Georgakis，第3版，2012）",
+      "pages": [
+        82
+      ],
+      "summary": "深桁架与索共同作用；不能因作者评价而任意删索。"
+    }
+  ],
+  "topics": [
+    {
+      "id": "fan_harp",
+      "title": "扇形、半扇形与竖琴式：先比较索端在哪里",
+      "concept": "扇形索集中在塔顶附近；半扇形把塔端锚点适度分开；竖琴式把锚点沿塔身展开，使同组斜索近似平行。形态变化来自梁端、塔端的连接关系。",
+      "sourceIds": [
+        "v2-fan-harp-gimsing",
+        "2VH4JDmRRUTQVmnQu1hxuu"
+      ],
+      "sourceLinks": [
+        {
+          "title": "Gimsing、Georgakis《Cable Supported Bridges》第3版 · wolai原附件",
+          "url": "https://www.wolai.com/2VH4JDmRRUTQVmnQu1hxuu",
+          "note": "本地PDF第10页、印刷第2页、图0.3；本轮实际读图。图0.2是悬索体系，不混作斜拉。"
+        }
+      ],
+      "relatedModelIds": [
+        "stayed_fan",
+        "stayed_harp",
+        "stayed_standard"
+      ]
+    },
+    {
+      "id": "tree",
+      "title": "树形支承：把一个落地点展开成多个承托点",
+      "concept": "Pragsattel II用分叉钢管承托混凝土薄板。支承向上分叉，把桥面荷载从多个点汇集到柱脚；树形是支承组织方式，不是一种新的四大桥型。",
+      "sourceIds": [
+        "v2-tree-sbp",
+        "light-pragsattel"
+      ],
+      "sourceLinks": [
+        {
+          "title": "sbp · Pragsattel桥（设计者项目页）",
+          "url": "https://www.sbp.de/en/project/international-garden-exhibition-1993-bridge-at-pragsattel-across-pragstrasse/",
+          "note": "区分Pragsattel I的薄拱与Pragsattel II的分叉柱；官方说明连接节点采用铸钢。"
+        },
+        {
+          "title": "《轻·远》· wolai原附件",
+          "url": "https://www.wolai.com/igkG876CojRhbWyVPD1c6T",
+          "note": "PDF第240–241页；本轮目视第240页，页边印刷页码同时标238/239，引用时优先使用明确的PDF页码。"
+        }
+      ],
+      "relatedModelIds": [
+        "girder_tree",
+        "girder_reference"
+      ]
+    },
+    {
+      "id": "inclined_suspension",
+      "title": "倾斜索面：悬索桥也有横向的传力故事",
+      "concept": "把主缆与吊索所在的面向内或向外倾斜后，吊索不再只有竖向作用，还会向桥面输入横向分力。永宗大桥的菱形桥塔、倾斜双索面和双层桁架，是原书给出的完整实例。",
+      "sourceIds": [
+        "gimsing-youngjong",
+        "v2-suspension-sbp"
+      ],
+      "sourceLinks": [
+        {
+          "title": "Gimsing、Georgakis · Youngjong Bridge",
+          "url": "https://www.wolai.com/2VH4JDmRRUTQVmnQu1hxuu",
+          "note": "PDF第82页、印刷第74页、图1.103；自锚、倾斜双索面、双层桁架须一起辨认。"
+        },
+        {
+          "title": "sbp · Liberty Bridge Greenville（空间单侧悬挂对照）",
+          "url": "https://www.sbp.de/projekt/liberty-bridge-greenville/",
+          "note": "设计者说明外侧悬挂与圆环梁的组合；用于横向传力对照，不是永宗桥的设计方资料。"
+        }
+      ],
+      "relatedModelIds": [
+        "suspension_inclined",
+        "suspension_ground",
+        "suspension_self"
+      ]
+    },
+    {
+      "id": "fink",
+      "title": "芬克桥：历史桁架与现代倒置杆索梁",
+      "concept": "历史芬克体系把受压弦杆、竖杆和分级受拉斜杆组合起来。现代人行桥中所谓倒置芬克，则常见桥面上方高低相接的杆索单元、刚性桥面弦和没有贯通上弦的轮廓。两者需要分别看图。",
+      "sourceIds": [
+        "v2-fink-lds",
+        "v2-fink-istructe",
+        "v2-fink-haer",
+        "v2-fink-asce",
+        "v2-fink-ramboll",
+        "v2-fink-polimi"
+      ],
+      "sourceLinks": [
+        {
+          "title": "Lifschutz Davidson Sandilands · Royal Victoria Dock Bridge",
+          "url": "https://lds-uk.com/projects/infrastructure/royal-victoria-dock-bridge/",
+          "note": "建成方案设计者：六根变高锥形塔杆与索连接，两端有bowsprit回锚。150m总长和130m结构跨度是不同口径。"
+        },
+        {
+          "title": "IStructE · Forthside Bridge项目记录",
+          "url": "https://www.istructe.org/structural-awards/projects/2010/forthside-bridge/",
+          "note": "明确标识倒置Fink、两侧倾斜变高的杆索平面及无上弦特征。"
+        },
+        {
+          "title": "美国国会图书馆 · HAER NJ-18 芬克桥档案",
+          "url": "https://www.loc.gov/pictures/item/nj0143/",
+          "note": "测绘档案目录列14幅照片、6幅测绘图和18页说明。政府自制图无已知限制；转载图仍可能受限。"
+        },
+        {
+          "title": "HAER NJ-18 原始调查报告",
+          "url": "https://tile.loc.gov/storage-services/master/pnp/habshaer/nj/nj0100/nj0143/data/nj0143data.pdf",
+          "note": "PDF第8页/报告第6页述构件分工；PDF第13–14页/报告第11–12页比较Fink和Bollman。"
+        },
+        {
+          "title": "ASCE · Fink Deck Truss Bridge",
+          "url": "https://www.asce.org/about-civil-engineering/history-and-heritage/historic-landmarks/fink-deck-truss-bridge",
+          "note": "历史工程地标记录，核对Fink姓名与1854年专利，避免误写“分割桥”。"
+        },
+        {
+          "title": "Ramboll · Inspiring Bridge Solutions",
+          "url": "https://brandcentral.ramboll.com/api/asset/eyJjbGllbnRJZCI6ImNsaWVudC11a2Nidno2bGdzbWJtdnhrIiwiaWQiOjQzMzQxLCJ0aW1lc3RhbXAiOjE2ODYwMzc4NzEsInZlcnNpb24iOjE2ODQ4MjQyNTd9:ramboll:W4X7fY5ZP0Z9LJWAeUCvOX1MCvFRnHVhommOE-glbFc/download",
+          "note": "官方公开册PDF第13页、印刷24–25页，图03为Forthside。摄影Paul McMullin；本轮只保留相关单页。"
+        },
+        {
+          "title": "Račić等 · 芬克人行桥有限元建模与模型修正（2006）",
+          "url": "https://re.public.polimi.it/handle/11311/1056176",
+          "note": "作者机构公开摘要确认该桥存在建模不确定性；全文受限，没有伪称已阅读全文或取得计算模型。"
+        }
+      ],
+      "relatedModelIds": [
+        "fink_inverted"
+      ]
+    },
+    {
+      "id": "spatial_arch",
+      "title": "空间拱：转过去、倾过去、弯过去分别意味着什么",
+      "concept": "拱绕竖轴旋转、拱平面横向倾斜、桥面平面弯曲和拱轴本身成为空间曲线，会产生不同的三维作用。先指出究竟改变了哪一个几何参数，再讨论受力。",
+      "sourceIds": [
+        "diagonal-parameter-family",
+        "v2-diagonal-paper"
+      ],
+      "sourceLinks": [
+        {
+          "title": "Aguilar-Jiménez等 · The Diagonal Arch Bridge（2021）",
+          "url": "https://www.mdpi.com/2076-3417/11/4/1869",
+          "note": "原始研究论文；PDF第13页图21给出几何参数与分类，不把平面转角当横向倾角。"
+        },
+        {
+          "title": "sbp · Weinberg Bridge in Rathenow",
+          "url": "https://www.sbp.de/en/presse/die-weinbergbruecke-in-rathenow/",
+          "note": "设计者文章介绍S形桥面、斜拱、树形柱共同构成的350m步行桥；连接两个专题。"
+        }
+      ],
+      "relatedModelIds": [
+        "arch_inclined",
+        "arch_basket",
+        "arch_network"
+      ]
+    },
+    {
+      "id": "hybrid",
+      "title": "组合桥：两条传力路径必须在同一节点相遇",
+      "concept": "Börstel以拱承托连续应力带；悬索—斜拉组合则让主缆吊索与直斜索共同作用于桥面。构件拼在一起只是起点，共同变形和连接方式决定它们是否协作。",
+      "sourceIds": [
+        "L03",
+        "gimsing-dischinger",
+        "v2-hybrid-boerstel"
+      ],
+      "sourceLinks": [
+        {
+          "title": "sbp · Börstel Bridge（设计者项目页）",
+          "url": "https://www.sbp.de/en/project/boerstel-bridge/",
+          "note": "双钢带、混凝土拱及预制桥面板；总长96m，主要分段25–20–35m，不能把两种长度口径混写。"
+        },
+        {
+          "title": "《轻·远》· Börstel",
+          "url": "https://www.wolai.com/igkG876CojRhbWyVPD1c6T",
+          "note": "PDF第262页、印刷第261页。"
+        },
+        {
+          "title": "Gimsing、Georgakis · Dischinger组合构想",
+          "url": "https://www.wolai.com/2VH4JDmRRUTQVmnQu1hxuu",
+          "note": "PDF第32页、图1.24；保留历史构想身份。"
+        }
+      ],
+      "relatedModelIds": [
+        "hybrid_arch",
+        "hybrid_cable",
+        "stress_ribbon"
+      ]
+    },
+    {
+      "id": "ring_girder",
+      "title": "曲梁单侧悬挂：让行走路线也参与结构组织",
+      "concept": "波鸿加伦索S形桥把两段反向圆弧与内侧悬挂结合。Liberty Bridge采用外侧悬挂，桥面与下方环索又组成不同截面。相近外形未必有相同的上下弦受力方向。",
+      "sourceIds": [
+        "L01",
+        "light-reedy",
+        "v2-suspension-sbp"
+      ],
+      "sourceLinks": [
+        {
+          "title": "sbp · Liberty Bridge Greenville",
+          "url": "https://www.sbp.de/projekt/liberty-bridge-greenville/",
+          "note": "外侧悬挂、混凝土受压桥面与三根下部环索；只用于这个体系的说明。"
+        },
+        {
+          "title": "《轻·远》· 加伦索与Reedy River",
+          "url": "https://www.wolai.com/igkG876CojRhbWyVPD1c6T",
+          "note": "加伦索PDF247–251；内侧悬挂原理图PDF249/印刷248。Reedy River在书中保留出版时的项目状态。"
+        }
+      ],
+      "relatedModelIds": [
+        "stayed_spatial",
+        "suspension_inclined"
+      ]
+    },
+    {
+      "id": "recombined_members",
+      "title": "再组合：把塔拆成一组，把索展开成钢带",
+      "concept": "16 Tech的2021年设计发布把高塔分解为扇状小塔杆，并用扁钢板替代常规主缆。它把树形支承、受拉带和悬索传力放到同一个方案中，适合引导学生提出新的构件连接。",
+      "sourceIds": [
+        "v2-16tech-sbp"
+      ],
+      "sourceLinks": [
+        {
+          "title": "sbp · 16 Tech设计发布（2021-12-15）",
+          "url": "https://www.sbp.de/en/news/brueckenentwurf-fuer-16-tech-innovation-district-enthuellt/",
+          "note": "按此页发布时的设计构想使用；文中的预计完工时间不是当前状态证明。未把照片或网页算作已导入模型。"
+        }
+      ],
+      "relatedModelIds": [
+        "girder_tree",
+        "stress_ribbon",
+        "hybrid_cable"
+      ]
+    },
+    {
+      "id": "underdeck_cable",
+      "title": "下承索托梁：索在下面，短杆向上撑梁",
+      "concept": "把承重索放到桥面下方，主梁通过短压杆把荷载传给索；压杆向下压索，索在转折处形成向上的合力。这里保留课堂所说的悬带桥语境，并以“下承索托梁”标明连接关系。它与桥面直接沿索线起伏的应力带不同。",
+      "sourceIds": [
+        "light-glacis",
+        "v3-sbp-glacis",
+        "v3-underdeck-system",
+        "v3-underdeck-oliva-2014"
+      ],
+      "sourceLinks": [
+        {
+          "title": "sbp · Glacis Bridge Ingolstadt（设计者项目页）",
+          "url": "https://www.sbp.de/en/project/glacis-bridge-ingolstadt/",
+          "note": "官方说明为混凝土斜腿框架与悬带组合：车行层在上，步行层在较小的独立索上。主桥跨径42+76+46m，总长185m，全宽19.65m。"
+        },
+        {
+          "title": "《轻·远》· wolai原附件",
+          "url": "https://www.wolai.com/igkG876CojRhbWyVPD1c6T",
+          "note": "本地PDF第211页照片与立面本轮目视；原阅读记录定位项目为PDF211—214。图中车行与人行标高不同。"
+        },
+        {
+          "title": "Oliva等 · Dynamic behaviour of underspanned suspension road bridges under traffic loads（2014）",
+          "url": "https://www.scielo.org.za/scielo.php?pid=S1021-20192014000300008&script=sci_arttext",
+          "note": "Structural system小节说明下置受拉索、受压撑杆及自锚时主梁的轴压；研究模型不等于Glacis的实际结构。"
+        },
+        {
+          "title": "Ruiz-Teran与Aparicio · Developments in under-deck and combined cable-stayed bridges（2010）",
+          "url": "https://doi.org/10.1680/bren.2010.163.2.67",
+          "note": "§2区分早期下承悬索与后来下承斜拉／张弦体系；索的锚固和预应力状态决定分析模型，名称不能只靠外形。"
+        }
+      ],
+      "relatedModelIds": [
+        "underslung_suspension",
+        "stress_ribbon"
+      ]
+    },
+    {
+      "id": "millennium_low_cable",
+      "title": "伦敦千禧桥：把悬索体系压低到视线下",
+      "concept": "千禧桥仍靠受拉主索跨越泰晤士河。左右两组各四根主索由两座Y形支承托住，横向刚性钢臂把桥面接到侧索上。它的识别重点是低位侧索和横臂，而不是一座缩短了塔柱的普通悬索桥。",
+      "sourceIds": [
+        "gimsing-millennium",
+        "v3-millennium-arup",
+        "v3-millennium-foster"
+      ],
+      "sourceLinks": [
+        {
+          "title": "皇家工程院Ingenia · Stabilising the London Millennium Bridge（Arup设计者亲述，2001）",
+          "url": "https://ingenia.org.uk/articles/stabilising-the-london-millennium-bridge/",
+          "note": "Design and stiffness小节明确三跨81+144+108=333m，中央跨索高低差2.3m；岸上为地锚。采用这一工程记录统一模型跨度。"
+        },
+        {
+          "title": "Foster + Partners · Millennium Bridge",
+          "url": "https://www.fosterandpartners.com/projects/millennium-bridge",
+          "note": "设计者搜索索引说明4m桥面、两座Y形支承、8根主索和8m横臂间距；正文抓取超时，dev站索引可核同段文字。概述320m不替代工程原文的333m跨径和。"
+        },
+        {
+          "title": "Gimsing、Georgakis《Cable Supported Bridges》第3版 · wolai原附件",
+          "url": "https://www.wolai.com/2VH4JDmRRUTQVmnQu1hxuu",
+          "note": "本地PDF83／印刷75页图1.104，本轮目视：低位索束、Y墩和刚性横臂；正文也列81、144、108m三跨。原书对设计的评价不作为力学结论。"
+        },
+        {
+          "title": "Belykh等 · Emergence of the London Millennium Bridge instability without synchronisation（2021）",
+          "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8664840/",
+          "note": "研究讨论无需全体行人步调同步也可出现的人桥失稳；教材不能把事件缩成“所有人齐步走产生普通共振”。"
+        }
+      ],
+      "relatedModelIds": [
+        "millennium_low",
+        "suspension_ground"
+      ]
+    }
+  ],
+  "limitations": [
+    "Educational reconstructions are not as-built survey or fabrication models.",
+    "The static model does not establish analytical connectivity or demonstrate structural capacity.",
+    "Original book/page images are not copied or included; source links are evidence references, not publication licenses."
+  ]
+}

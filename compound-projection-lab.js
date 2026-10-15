@@ -3,6 +3,8 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { mergeVertices, toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import { syncFaces, syncLines } from 'replicad-threejs-helper';
+import { auditLessonWithExactKernel } from './replicad-kernel-client.js?v=8.3.0';
 import {
   COMPOUND_LESSONS,
   clampStageIndex,
@@ -10,7 +12,18 @@ import {
   evaluateCompoundAnswer,
   getCompoundLesson,
   visibleIdsForState
-} from './compound-projection-lessons.js?v=8.2.1';
+} from './compound-projection-lessons.js?v=8.2.7';
+import {
+  EXAMPLE51_DIMENSIONS,
+  EXAMPLE55_BODY,
+  EXAMPLE56_DIMENSIONS,
+  createExample55Construction,
+  createExample55ProjectionBlueprint,
+  createExample56BaseSlot,
+  createExample56ProjectionBlueprint,
+  example56BaseHalfDepthAt,
+  flattenProjectionSegments
+} from './chapter5-projection-geometry.js?v=8.2.7';
 
 const COLORS = Object.freeze({
   base: 0x668aa1,
@@ -98,6 +111,9 @@ export function createCompoundProjectionLab({
     assemble: doc?.getElementById('compound-assemble') || null,
     explodeAll: doc?.getElementById('compound-explode-all') || null,
     progress: doc?.getElementById('compound-stage-progress') || null,
+    kernelStatus: doc?.getElementById('compound-kernel-status') || null,
+    projectionBoard: doc?.querySelector('.compound-projection-board') || null,
+    mobileViewTabs: doc?.querySelector('.compound-mobile-view-tabs') || null,
     axisNote: doc?.querySelector('.compound-axis-note') || null,
     modelHelp: doc?.querySelector('.compound-model-help') || null
   };
@@ -115,6 +131,10 @@ export function createCompoundProjectionLab({
   let drag = null;
   let pointPickDown = null;
   let pointMarker = null;
+  let exactKernelAudit = { status: 'idle', stage: '', key: '', result: null, error: '' };
+  let exactKernelTimer = 0;
+  let exactKernelRequestToken = 0;
+  let mobileProjectionView = 'front';
   let edgeResolution = { width: 0, height: 0 };
   const assemblyCurrentOffsets = new Map();
   const raycaster = new THREE.Raycaster();
@@ -232,7 +252,18 @@ export function createCompoundProjectionLab({
   }
 
   function basePlanShape() {
-    return polygonShape([[-2.55, -0.72], [1.45, -1.32], [1.45, 1.32], [-2.55, 0.72]]);
+    const b = EXAMPLE56_DIMENSIONS.base;
+    const r = EXAMPLE56_DIMENSIONS.ring;
+    const lowerAngle = Math.atan2(-b.tangentHalfDepth, b.tangentX - r.x);
+    const upperAngle = Math.atan2(b.tangentHalfDepth, b.tangentX - r.x);
+    const shape = new THREE.Shape();
+    shape.moveTo(b.xMin, -b.leftHalfDepth);
+    shape.lineTo(b.tangentX, -b.tangentHalfDepth);
+    // 底板Ⅱ的右端是与圆柱Ⅰ外圆贴合的凹圆弧，不是指向圆心的三角尖端。
+    shape.absarc(r.x, 0, r.outer, lowerAngle, upperAngle, true);
+    shape.lineTo(b.xMin, b.leftHalfDepth);
+    shape.closePath();
+    return shape;
   }
 
   function extrudedGeometry(shape, depth, axis = 'z', curveSegments = 48) {
@@ -328,6 +359,7 @@ export function createCompoundProjectionLab({
       geometry = transformedGeometry(baseSpecs[0]);
     }
     if (options.projectionSilhouetteOnly) geometry.userData.projectionSilhouetteOnly = true;
+    if (options.projectionAnalyticOnly) geometry.userData.projectionAnalyticOnly = true;
     if (options.projectionEdgeThreshold) geometry.userData.projectionEdgeThreshold = options.projectionEdgeThreshold;
     return addMesh(parent, name, geometry, color, {
       castShadow: options.castShadow,
@@ -513,19 +545,22 @@ export function createCompoundProjectionLab({
 
   function buildExample51() {
     const root = createRoot('example51');
-    const baseWidth = 4.4;
-    const baseDepth = 3.2;
-    const baseThickness = 0.32;
-    const barrelOuter = 1.05;
-    const barrelInner = 0.55;
-    const barrelCenterY = 2.05;
+    const {
+      baseWidth,
+      baseDepth,
+      baseThickness,
+      uprightOuterRadius,
+      uprightThickness,
+      barrelOuterRadius: barrelOuter,
+      barrelInnerRadius: barrelInner,
+      barrelCenterY,
+      ribTopY
+    } = EXAMPLE51_DIMENSIONS;
     const baseFrontZ = baseDepth / 2;
     const uprightRearZ = -1.4;
-    const uprightThickness = 0.24;
     const uprightFrontZ = uprightRearZ + uprightThickness;
     const barrelLength = baseFrontZ - uprightFrontZ;
     const barrelCenterZ = (baseFrontZ + uprightFrontZ) / 2;
-    const ribTopY = barrelCenterY - barrelOuter;
 
     const baseShape = frontRoundedBaseShape(baseWidth, baseDepth, 0.42);
     ['base-hole-left', 'base-hole-right'].forEach(id => {
@@ -591,7 +626,7 @@ export function createCompoundProjectionLab({
 
     const upright = makeComponent(root, 'upright', 'A1·拱顶立板', [-1.55, 0.85, -0.85]);
     const uprightGeometry = extrudedGeometry(
-      archedUprightShape(barrelOuter, barrelCenterY - baseThickness),
+      archedUprightShape(uprightOuterRadius, barrelCenterY - baseThickness),
       uprightThickness,
       'z'
     );
@@ -608,13 +643,13 @@ export function createCompoundProjectionLab({
       }
     );
     const uprightFrontOutline = [
-      [-barrelOuter, baseThickness, uprightFrontZ], [-barrelOuter, barrelCenterY, uprightFrontZ],
-      [barrelOuter, barrelCenterY, uprightFrontZ], [barrelOuter, baseThickness, uprightFrontZ]
+      [-uprightOuterRadius, baseThickness, uprightFrontZ], [-uprightOuterRadius, barrelCenterY, uprightFrontZ],
+      [uprightOuterRadius, barrelCenterY, uprightFrontZ], [uprightOuterRadius, baseThickness, uprightFrontZ]
     ];
     appendPlaneArcSegments(
       uprightFrontOutline,
       [0, barrelCenterY, uprightFrontZ],
-      barrelOuter,
+      uprightOuterRadius,
       'xy',
       0,
       Math.PI,
@@ -624,18 +659,18 @@ export function createCompoundProjectionLab({
       views: ['front'],
       style: 'visible'
     });
-    const uprightTopY = barrelCenterY + barrelOuter;
+    const uprightTopY = barrelCenterY + uprightOuterRadius;
     addProjectionGuide(upright, 'example51_upright_side_outline', [
-      [barrelOuter, baseThickness, uprightRearZ], [barrelOuter, uprightTopY, uprightRearZ],
-      [barrelOuter, uprightTopY, uprightRearZ], [barrelOuter, uprightTopY, uprightFrontZ],
-      [barrelOuter, uprightTopY, uprightFrontZ], [barrelOuter, baseThickness, uprightFrontZ],
-      [barrelOuter, baseThickness, uprightFrontZ], [barrelOuter, baseThickness, uprightRearZ]
+      [uprightOuterRadius, baseThickness, uprightRearZ], [uprightOuterRadius, uprightTopY, uprightRearZ],
+      [uprightOuterRadius, uprightTopY, uprightRearZ], [uprightOuterRadius, uprightTopY, uprightFrontZ],
+      [uprightOuterRadius, uprightTopY, uprightFrontZ], [uprightOuterRadius, baseThickness, uprightFrontZ],
+      [uprightOuterRadius, baseThickness, uprightFrontZ], [uprightOuterRadius, baseThickness, uprightRearZ]
     ], { views: ['side'], style: 'visible' });
     addProjectionGuide(upright, 'example51_upright_top_outline', [
-      [-barrelOuter, uprightTopY, uprightRearZ], [barrelOuter, uprightTopY, uprightRearZ],
-      [barrelOuter, uprightTopY, uprightRearZ], [barrelOuter, uprightTopY, uprightFrontZ],
-      [barrelOuter, uprightTopY, uprightFrontZ], [-barrelOuter, uprightTopY, uprightFrontZ],
-      [-barrelOuter, uprightTopY, uprightFrontZ], [-barrelOuter, uprightTopY, uprightRearZ]
+      [-uprightOuterRadius, uprightTopY, uprightRearZ], [uprightOuterRadius, uprightTopY, uprightRearZ],
+      [uprightOuterRadius, uprightTopY, uprightRearZ], [uprightOuterRadius, uprightTopY, uprightFrontZ],
+      [uprightOuterRadius, uprightTopY, uprightFrontZ], [-uprightOuterRadius, uprightTopY, uprightFrontZ],
+      [-uprightOuterRadius, uprightTopY, uprightFrontZ], [-uprightOuterRadius, uprightTopY, uprightRearZ]
     ], { views: ['top'], style: 'visible' });
 
     const boreValues = cutterValues('bore');
@@ -759,59 +794,15 @@ export function createCompoundProjectionLab({
     return root;
   }
 
-  const EXAMPLE55_BODY = Object.freeze({
-    xMin: -2.2,
-    xMax: 2.2,
-    yMin: 0,
-    yMax: 2.7,
-    zMin: -1.4,
-    zMax: 1.4
-  });
-
-  function interpolateOutput(input, aInput, aOutput, bInput, bOutput) {
-    const span = bInput - aInput;
-    if (Math.abs(span) < 1e-8) return (aOutput + bOutput) / 2;
-    return aOutput + (input - aInput) * (bOutput - aOutput) / span;
-  }
-
   function example55Construction(parameters = {}) {
-    const p = cutterValues('cut-p');
-    const q = cutterValues('cut-q');
-    const slot = cutterValues('cut-slot');
-    const slotLength = clamp(Number(parameters.slotLength) || 5, 1.4, 5.4);
-    const pLow = { x: -2.45 + p.x, y: 0.35 + p.y };
-    const pHigh = { x: 0.45 + p.x, y: 2.95 + p.y };
-    const qFrontLow = { z: 1.72 + q.z, y: 0.25 + q.y };
-    const qFrontHigh = { z: 0.48 + q.z, y: 2.95 + q.y };
-    const qRearLow = { z: -1.72 - q.z, y: 0.25 + q.y };
-    const qRearHigh = { z: -0.48 - q.z, y: 2.95 + q.y };
-    const pYAt = x => interpolateOutput(x, pLow.x, pLow.y, pHigh.x, pHigh.y);
-    const pXAt = y => interpolateOutput(y, pLow.y, pLow.x, pHigh.y, pHigh.x);
-    const qFrontYAt = z => interpolateOutput(z, qFrontLow.z, qFrontLow.y, qFrontHigh.z, qFrontHigh.y);
-    const qFrontZAt = y => interpolateOutput(y, qFrontLow.y, qFrontLow.z, qFrontHigh.y, qFrontHigh.z);
-    const qRearYAt = z => interpolateOutput(z, qRearLow.z, qRearLow.y, qRearHigh.z, qRearHigh.y);
-    const qRearZAt = y => interpolateOutput(y, qRearLow.y, qRearLow.z, qRearHigh.y, qRearHigh.z);
-    return {
-      p,
-      q,
-      slot,
-      slotLength,
-      pLow,
-      pHigh,
-      pYAt,
-      pXAt,
-      pLeftY: clamp(pYAt(EXAMPLE55_BODY.xMin), EXAMPLE55_BODY.yMin, EXAMPLE55_BODY.yMax),
-      pTopX: clamp(pXAt(EXAMPLE55_BODY.yMax), EXAMPLE55_BODY.xMin, EXAMPLE55_BODY.xMax),
-      qFrontShoulderY: clamp(qFrontYAt(EXAMPLE55_BODY.zMax), EXAMPLE55_BODY.yMin, EXAMPLE55_BODY.yMax),
-      qRearShoulderY: clamp(qRearYAt(EXAMPLE55_BODY.zMin), EXAMPLE55_BODY.yMin, EXAMPLE55_BODY.yMax),
-      qFrontTopZ: clamp(qFrontZAt(EXAMPLE55_BODY.yMax), EXAMPLE55_BODY.zMin, EXAMPLE55_BODY.zMax),
-      qRearTopZ: clamp(qRearZAt(EXAMPLE55_BODY.yMax), EXAMPLE55_BODY.zMin, EXAMPLE55_BODY.zMax),
-      slotTopY: 1.05,
-      slotXMin: clamp(slot.x - slotLength / 2, EXAMPLE55_BODY.xMin, EXAMPLE55_BODY.xMax),
-      slotXMax: clamp(slot.x + slotLength / 2, EXAMPLE55_BODY.xMin, EXAMPLE55_BODY.xMax),
-      slotZMin: clamp(slot.z - 0.8, EXAMPLE55_BODY.zMin, EXAMPLE55_BODY.zMax),
-      slotZMax: clamp(slot.z + 0.8, EXAMPLE55_BODY.zMin, EXAMPLE55_BODY.zMax)
-    };
+    return createExample55Construction({
+      cutterValues: {
+        'cut-p': cutterValues('cut-p'),
+        'cut-q': cutterValues('cut-q'),
+        'cut-slot': cutterValues('cut-slot')
+      },
+      slotLength: parameters.slotLength
+    });
   }
 
   function example55CutterSpecs(parameters = {}, construction = example55Construction(parameters)) {
@@ -836,131 +827,20 @@ export function createCompoundProjectionLab({
   }
 
   function addExample55ProjectionGuides(root, construction) {
-    const b = EXAMPLE55_BODY;
-    const pApplied = isApplied('cut-p');
-    const qApplied = isApplied('cut-q');
-    const slotApplied = isApplied('cut-slot');
-    const frontVisible = [];
-    const frontHidden = [];
-    const sideVisible = [];
-    const sideHidden = [];
-    const topVisible = [];
-    const topHidden = [];
-    const add = (segments, a, c) => {
-      if (a.every((value, index) => Math.abs(value - c[index]) < 1e-7)) return;
-      segments.push(a, c);
-    };
-    const front = (x, y) => [x, y, 0];
-    const side = (z, y) => [0, y, z];
-    const top = (x, z) => [x, 0, z];
-
-    // 主视图：P 决定外轮廓，Q 形成底部肩线，B3 在实体内部为虚线。
-    if (pApplied) {
-      add(frontVisible, front(b.xMin, b.yMin), front(b.xMin, construction.pLeftY));
-      add(frontVisible, front(b.xMin, construction.pLeftY), front(construction.pTopX, b.yMax));
-      add(frontVisible, front(construction.pTopX, b.yMax), front(b.xMax, b.yMax));
-    } else {
-      add(frontVisible, front(b.xMin, b.yMin), front(b.xMin, b.yMax));
-      add(frontVisible, front(b.xMin, b.yMax), front(b.xMax, b.yMax));
-    }
-    add(frontVisible, front(b.xMax, b.yMax), front(b.xMax, b.yMin));
-    add(frontVisible, front(b.xMax, b.yMin), front(b.xMin, b.yMin));
-    if (qApplied) {
-      const shoulderY = (construction.qFrontShoulderY + construction.qRearShoulderY) / 2;
-      const shoulderX = pApplied
-        ? clamp(construction.pXAt(shoulderY), b.xMin, b.xMax)
-        : b.xMin;
-      add(frontVisible, front(shoulderX, shoulderY), front(b.xMax, shoulderY));
-    }
-    if (slotApplied && construction.slotXMax > construction.slotXMin) {
-      add(frontHidden, front(construction.slotXMin, construction.slotTopY), front(construction.slotXMax, construction.slotTopY));
-      if (construction.slotXMin > b.xMin + 1e-5) {
-        add(frontHidden, front(construction.slotXMin, b.yMin), front(construction.slotXMin, construction.slotTopY));
-      }
-      if (construction.slotXMax < b.xMax - 1e-5) {
-        add(frontHidden, front(construction.slotXMax, b.yMin), front(construction.slotXMax, construction.slotTopY));
-      }
-    }
-
-    // 左视图：Q 形成对称斜顶；只有 B3 到达观察端面时才显示 U 形开口。
-    const slotOpenAtViewedEnd = slotApplied && construction.slotXMax >= b.xMax - 1e-5;
-    if (qApplied) {
-      add(sideVisible, side(b.zMin, b.yMin), side(b.zMin, construction.qRearShoulderY));
-      add(sideVisible, side(b.zMin, construction.qRearShoulderY), side(construction.qRearTopZ, b.yMax));
-      add(sideVisible, side(construction.qRearTopZ, b.yMax), side(construction.qFrontTopZ, b.yMax));
-      add(sideVisible, side(construction.qFrontTopZ, b.yMax), side(b.zMax, construction.qFrontShoulderY));
-      add(sideVisible, side(b.zMax, construction.qFrontShoulderY), side(b.zMax, b.yMin));
-      const shoulderYAt = z => interpolateOutput(
-        z,
-        b.zMin,
-        construction.qRearShoulderY,
-        b.zMax,
-        construction.qFrontShoulderY
-      );
-      if (slotOpenAtViewedEnd && construction.slotTopY > shoulderYAt((construction.slotZMin + construction.slotZMax) / 2)) {
-        add(sideVisible, side(b.zMin, construction.qRearShoulderY), side(construction.slotZMin, shoulderYAt(construction.slotZMin)));
-        add(sideVisible, side(construction.slotZMax, shoulderYAt(construction.slotZMax)), side(b.zMax, construction.qFrontShoulderY));
-      } else {
-        add(sideVisible, side(b.zMin, construction.qRearShoulderY), side(b.zMax, construction.qFrontShoulderY));
-      }
-    } else {
-      add(sideVisible, side(b.zMin, b.yMin), side(b.zMin, b.yMax));
-      add(sideVisible, side(b.zMin, b.yMax), side(b.zMax, b.yMax));
-      add(sideVisible, side(b.zMax, b.yMax), side(b.zMax, b.yMin));
-    }
-    if (slotOpenAtViewedEnd) {
-      add(sideVisible, side(b.zMin, b.yMin), side(construction.slotZMin, b.yMin));
-      add(sideVisible, side(construction.slotZMin, b.yMin), side(construction.slotZMin, construction.slotTopY));
-      add(sideVisible, side(construction.slotZMin, construction.slotTopY), side(construction.slotZMax, construction.slotTopY));
-      add(sideVisible, side(construction.slotZMax, construction.slotTopY), side(construction.slotZMax, b.yMin));
-      add(sideVisible, side(construction.slotZMax, b.yMin), side(b.zMax, b.yMin));
-    } else {
-      add(sideVisible, side(b.zMin, b.yMin), side(b.zMax, b.yMin));
-      if (slotApplied) {
-        add(sideHidden, side(construction.slotZMin, b.yMin), side(construction.slotZMin, construction.slotTopY));
-        add(sideHidden, side(construction.slotZMin, construction.slotTopY), side(construction.slotZMax, construction.slotTopY));
-        add(sideHidden, side(construction.slotZMax, construction.slotTopY), side(construction.slotZMax, b.yMin));
-      }
-    }
-
-    // 俯视图：显式画出 P/Q 分界；B3 位于顶面以下，按槽长生成稳定的隐藏轮廓。
-    add(topVisible, top(b.xMin, b.zMin), top(b.xMax, b.zMin));
-    add(topVisible, top(b.xMax, b.zMin), top(b.xMax, b.zMax));
-    add(topVisible, top(b.xMax, b.zMax), top(b.xMin, b.zMax));
-    add(topVisible, top(b.xMin, b.zMax), top(b.xMin, b.zMin));
-    if (pApplied) {
-      const zStart = qApplied ? construction.qRearTopZ : b.zMin;
-      const zEnd = qApplied ? construction.qFrontTopZ : b.zMax;
-      add(topVisible, top(construction.pTopX, zStart), top(construction.pTopX, zEnd));
-    }
-    if (qApplied) {
-      const topStartX = pApplied ? construction.pTopX : b.xMin;
-      add(topVisible, top(topStartX, construction.qRearTopZ), top(b.xMax, construction.qRearTopZ));
-      add(topVisible, top(topStartX, construction.qFrontTopZ), top(b.xMax, construction.qFrontTopZ));
-      if (pApplied) {
-        const rearStartX = clamp(construction.pXAt(construction.qRearShoulderY), b.xMin, b.xMax);
-        const frontStartX = clamp(construction.pXAt(construction.qFrontShoulderY), b.xMin, b.xMax);
-        add(topVisible, top(rearStartX, b.zMin), top(construction.pTopX, construction.qRearTopZ));
-        add(topVisible, top(frontStartX, b.zMax), top(construction.pTopX, construction.qFrontTopZ));
-      }
-    }
-    if (slotApplied && construction.slotXMax > construction.slotXMin) {
-      add(topHidden, top(construction.slotXMin, construction.slotZMin), top(construction.slotXMax, construction.slotZMin));
-      add(topHidden, top(construction.slotXMin, construction.slotZMax), top(construction.slotXMax, construction.slotZMax));
-      if (construction.slotXMin > b.xMin + 1e-5) {
-        add(topHidden, top(construction.slotXMin, construction.slotZMin), top(construction.slotXMin, construction.slotZMax));
-      }
-      if (construction.slotXMax < b.xMax - 1e-5) {
-        add(topHidden, top(construction.slotXMax, construction.slotZMin), top(construction.slotXMax, construction.slotZMax));
-      }
-    }
-
-    addProjectionGuide(root, 'example55_front_visible', frontVisible, { views: ['front'], style: 'visible' });
-    addProjectionGuide(root, 'example55_front_hidden', frontHidden, { views: ['front'], style: 'hidden' });
-    addProjectionGuide(root, 'example55_side_visible', sideVisible, { views: ['side'], style: 'visible' });
-    addProjectionGuide(root, 'example55_side_hidden', sideHidden, { views: ['side'], style: 'hidden' });
-    addProjectionGuide(root, 'example55_top_visible', topVisible, { views: ['top'], style: 'visible' });
-    addProjectionGuide(root, 'example55_top_hidden', topHidden, { views: ['top'], style: 'hidden-emphasis' });
+    const blueprint = createExample55ProjectionBlueprint({
+      construction,
+      appliedCutters: state.appliedCutters
+    });
+    const { front, side, top, slotOpenAtViewedEnd } = blueprint;
+    // Retain the named condition because it is also part of the interactive
+    // local-slot behavior: only a cutter reaching the viewed end opens the U.
+    void slotOpenAtViewedEnd;
+    addProjectionGuide(root, 'example55_front_visible', flattenProjectionSegments(front.visible), { views: ['front'], style: 'visible' });
+    addProjectionGuide(root, 'example55_front_hidden', flattenProjectionSegments(front.hidden), { views: ['front'], style: 'hidden' });
+    addProjectionGuide(root, 'example55_side_visible', flattenProjectionSegments(side.visible), { views: ['side'], style: 'visible' });
+    addProjectionGuide(root, 'example55_side_hidden', flattenProjectionSegments(side.hidden), { views: ['side'], style: 'hidden' });
+    addProjectionGuide(root, 'example55_top_visible', flattenProjectionSegments(top.visible), { views: ['top'], style: 'visible' });
+    addProjectionGuide(root, 'example55_top_hidden', flattenProjectionSegments(top.hidden), { views: ['top'], style: 'hidden-emphasis' });
   }
 
   function addExample55PreciseEdges(root, construction) {
@@ -1011,6 +891,9 @@ export function createCompoundProjectionLab({
       add([b.xMax, b.yMax, b.zMax], [b.xMax, b.yMin, b.zMax]);
     }
 
+    const slotOpenAtLeft = slotApplied
+      && construction.slotXMin <= b.xMin + 1e-5
+      && construction.slotXMax >= b.xMin - 1e-5;
     const slotOpenAtRight = slotApplied
       && construction.slotXMin <= b.xMax + 1e-5
       && construction.slotXMax >= b.xMax - 1e-5;
@@ -1035,12 +918,18 @@ export function createCompoundProjectionLab({
       add([x0, y1, z1], [x1, y1, z1]);
       add([x0, y0, z0], [x1, y0, z0]);
       add([x0, y0, z1], [x1, y0, z1]);
-      add([x0, y0, z0], [x0, y1, z0]);
-      add([x0, y1, z0], [x0, y1, z1]);
-      add([x0, y1, z1], [x0, y0, z1]);
-      add([x1, y0, z0], [x1, y1, z0]);
-      add([x1, y1, z0], [x1, y1, z1]);
-      add([x1, y1, z1], [x1, y0, z1]);
+      // 局部槽需要画两道止端交线；贯穿槽的远端洞口则交给深度遮挡，
+      // 避免人工叠线越过实体形成“悬空方框”。近端U形口已在上方单独绘制。
+      if (!slotOpenAtLeft) {
+        add([x0, y0, z0], [x0, y1, z0]);
+        add([x0, y1, z0], [x0, y1, z1]);
+        add([x0, y1, z1], [x0, y0, z1]);
+      }
+      if (!slotOpenAtRight) {
+        add([x1, y0, z0], [x1, y1, z0]);
+        add([x1, y1, z0], [x1, y1, z1]);
+        add([x1, y1, z1], [x1, y0, z1]);
+      }
     }
     addPreciseEdgeOverlay(root, 'example55_precise_feature_edges', points);
   }
@@ -1058,14 +947,14 @@ export function createCompoundProjectionLab({
       lesson.cutters.filter(cutter => isApplied(cutter.id)).flatMap(cutter => specs[cutter.id]),
       state.appliedCutters.length ? COLORS.result : COLORS.base,
       {
-        projectionAnalyticOnly: true,
         projectionEdgeThreshold: 28,
         castShadow: false,
         receiveShadow: false,
         material: { roughness: 0.62, metalness: 0 }
       }
     );
-    addExample55ProjectionGuides(body, construction);
+    // Reproject the current Boolean solid while a tool moves. A separately
+    // drawn blueprint cannot track occlusion or a slot opening at the left end.
     addExample55PreciseEdges(body, construction);
     addToolComponent(root, cutterDefinition('cut-p'), specs['cut-p'], [-1.45, 1.2, 0]);
     addToolComponent(root, cutterDefinition('cut-q'), specs['cut-q'], [0, 1.05, 1.3]);
@@ -1073,27 +962,88 @@ export function createCompoundProjectionLab({
     return root;
   }
 
-  function example56CutterSpecs() {
+  const EXAMPLE56_BASE = EXAMPLE56_DIMENSIONS.base;
+  const EXAMPLE56_RING = EXAMPLE56_DIMENSIONS.ring;
+
+  function example56BaseSlotConstruction() {
+    return createExample56BaseSlot(cutterValues('cut-v'));
+  }
+
+  function example56CutterSpecs(slot) {
     const iii = cutterValues('cut-iii');
     const iv = cutterValues('cut-iv');
-    const v = cutterValues('cut-v');
+    const cutterTop = EXAMPLE56_RING.top + 0.25;
+    const iiiFloor = iii.y - 0.525;
+    const iiiHeight = cutterTop - iiiFloor;
+    const ivStraightHeight = cutterTop - iv.y;
     return {
-      'cut-iii': [geometrySpec(new THREE.BoxGeometry(0.68, 1.05, 1.3), [iii.x, iii.y, 0.78])],
+      'cut-iii': [geometrySpec(
+        new THREE.BoxGeometry(0.7, iiiHeight, 1.3),
+        [iii.x, (cutterTop + iiiFloor) / 2, 0.78]
+      )],
       'cut-iv': [geometrySpec(
-        extrudedGeometry(roundedBottomSlotShape(0.7, 0.72, 0.35), 1.32, 'z'),
+        extrudedGeometry(roundedBottomSlotShape(0.7, ivStraightHeight, 0.35), 1.32, 'z'),
         [iv.x, iv.y, -0.78]
       )],
-      'cut-v': [geometrySpec(new THREE.BoxGeometry(2.25, 0.3, 3.1), [v.x, v.y, 0])]
+      'cut-v': [geometrySpec(
+        new THREE.BoxGeometry(slot.toolLength, slot.height, slot.toolWidth),
+        [slot.toolCenterX, (slot.yMin + slot.yMax) / 2, slot.toolCenterZ]
+      )]
     };
+  }
+
+  function addExample56ProjectionGuides(body, slot) {
+    const blueprint = createExample56ProjectionBlueprint({
+      appliedCutters: state.appliedCutters,
+      cutterValues: {
+        'cut-iii': cutterValues('cut-iii'),
+        'cut-iv': cutterValues('cut-iv'),
+        'cut-v': cutterValues('cut-v')
+      },
+      slot
+    });
+    addProjectionGuide(body, 'example56_front_visible', flattenProjectionSegments(blueprint.front.visible), { views: ['front'], style: 'visible' });
+    addProjectionGuide(body, 'example56_front_hidden', flattenProjectionSegments(blueprint.front.hidden), { views: ['front'], style: 'hidden' });
+    addProjectionGuide(body, 'example56_top_visible', flattenProjectionSegments(blueprint.top.visible), { views: ['top'], style: 'visible' });
+    addProjectionGuide(body, 'example56_top_hidden', flattenProjectionSegments(blueprint.top.hidden), { views: ['top'], style: 'hidden-emphasis' });
+    addProjectionGuide(body, 'example56_side_visible', flattenProjectionSegments(blueprint.side.visible), { views: ['side'], style: 'visible' });
+    addProjectionGuide(body, 'example56_side_hidden', flattenProjectionSegments(blueprint.side.hidden), { views: ['side'], style: 'hidden' });
+  }
+
+  function addExample56PreciseEdges(body, slot) {
+    if (!isApplied('cut-v')) return;
+    const xMin = EXAMPLE56_BASE.xMin;
+    const xMax = slot.xMax;
+    const halfDepthLeft = example56BaseHalfDepthAt(xMin);
+    const halfDepthStop = example56BaseHalfDepthAt(xMax);
+    const points = [
+      [xMin, slot.yMin, -halfDepthLeft], [xMax, slot.yMin, -halfDepthStop],
+      [xMin, slot.yMin, halfDepthLeft], [xMax, slot.yMin, halfDepthStop],
+      [xMin, slot.yMax, -halfDepthLeft], [xMax, slot.yMax, -halfDepthStop],
+      [xMin, slot.yMax, halfDepthLeft], [xMax, slot.yMax, halfDepthStop],
+      [xMax, slot.yMin, -halfDepthStop], [xMax, slot.yMin, halfDepthStop],
+      [xMax, slot.yMax, -halfDepthStop], [xMax, slot.yMax, halfDepthStop],
+      [xMax, slot.yMin, -halfDepthStop], [xMax, slot.yMax, -halfDepthStop],
+      [xMax, slot.yMin, halfDepthStop], [xMax, slot.yMax, halfDepthStop]
+    ];
+    addPreciseEdgeOverlay(body, 'example56_base_slot_precise_edges', points, { linewidth: 4.2 });
   }
 
   function buildExample56() {
     const root = createRoot('example56');
-    const specs = example56CutterSpecs();
+    const slot = example56BaseSlotConstruction();
+    const specs = example56CutterSpecs(slot);
     // Give the source primitives a small overlap before union so the result is
     // watertight instead of two tangent shells sharing a coplanar face.
-    const ringSpec = geometrySpec(extrudedGeometry(ringShape(1.05, 0.62), 2.22, 'y'), [0.55, 1.79, 0]);
-    const baseSpec = geometrySpec(extrudedGeometry(basePlanShape(), 0.72, 'y'), [0, 0.36, 0]);
+    const ringHeight = EXAMPLE56_RING.top - EXAMPLE56_RING.bottom;
+    const ringSpec = geometrySpec(
+      extrudedGeometry(ringShape(EXAMPLE56_RING.outer, EXAMPLE56_RING.inner), ringHeight, 'y'),
+      [EXAMPLE56_RING.x, (EXAMPLE56_RING.top + EXAMPLE56_RING.bottom) / 2, 0]
+    );
+    const baseSpec = geometrySpec(
+      extrudedGeometry(basePlanShape(), EXAMPLE56_BASE.top, 'y'),
+      [0, EXAMPLE56_BASE.top / 2, 0]
+    );
 
     const activeCutterSpecs = ['cut-iii', 'cut-iv', 'cut-v']
       .filter(isApplied)
@@ -1106,73 +1056,14 @@ export function createCompoundProjectionLab({
       activeCutterSpecs,
       state.appliedCutters.length ? COLORS.result : COLORS.add,
       {
-        projectionSilhouetteOnly: state.appliedCutters.length > 0,
         castShadow: false,
         receiveShadow: false,
-        material: { flatShading: true, roughness: 0.58, metalness: 0 }
+        material: { flatShading: false, roughness: 0.58, metalness: 0 }
       }
     );
-
-    const ringGuides = [];
-    const ringTop = 2.9;
-    const arcVisible = angle => {
-      const localX = Math.cos(angle) * 0.62;
-      const localZ = Math.sin(angle) * 0.62;
-      if (isApplied('cut-iii') && localZ > 0.08 && Math.abs(localX) < 0.35) return false;
-      if (isApplied('cut-iv') && localZ < -0.08 && Math.abs(localX) < 0.36) return false;
-      return true;
-    };
-    appendArcSegments(ringGuides, [0.55, ringTop, 0], 0.62, 0, Math.PI * 2, 72, arcVisible);
-    ringGuides.push(
-      [-0.07, 0.72, 0], [-0.07, ringTop, 0],
-      [1.17, 0.72, 0], [1.17, ringTop, 0]
-    );
-    if (isApplied('cut-iii')) {
-      const iii = cutterValues('cut-iii');
-      const x0 = iii.x - 0.34;
-      const x1 = iii.x + 0.34;
-      const y0 = iii.y - 0.525;
-      ringGuides.push(
-        [x0, y0, 1.051], [x0, ringTop, 1.051],
-        [x1, y0, 1.051], [x1, ringTop, 1.051],
-        [x0, y0, 1.051], [x1, y0, 1.051],
-        [0.55, 0.72, 0.62], [0.55, y0, 0.62]
-      );
-    } else {
-      ringGuides.push([0.55, 0.72, 0.62], [0.55, ringTop, 0.62]);
-    }
-    if (isApplied('cut-iv')) {
-      const iv = cutterValues('cut-iv');
-      const x0 = iv.x - 0.35;
-      const x1 = iv.x + 0.35;
-      ringGuides.push(
-        [x0, iv.y, -1.051], [x0, ringTop, -1.051],
-        [x1, iv.y, -1.051], [x1, ringTop, -1.051]
-      );
-      const rearArc = [];
-      for (let index = 0; index < 32; index += 1) {
-        const a0 = -Math.PI * index / 32;
-        const a1 = -Math.PI * (index + 1) / 32;
-        rearArc.push(
-          [iv.x + Math.cos(a0) * 0.35, iv.y + Math.sin(a0) * 0.35, -1.051],
-          [iv.x + Math.cos(a1) * 0.35, iv.y + Math.sin(a1) * 0.35, -1.051]
-        );
-      }
-      ringGuides.push(...rearArc, [0.55, 0.72, -0.62], [0.55, iv.y - 0.35, -0.62]);
-    } else {
-      ringGuides.push([0.55, 0.72, -0.62], [0.55, ringTop, -0.62]);
-    }
-    addProjectionGuide(body, 'example56_cylinder_feature_guides', ringGuides);
-
-    if (isApplied('cut-v')) {
-      const v = cutterValues('cut-v');
-      const stop = v.x + 1.125;
-      addProjectionGuide(body, 'example56_base_slot_guides', [
-        [-2.55, v.y - 0.15, 0], [stop, v.y - 0.15, 0],
-        [-2.55, v.y + 0.15, 0], [stop, v.y + 0.15, 0],
-        [stop, v.y - 0.15, 0], [stop, v.y + 0.15, 0]
-      ]);
-    }
+    // Keep live views tied to this same cut mesh. Exact BRep/HLR replaces both
+    // the mesh and these views together once the worker completes.
+    addExample56PreciseEdges(body, slot);
 
     addToolComponent(root, cutterDefinition('cut-iii'), specs['cut-iii'], [0, 1.35, 1.35]);
     addToolComponent(root, cutterDefinition('cut-iv'), specs['cut-iv'], [0, 1.35, -1.35]);
@@ -1219,17 +1110,25 @@ export function createCompoundProjectionLab({
     if (!root) return;
     const visibleIds = new Set(visibleIdsForState(lesson, state));
     root.children.forEach(component => {
+      if (component.userData?.exactKernel) {
+        component.visible = exactKernelResultReady();
+        return;
+      }
       setComponentVisibility(component, visibleIds.has(component.userData.chapter5Id));
     });
     applyExplode(root);
   }
 
-  function observationActive() {
+  function displayToolsActive() {
+    return ['example-5-1', 'example-5-5', 'example-5-6'].includes(lesson.id);
+  }
+
+  function pointPickingActive() {
     return lesson.id === 'example-5-5';
   }
 
   function updateEdgeResolution(force = false) {
-    if (!latestModelRoot || !observationActive()) return;
+    if (!latestModelRoot || !displayToolsActive()) return;
     const width = Math.max(1, rendererElement?.clientWidth || 1);
     const height = Math.max(1, rendererElement?.clientHeight || 1);
     if (!force && width === edgeResolution.width && height === edgeResolution.height) return;
@@ -1241,7 +1140,7 @@ export function createCompoundProjectionLab({
   }
 
   function applyDisplayStyle(root = latestModelRoot) {
-    if (!root || !observationActive()) return;
+    if (!root || !displayToolsActive()) return;
     const display = state.display || {};
     root.traverse(object => {
       if (object.userData?.compoundEdgeOverlay) {
@@ -1281,7 +1180,7 @@ export function createCompoundProjectionLab({
 
   function mountPointMarker() {
     disposePointMarker();
-    if (!latestModelRoot || !state.pickedPoint || !observationActive()) return;
+    if (!latestModelRoot || !state.pickedPoint || !pointPickingActive()) return;
     const localPoint = latestModelRoot.worldToLocal(new THREE.Vector3(...state.pickedPoint));
     const marker = new THREE.Group();
     marker.name = 'example55_picked_point_P';
@@ -1335,7 +1234,7 @@ export function createCompoundProjectionLab({
 
   function syncProjectionPointMarkers() {
     const markers = doc?.querySelectorAll('[data-compound-point]') || [];
-    if (!observationActive() || !state.pickedPoint || !projectionPointProvider) {
+    if (!pointPickingActive() || !state.pickedPoint || !projectionPointProvider) {
       markers.forEach(marker => { marker.hidden = true; });
       return;
     }
@@ -1354,7 +1253,7 @@ export function createCompoundProjectionLab({
 
   function renderObservationTools() {
     if (!dom.observationCard || !dom.observationTools) return;
-    const enabled = observationActive();
+    const enabled = displayToolsActive();
     dom.observationCard.hidden = !enabled;
     rendererElement?.classList.toggle('is-picking-point', enabled && state.pointPickEnabled);
     if (!enabled) {
@@ -1365,14 +1264,24 @@ export function createCompoundProjectionLab({
     const display = state.display;
     const point = state.pickedPoint;
     const pointValue = index => Number(point?.[index] || 0).toFixed(2);
+    const kernelFacts = exactKernelAudit.result?.facts;
+    const kernelProjections = exactKernelAudit.result?.projections;
+    const kernelNumber = (value, digits = 3) => Number.isFinite(Number(value))
+      ? Number(value).toFixed(digits)
+      : '—';
+    const kernelStage = exactKernelAudit.stage === 'loading-kernel'
+      ? '正在载入 OpenCascade WASM'
+      : exactKernelAudit.stage === 'building-brep'
+        ? '正在计算精确BRep与隐藏线'
+        : '尚未运行';
     dom.observationTools.innerHTML = `
-      <div class="compound-display-switches" aria-label="例5-5显示选项">
+      <div class="compound-display-switches" aria-label="${lesson.label}显示选项">
         <button type="button" class="compound-display-switch" data-display-action="shadows" aria-pressed="${display.shadows}">阴影<span>${display.shadows ? '已开启' : '已关闭（推荐）'}</span></button>
         <button type="button" class="compound-display-switch" data-display-action="bold-edges" aria-pressed="${display.boldEdges}">工程粗边<span>${display.boldEdges ? '强化特征边' : '标准边线'}</span></button>
         <button type="button" class="compound-display-switch" data-display-action="transparent" aria-pressed="${display.transparent}">透明实体<span>${display.transparent ? '仅保留真实特征边' : '实体显示'}</span></button>
         <button type="button" class="compound-display-switch" data-display-action="hidden-lines" aria-pressed="${display.showHidden}">三视图虚线<span>${display.showHidden ? '显示遮挡边' : '仅显示可见边'}</span></button>
       </div>
-      <div class="compound-point-picker">
+      ${pointPickingActive() ? `<div class="compound-point-picker">
         <div><strong>空间点 P 联动</strong><span>点选蓝色结果体</span></div>
         <div class="compound-point-actions">
           <button type="button" data-point-action="toggle" aria-pressed="${state.pointPickEnabled}">${state.pointPickEnabled ? '正在点选·再点关闭' : '开始点选空间点'}</button>
@@ -1386,26 +1295,323 @@ export function createCompoundProjectionLab({
             <div>俯视：X ${pointValue(0)} · Z ${pointValue(2)}</div>
           </div>
         ` : '<p class="compound-point-empty">启用后点击三维实体，P点会同时标到主视、左视和俯视图。</p>'}
+      </div>` : ''}
+      <div class="compound-point-picker compound-kernel-audit" data-kernel-status="${exactKernelAudit.status}">
+        <div><strong>精确CAD内核</strong><span>同一BRep驱动三维与主三视图</span></div>
+        <div class="compound-point-actions">
+          <button type="button" data-kernel-action="audit" ${exactKernelAudit.status === 'running' ? 'disabled' : ''}>${exactKernelAudit.status === 'running' ? '正在重算' : '立即精算'}</button>
+        </div>
+        ${exactKernelAudit.status === 'running' ? `<p class="compound-point-empty">${kernelStage}</p>` : ''}
+        ${exactKernelAudit.status === 'error' ? `<p class="compound-point-empty">校核失败：${exactKernelAudit.error}</p>` : ''}
+        ${kernelFacts ? `<div class="compound-point-readout">
+          <div>${kernelFacts.passed ? '通过' : '未通过'} · ${kernelFacts.kernel}</div>
+          <div>合同：拓扑 ${kernelFacts.topologyValid ? '✓' : '×'} · 投影 ${kernelFacts.projectionsValid ? '✓' : '×'} · 方向 ${kernelFacts.viewDirectionsValid ? '✓' : '×'} · 对齐 ${kernelFacts.projectionAlignmentValid ? '✓' : '×'} · 语义 ${kernelFacts.semanticValid ? '✓' : '×'}</div>
+          <div>实体：${kernelFacts.shapeType}（${kernelFacts.solidCount}个Solid）· ${kernelFacts.faceCount}面 / ${kernelFacts.edgeCount}边</div>
+          <div>包围盒：${kernelFacts.bounds.size.map(value => kernelNumber(value, 1)).join(' × ')} mm</div>
+          ${lesson.id === 'example-5-5' ? `<div>B3：${kernelNumber(state.parameters.slotLength, 1)} 格 / ${kernelNumber(kernelFacts.slotLength, 1)} mm · 中心材料 ${kernelNumber(kernelFacts.centerProbeMaterial)} mm³ · 腿部材料 ${kernelNumber(kernelFacts.legProbeMaterial)} mm³</div>` : ''}
+          ${lesson.id === 'example-5-6' ? `<div>圆柱下段：环壁完整 ${kernelNumber(kernelFacts.lowerRingWallCoverage * 100, 1)}% · 内孔侵入 ${kernelNumber(kernelFacts.lowerBoreIntrusion)} mm³ · 底板越界 ${kernelNumber(kernelFacts.baseTangencyIntrusion)} mm³ ${kernelFacts.lowerRingWallComplete && kernelFacts.lowerBoreClear && kernelFacts.baseTangencyClear ? '✓' : '×'}</div>` : ''}
+          ${kernelProjections ? `<div>隐藏线重算：主视 ${kernelProjections.front.visiblePaths}+${kernelProjections.front.hiddenPaths} · 左视 ${kernelProjections.side.visiblePaths}+${kernelProjections.side.hiddenPaths} · 俯视 ${kernelProjections.top.visiblePaths}+${kernelProjections.top.hiddenPaths}</div>` : ''}
+          <div>三维回传：${kernelFacts.renderTriangleCount} 个三角片 / ${kernelFacts.renderEdgeSegmentCount} 条拓扑边段 · ${kernelFacts.visualInstalled ? '主视窗与三视图已接管' : '当前为交互预览'}</div>
+        </div>` : ''}
+        <p class="compound-point-empty">拖动时先显示快速预览；停止操作后自动由 OpenCascade 重建实体和隐藏线，不再另放一套重复的小三视图。</p>
       </div>
     `;
     requestAnimationFrame(syncProjectionPointMarkers);
+  }
+
+  function exactKernelStateKey() {
+    const roundedValues = Object.fromEntries(Object.entries(state.cutterValues || {}).map(([id, values]) => [
+      id,
+      Object.fromEntries(Object.entries(values).map(([axis, value]) => [axis, Number(Number(value).toFixed(4))]))
+    ]));
+    return JSON.stringify({
+      lessonId: lesson.id,
+      stageIndex: state.stageIndex,
+      appliedCutters: state.appliedCutters,
+      visibleComponents: lesson.stages[state.stageIndex]?.visible || [],
+      parameters: state.parameters,
+      cutterValues: roundedValues
+    });
+  }
+
+  function exactKernelPayload() {
+    return {
+      lessonId: lesson.id,
+      slotLength: Number(state.parameters.slotLength || 5) * 10,
+      appliedCutters: [...state.appliedCutters],
+      visibleComponents: [...(lesson.stages[state.stageIndex]?.visible || [])],
+      cutterValues: Object.fromEntries(Object.entries(state.cutterValues || {}).map(([id, values]) => [id, { ...values }]))
+    };
+  }
+
+  function assemblyIsDisplaced() {
+    if (explodeTarget > 0.001 || explodeCurrent > 0.001) return true;
+    if ((state.detachedComponents || []).length) return true;
+    if (Object.values(state.assemblyOffsets || {}).some(values => Math.hypot(values.x || 0, values.y || 0, values.z || 0) > 0.001)) return true;
+    return [...assemblyCurrentOffsets.values()].some(vector => vector.length() > 0.001);
+  }
+
+  function exactKernelVisualEligible() {
+    return ['example-5-1', 'example-5-5', 'example-5-6'].includes(lesson.id)
+      && !state.isolatedComponent
+      && !assemblyIsDisplaced();
+  }
+
+  function exactKernelResultReady() {
+    return exactKernelAudit.status === 'passed'
+      && exactKernelAudit.key === exactKernelStateKey()
+      && exactKernelAudit.result?.facts?.passed
+      && exactKernelVisualEligible();
+  }
+
+  function syncKernelStatus() {
+    if (!dom.kernelStatus) return;
+    let label = '精确内核待算';
+    let tone = 'idle';
+    if (!exactKernelVisualEligible()) {
+      label = '移动中·实时预览';
+      tone = 'preview';
+    } else if (exactKernelAudit.status === 'running') {
+      label = 'OpenCascade 重算中';
+      tone = 'running';
+    } else if (exactKernelResultReady()) {
+      label = '精确 BRep / HLR';
+      tone = 'passed';
+    } else if (['failed', 'error'].includes(exactKernelAudit.status)) {
+      label = '精确校核未通过';
+      tone = 'error';
+    }
+    dom.kernelStatus.textContent = label;
+    dom.kernelStatus.dataset.tone = tone;
+  }
+
+  function scheduleExactKernelAudit(delay = 360) {
+    clearTimeout(exactKernelTimer);
+    if (!active || !exactKernelVisualEligible()) {
+      syncKernelStatus();
+      return;
+    }
+    exactKernelTimer = setTimeout(() => {
+      exactKernelTimer = 0;
+      runExactKernelAudit({ automatic: true });
+    }, delay);
+  }
+
+  async function runExactKernelAudit({ automatic = false } = {}) {
+    if (!exactKernelVisualEligible()) {
+      syncKernelStatus();
+      return;
+    }
+    if (exactKernelAudit.status === 'running') {
+      if (automatic) scheduleExactKernelAudit(240);
+      return;
+    }
+    const requestKey = exactKernelStateKey();
+    const requestToken = ++exactKernelRequestToken;
+    exactKernelAudit = { status: 'running', stage: 'loading-kernel', key: requestKey, result: null, error: '' };
+    renderObservationTools();
+    syncKernelStatus();
+    try {
+      const result = await auditLessonWithExactKernel({
+        ...exactKernelPayload(),
+        onProgress: stage => {
+          if (requestToken !== exactKernelRequestToken) return;
+          exactKernelAudit.stage = stage;
+          renderObservationTools();
+          syncKernelStatus();
+        }
+      });
+      if (requestToken !== exactKernelRequestToken) return;
+      if (requestKey !== exactKernelStateKey() || !exactKernelVisualEligible()) {
+        exactKernelAudit = { status: 'idle', stage: '', key: '', result: null, error: '' };
+        scheduleExactKernelAudit(120);
+        return;
+      }
+      exactKernelAudit = {
+        status: result.facts.passed ? 'passed' : 'failed',
+        stage: '',
+        key: requestKey,
+        result,
+        error: ''
+      };
+      result.facts.visualInstalled = result.facts.passed
+        ? installExactKernelVisual(result.renderMesh)
+        : false;
+      if (!automatic || !result.facts.passed) {
+        setStatus?.(result.facts.passed
+          ? `${lesson.label}精确内核通过：三维实体和主三视图已由同一BRep重算。`
+          : `${lesson.label}精确内核未通过：当前继续显示实时预览，请检查语义合同。`);
+      }
+    } catch (error) {
+      if (requestToken !== exactKernelRequestToken) return;
+      exactKernelAudit = {
+        status: 'error',
+        stage: '',
+        key: requestKey,
+        result: null,
+        error: error instanceof Error ? error.message : String(error)
+      };
+      if (!automatic) setStatus?.(`精确CAD内核校核失败：${exactKernelAudit.error}`);
+    }
+    syncProjectionImages();
+    renderObservationTools();
+    syncKernelStatus();
+  }
+
+  function disposeExactKernelVisual(root = latestModelRoot) {
+    if (!root) return;
+    const exact = root.children.find(child => child.userData?.exactKernel);
+    if (exact) {
+      exact.traverse(object => {
+        object.geometry?.dispose?.();
+        if (Array.isArray(object.material)) object.material.forEach(item => item?.dispose?.());
+        else object.material?.dispose?.();
+      });
+      exact.parent?.remove(exact);
+    }
+    root.traverse(object => {
+      if (!object.userData?.exactKernelSuppressed) return;
+      delete object.userData.exactKernelSuppressed;
+      object.visible = true;
+    });
+  }
+
+  function installExactKernelVisual(renderMesh, root = latestModelRoot) {
+    if (!root || !renderMesh?.faces || !renderMesh?.edges || !exactKernelVisualEligible()) return false;
+    disposeExactKernelVisual(root);
+
+    const facesGeometry = new THREE.BufferGeometry();
+    const edgesGeometry = new THREE.BufferGeometry();
+    syncFaces(facesGeometry, renderMesh.faces);
+    syncLines(edgesGeometry, renderMesh.edges);
+    // Replicad: X宽、Y深、Z高（mm）；Three.js教材场景：X宽、Y高、Z深（格）。
+    facesGeometry.rotateX(-Math.PI / 2);
+    edgesGeometry.rotateX(-Math.PI / 2);
+    facesGeometry.scale(0.1, 0.1, 0.1);
+    edgesGeometry.scale(0.1, 0.1, 0.1);
+
+    const exact = new THREE.Group();
+    exact.name = `${lesson.modelKey}_exact_kernel_result`;
+    exact.userData.excludeFromProjection = true;
+    exact.userData.exactKernel = true;
+    exact.userData.chapter5Id = 'body';
+    const faces = new THREE.Mesh(
+      facesGeometry,
+      new THREE.MeshStandardMaterial({ color: COLORS.result, roughness: 0.62, metalness: 0 })
+    );
+    faces.name = `${lesson.modelKey}_exact_kernel_faces`;
+    faces.userData.excludeFromProjection = true;
+    faces.userData.exactKernel = true;
+    const edges = new THREE.LineSegments(
+      edgesGeometry,
+      new THREE.LineBasicMaterial({ color: COLORS.dark, transparent: true, opacity: 0.9 })
+    );
+    edges.name = `${lesson.modelKey}_exact_kernel_edges`;
+    edges.userData.excludeFromProjection = true;
+    edges.userData.exactKernel = true;
+    exact.add(faces, edges);
+    root.traverse(object => {
+      if (object === root || object.userData?.exactKernel || object.userData?.booleanTool || object.userData?.pickedPointMarker) return;
+      if (!object.isMesh && !object.isLine && !object.isLineSegments) return;
+      object.userData.exactKernelSuppressed = true;
+      object.visible = false;
+    });
+    root.add(exact);
+    applyDisplayStyle(root);
+    return true;
   }
 
   function buildCurrentModel() {
     const builder = builders[lesson.modelKey] || buildExample51;
     latestModelRoot = builder(state.parameters);
     applyVisibility(latestModelRoot);
+    if (exactKernelResultReady() && exactKernelAudit.result?.renderMesh) {
+      exactKernelAudit.result.facts.visualInstalled = installExactKernelVisual(exactKernelAudit.result.renderMesh);
+    }
     return latestModelRoot;
   }
 
   function syncProjectionImages() {
     if (!doc || !projectionImageProvider) return;
+    const exactProjections = exactKernelResultReady() ? exactKernelAudit.result?.projections : null;
     ['front', 'side', 'top'].forEach(view => {
       const image = doc.querySelector(`[data-compound-image="${view}"]`);
-      const src = projectionImageProvider(view);
-      if (image && src) image.src = src;
+      const exactProjection = exactProjections?.[view] || null;
+      const src = exactProjection ? kernelProjectionDataUrl(exactProjection) : projectionImageProvider(view);
+      if (image && src) {
+        image.src = src;
+        image.dataset.projectionSource = exactProjection ? 'exact-brep' : 'interactive-preview';
+      }
     });
+    syncAlignedProjectionLayout(exactProjections);
+    syncKernelStatus();
+    syncMobileProjectionView();
     requestAnimationFrame(syncProjectionPointMarkers);
+  }
+
+  function kernelProjectionDataUrl(item) {
+    const hidden = state.display.showHidden
+      ? item.hiddenPathData.map(path => `<path d="${path}" vector-effect="non-scaling-stroke"/>`).join('')
+      : '';
+    const visible = item.visiblePathData.map(path => `<path d="${path}" vector-effect="non-scaling-stroke"/>`).join('');
+    const centerlines = (item.centerlinePathData || [])
+      .map(path => `<path d="${path}" vector-effect="non-scaling-stroke"/>`)
+      .join('');
+    const visibleWidth = state.display.boldEdges ? 1.45 : 0.95;
+    const hiddenWidth = state.display.boldEdges ? 0.82 : 0.62;
+    const centerWidth = state.display.boldEdges ? 0.72 : 0.58;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${item.viewBox}" preserveAspectRatio="xMidYMid meet"><rect width="100%" height="100%" fill="#fff"/><g fill="none" stroke="#83929d" stroke-width="${hiddenWidth}" stroke-dasharray="5 3.5">${hidden}</g><g fill="none" stroke="#667b89" stroke-width="${centerWidth}" stroke-dasharray="8 2.5 1.2 2.5">${centerlines}</g><g fill="none" stroke="#20384a" stroke-width="${visibleWidth}" stroke-linecap="round" stroke-linejoin="round">${visible}</g></svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+
+  function projectionFrame(item) {
+    const values = Array.isArray(item?.frame)
+      ? item.frame.map(Number)
+      : String(item?.viewBox || '').trim().split(/\s+/).map(Number);
+    return values.length === 4 && values.every(Number.isFinite) ? values : null;
+  }
+
+  function syncAlignedProjectionLayout(projections) {
+    if (!dom.projectionBoard) return;
+    const front = projectionFrame(projections?.front);
+    const side = projectionFrame(projections?.side);
+    const top = projectionFrame(projections?.top);
+    const aligned = Boolean(front && side && top
+      && Math.abs(front[2] - top[2]) < 1e-5
+      && Math.abs(front[3] - side[3]) < 1e-5
+      && Math.abs(side[2] - top[3]) < 1e-5);
+    dom.projectionBoard.classList.toggle('is-scale-aligned', aligned);
+    dom.projectionBoard.dataset.alignment = aligned ? 'exact' : 'preview';
+    if (!aligned) {
+      [
+        '--compound-front-track', '--compound-side-track',
+        '--compound-elevation-track', '--compound-plan-track',
+        '--compound-front-units', '--compound-side-units',
+        '--compound-height-units', '--compound-width-units'
+      ].forEach(name => dom.projectionBoard.style.removeProperty(name));
+      dom.projectionBoard.style.removeProperty('--compound-elevation-ratio');
+      return;
+    }
+    dom.projectionBoard.style.setProperty('--compound-front-track', `${front[2]}fr`);
+    dom.projectionBoard.style.setProperty('--compound-side-track', `${side[2]}fr`);
+    dom.projectionBoard.style.setProperty('--compound-elevation-track', `${front[3]}fr`);
+    dom.projectionBoard.style.setProperty('--compound-plan-track', `${top[3]}fr`);
+    dom.projectionBoard.style.setProperty('--compound-front-units', String(front[2]));
+    dom.projectionBoard.style.setProperty('--compound-side-units', String(side[2]));
+    dom.projectionBoard.style.setProperty('--compound-height-units', String(front[3]));
+    dom.projectionBoard.style.setProperty('--compound-width-units', String(top[3]));
+    dom.projectionBoard.style.setProperty('--compound-elevation-ratio', String(front[3] / (front[3] + top[3])));
+  }
+
+  function syncMobileProjectionView() {
+    doc?.querySelectorAll('[data-compound-view-tab]').forEach(button => {
+      const activeView = button.dataset.compoundViewTab === mobileProjectionView;
+      button.classList.toggle('active', activeView);
+      button.setAttribute('aria-selected', String(activeView));
+    });
+    doc?.querySelectorAll('.compound-view-card').forEach(card => {
+      card.classList.toggle('is-mobile-active', card.classList.contains(mobileProjectionView));
+    });
   }
 
   function stageStatus() {
@@ -1503,9 +1709,14 @@ export function createCompoundProjectionLab({
       <div class="compound-boolean-actions">
         <button type="button" class="compound-primary-action" data-boolean-action="toggle-apply">${applied ? '撤销此切除' : '执行 A−B'}</button>
         <button type="button" class="compound-secondary-action" data-boolean-action="toggle-tool">${state.showCutter ? '隐藏刀具' : '显示刀具'}</button>
-        <button type="button" class="compound-secondary-action" data-boolean-action="apply-all">全部切除</button>
-        <button type="button" class="compound-secondary-action" data-boolean-action="reset-cutters">恢复教材位置</button>
       </div>
+      <details class="compound-boolean-more">
+        <summary>批量与复位</summary>
+        <div>
+          <button type="button" class="compound-secondary-action" data-boolean-action="apply-all">直达最终切除</button>
+          <button type="button" class="compound-secondary-action" data-boolean-action="reset-cutters">刀具恢复教材位置</button>
+        </div>
+      </details>
     `;
   }
 
@@ -1651,6 +1862,8 @@ export function createCompoundProjectionLab({
     renderComponents();
     renderParameters();
     renderQuestion();
+    syncKernelStatus();
+    syncMobileProjectionView();
     if (dom.explode) dom.explode.value = String(Math.round(explodeTarget * 100));
     if (dom.explodeOutput) dom.explodeOutput.textContent = `${Math.round(explodeTarget * 100)}%`;
   }
@@ -1668,7 +1881,8 @@ export function createCompoundProjectionLab({
       renderAssemblyWorkbench();
       renderComponents();
     }
-    setStatus?.(`第5章切割实验 · ${lesson.label}：${stageStatus()}`);
+    setStatus?.(`第5章构形实验 · ${lesson.label}：${stageStatus()}`);
+    if (options.exact !== false) scheduleExactKernelAudit(options.exactDelay ?? 360);
   }
 
   function scheduleRebuild(options = {}) {
@@ -1679,6 +1893,16 @@ export function createCompoundProjectionLab({
     });
   }
 
+  function invalidateExactKernel({ keepResult = false, schedule = false, delay = 360 } = {}) {
+    clearTimeout(exactKernelTimer);
+    exactKernelTimer = 0;
+    exactKernelRequestToken += 1;
+    disposeExactKernelVisual();
+    if (!keepResult) exactKernelAudit = { status: 'idle', stage: '', key: '', result: null, error: '' };
+    syncKernelStatus();
+    if (schedule) scheduleExactKernelAudit(delay);
+  }
+
   function syncStateWithStage(stage) {
     state.appliedCutters = [...(stage.appliedCutters || [])];
     if (stage.activeCutter) state.activeCutterId = stage.activeCutter;
@@ -1686,8 +1910,10 @@ export function createCompoundProjectionLab({
   }
 
   function selectLesson(id) {
+    invalidateExactKernel();
     lesson = getCompoundLesson(id);
     state = createCompoundLessonState(lesson);
+    exactKernelAudit = { status: 'idle', stage: '', key: '', result: null, error: '' };
     setProjectionHidden?.(state.display.showHidden);
     assemblyCurrentOffsets.clear();
     explodeCurrent = 0;
@@ -1698,6 +1924,7 @@ export function createCompoundProjectionLab({
   }
 
   function selectStage(index) {
+    invalidateExactKernel();
     state.stageIndex = clampStageIndex(lesson, index);
     state.isolatedComponent = null;
     state.selectedAnswer = null;
@@ -1708,13 +1935,16 @@ export function createCompoundProjectionLab({
   }
 
   function isolateComponent(id) {
+    invalidateExactKernel();
     state.isolatedComponent = state.isolatedComponent === id ? null : id;
     applyVisibility();
     clearFocus?.();
     refreshProjections();
     renderSequence();
     renderComponents();
-    setStatus?.(`第5章切割实验 · ${lesson.label}：${stageStatus()}`);
+    syncProjectionImages();
+    scheduleExactKernelAudit(180);
+    setStatus?.(`第5章构形实验 · ${lesson.label}：${stageStatus()}`);
   }
 
   function selectCutter(id) {
@@ -1735,6 +1965,7 @@ export function createCompoundProjectionLab({
       ? state.appliedCutters.filter(cutterId => cutterId !== id)
       : [...state.appliedCutters, id];
     state.showCutter = true;
+    invalidateExactKernel();
     scheduleRebuild();
   }
 
@@ -1762,6 +1993,7 @@ export function createCompoundProjectionLab({
       state.assemblyOffsets[id].z
     );
     markDetached(id, magnitude > 0.04);
+    invalidateExactKernel();
     if (options.immediate) {
       currentAssemblyOffset(id).set(
         state.assemblyOffsets[id].x,
@@ -1776,6 +2008,7 @@ export function createCompoundProjectionLab({
     renderSequence();
     renderAssemblyWorkbench();
     renderComponents();
+    if (magnitude <= 0.04) scheduleExactKernelAudit(220);
   }
 
   function toggleAssemblyPart(id = state.activeAssemblyId) {
@@ -1802,6 +2035,7 @@ export function createCompoundProjectionLab({
   }
 
   function restoreAssembly() {
+    invalidateExactKernel();
     (lesson.assembly?.parts || []).filter(part => !part.fixed).forEach(part => {
       state.assemblyOffsets[part.id] = { x: 0, y: 0, z: 0 };
       markDetached(part.id, false);
@@ -1810,17 +2044,21 @@ export function createCompoundProjectionLab({
     renderSequence();
     renderAssemblyWorkbench();
     renderComponents();
+    scheduleExactKernelAudit(220);
   }
 
   function setExplode(value) {
+    invalidateExactKernel();
     explodeTarget = clamp(Number(value) || 0, 0, 1);
     state.explode = explodeTarget;
     explodeProjectionDirty = true;
     if (dom.explode) dom.explode.value = String(Math.round(explodeTarget * 100));
     if (dom.explodeOutput) dom.explodeOutput.textContent = `${Math.round(explodeTarget * 100)}%`;
+    if (explodeTarget <= 0.001) scheduleExactKernelAudit(420);
   }
 
   function resetCutterPositions() {
+    invalidateExactKernel();
     lesson.cutters.forEach(cutter => {
       state.cutterValues[cutter.id] = { ...cutter.defaults };
     });
@@ -1828,6 +2066,7 @@ export function createCompoundProjectionLab({
   }
 
   function reset() {
+    invalidateExactKernel();
     state = createCompoundLessonState(lesson);
     setProjectionHidden?.(state.display.showHidden);
     assemblyCurrentOffsets.clear();
@@ -1853,7 +2092,7 @@ export function createCompoundProjectionLab({
   }
 
   function applyCamera() {
-    if (lesson.id === 'example-5-5') camera.position.set(7.8, 5.6, 8.8);
+    if (lesson.id === 'example-5-5') camera.position.set(10.2, 5.5, 5.1);
     else camera.position.set(7.8, 5.6, 8.8);
     camera.up.set(0, 1, 0);
     controls.target.set(0, 1.42, 0);
@@ -1890,6 +2129,7 @@ export function createCompoundProjectionLab({
     if (options.resetCamera !== false) applyCamera();
     renderAll();
     rebuildCurrentModel();
+    scheduleExactKernelAudit(80);
     return controller;
   }
 
@@ -1899,6 +2139,8 @@ export function createCompoundProjectionLab({
     clearPickedPoint({ render: false });
     if (options.restoreCamera !== false) restoreCamera();
     active = false;
+    clearTimeout(exactKernelTimer);
+    exactKernelTimer = 0;
     return controller;
   }
 
@@ -1938,6 +2180,8 @@ export function createCompoundProjectionLab({
       applyExplode();
       refreshProjections();
       explodeProjectionDirty = false;
+      syncKernelStatus();
+      scheduleExactKernelAudit(180);
     }
   }
 
@@ -1991,6 +2235,7 @@ export function createCompoundProjectionLab({
     const plane = planeForCutter(definition, component);
     const startPoint = new THREE.Vector3();
     if (!raycaster.ray.intersectPlane(plane, startPoint)) return;
+    invalidateExactKernel();
     drag = {
       kind: cutter ? 'cutter' : 'assembly',
       pointerId: event.pointerId,
@@ -2056,11 +2301,13 @@ export function createCompoundProjectionLab({
       renderAssemblyWorkbench();
       renderComponents();
       refreshProjections();
+      syncProjectionImages();
+      scheduleExactKernelAudit(180);
     }
   }
 
   function startPointPick(event) {
-    if (!active || !observationActive() || !state.pointPickEnabled || event.button !== 0 || drag) return;
+    if (!active || !pointPickingActive() || !state.pointPickEnabled || event.button !== 0 || drag) return;
     pointPickDown = { x: event.clientX, y: event.clientY, pointerId: event.pointerId, time: performance.now() };
   }
 
@@ -2068,7 +2315,7 @@ export function createCompoundProjectionLab({
     if (!pointPickDown || event.pointerId !== pointPickDown.pointerId) return;
     const start = pointPickDown;
     pointPickDown = null;
-    if (!active || !observationActive() || !state.pointPickEnabled || drag) return;
+    if (!active || !pointPickingActive() || !state.pointPickEnabled || drag) return;
     const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
     if (moved > 6 || performance.now() - start.time > 500) return;
     pointerRay(event);
@@ -2092,6 +2339,12 @@ export function createCompoundProjectionLab({
   }
 
   function handleClick(event) {
+    const viewButton = event.target.closest?.('[data-compound-view-tab]');
+    if (viewButton) {
+      mobileProjectionView = viewButton.dataset.compoundViewTab;
+      syncMobileProjectionView();
+      return;
+    }
     const lessonButton = event.target.closest?.('[data-compound-lesson]');
     if (lessonButton) return selectLesson(lessonButton.dataset.compoundLesson);
     const stageButton = event.target.closest?.('[data-compound-stage]');
@@ -2108,13 +2361,16 @@ export function createCompoundProjectionLab({
       return;
     }
     if (booleanAction === 'apply-all') {
+      invalidateExactKernel();
       state.appliedCutters = lesson.cutters.map(cutter => cutter.id);
-      state.showCutter = true;
+      state.stageIndex = lesson.stages.length - 1;
+      state.activeCutterId = lesson.stages.at(-1)?.activeCutter || state.activeCutterId;
+      state.showCutter = false;
       return scheduleRebuild();
     }
     if (booleanAction === 'reset-cutters') return resetCutterPositions();
     const displayAction = event.target.closest?.('[data-display-action]')?.dataset.displayAction;
-    if (displayAction && observationActive()) {
+    if (displayAction && displayToolsActive()) {
       if (displayAction === 'shadows') state.display.shadows = !state.display.shadows;
       if (displayAction === 'bold-edges') state.display.boldEdges = !state.display.boldEdges;
       if (displayAction === 'transparent') state.display.transparent = !state.display.transparent;
@@ -2124,17 +2380,20 @@ export function createCompoundProjectionLab({
       }
       applyDisplayStyle();
       refreshProjections();
+      syncProjectionImages();
       renderObservationTools();
       return;
     }
     const pointAction = event.target.closest?.('[data-point-action]')?.dataset.pointAction;
-    if (pointAction === 'toggle' && observationActive()) {
+    if (pointAction === 'toggle' && pointPickingActive()) {
       state.pointPickEnabled = !state.pointPickEnabled;
       rendererElement?.classList.toggle('is-picking-point', state.pointPickEnabled);
       renderObservationTools();
       return;
     }
-    if (pointAction === 'clear' && observationActive()) return clearPickedPoint();
+    if (pointAction === 'clear' && pointPickingActive()) return clearPickedPoint();
+    const kernelAction = event.target.closest?.('[data-kernel-action]')?.dataset.kernelAction;
+    if (kernelAction === 'audit') return runExactKernelAudit();
     const assemblyPartButton = event.target.closest?.('[data-assembly-part]');
     if (assemblyPartButton) return selectAssemblyPart(assemblyPartButton.dataset.assemblyPart);
     const assemblyAction = event.target.closest?.('[data-assembly-action]')?.dataset.assemblyAction;
@@ -2153,6 +2412,7 @@ export function createCompoundProjectionLab({
 
   function handleInput(event) {
     if (event.target.matches?.('[data-assembly-axis]')) {
+      invalidateExactKernel();
       const partId = event.target.dataset.assemblyId;
       const axisId = event.target.dataset.assemblyAxis;
       const part = assemblyPartDefinition(partId);
@@ -2176,6 +2436,7 @@ export function createCompoundProjectionLab({
       return;
     }
     if (event.target.matches?.('[data-cutter-axis]')) {
+      invalidateExactKernel();
       const cutterId = event.target.dataset.cutterId;
       const axisId = event.target.dataset.cutterAxis;
       if (!state.cutterValues[cutterId]) return;
@@ -2186,6 +2447,7 @@ export function createCompoundProjectionLab({
       return;
     }
     if (event.target.matches?.('[data-compound-parameter]')) {
+      invalidateExactKernel();
       const id = event.target.dataset.compoundParameter;
       state.parameters[id] = Number(event.target.value);
       const output = event.target.parentElement?.querySelector('output');
@@ -2272,7 +2534,7 @@ export function createCompoundProjectionLab({
     update,
     getCenterAxes: centerAxesForLesson,
     getProjectionStyle: () => ({
-      boldEdges: observationActive() && Boolean(state.display?.boldEdges),
+      boldEdges: displayToolsActive() && Boolean(state.display?.boldEdges),
       showHidden: state.display?.showHidden !== false,
       suppressCenterLines: lesson.id === 'example-5-5'
     }),

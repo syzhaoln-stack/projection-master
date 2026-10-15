@@ -20,13 +20,14 @@ export default defineConfig(() => {
   process.env.MINIFLARE_REGISTRY_PATH ??= '.wrangler/registry';
 
   return {
+    base: './',
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
     build: {
       cssMinify: false,
       rollupOptions: {
-        external: ['three', /^three\/addons\//]
+        external: []
       }
     },
     plugins: [

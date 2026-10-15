@@ -13,6 +13,7 @@ desktop.ini
 *.temp
 *.tsbuildinfo
 tmp-*.png
+/qa-projection-*.png
 
 # Local dependency/cache folders
 node_modules/
