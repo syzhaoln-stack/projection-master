@@ -1,0 +1,13 @@
+{
+  "name": "虎钳拆装实验",
+  "short_name": "虎钳实验",
+  "description": "手机优先的虎钳三维拆装与夹紧原理教学网页",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#dce3df",
+  "theme_color": "#12343c"
+}

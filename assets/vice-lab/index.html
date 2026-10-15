@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#dce3df" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="虎钳轻量化三维拆装与丝杠联动教学原型" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2312343c'/%3E%3Cpath d='M12 18h40v9H37v10h15v9H12v-9h15V27H12z' fill='%23ed9534'/%3E%3C/svg%3E" />
+    <title>虎钳拆装实验 · 02</title>
+    <script type="module" crossorigin src="./assets/index-BTxU4EvJ.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CpqBsHik.css">
+  </head>
+  <body>
+    <main id="app" class="lab-shell" data-mode="operate">
+      <header class="title-rail" aria-label="实验标题">
+        <p class="serial">VICE / 02</p>
+        <h1>虎钳<span>拆装实验</span></h1>
+        <p class="source-mark">SW08 → GLB</p>
+      </header>
+
+      <div class="topbar">
+        <nav class="mode-switch" aria-label="实验模式">
+          <button class="mode-button is-active" data-mode-button="operate" type="button">夹紧原理</button>
+          <button class="mode-button" data-mode-button="disassemble" type="button">拆装训练</button>
+          <button class="mode-button" data-mode-button="inspect" type="button">自由取件</button>
+        </nav>
+        <div class="model-proof" title="已通过 Khronos glTF Validator">
+          <span class="proof-dot"></span>
+          <span>GLB 已校验</span>
+          <strong id="triangleCount">—</strong>
+        </div>
+      </div>
+
+      <section class="workspace" aria-label="三维虎钳交互区">
+        <div id="canvasHost" class="canvas-host" aria-label="三维模型画布"></div>
+        <div class="drawing-grid" aria-hidden="true"></div>
+        <div class="orientation-mark" aria-hidden="true">
+          <span class="axis axis-y">Y</span>
+          <span class="axis axis-z">Z</span>
+          <span class="axis axis-x">X</span>
+        </div>
+        <p id="mobileHint" class="mobile-hint">拖动钳身夹紧 · 拖空白旋转视角</p>
+
+        <div id="loadingPanel" class="loading-panel" role="status" aria-live="polite">
+          <span class="loading-kicker">正在读取旧版 SolidWorks 显示网格</span>
+          <strong id="loadingValue">0%</strong>
+          <span class="loading-track"><i id="loadingBar"></i></span>
+        </div>
+
+        <div class="viewport-tools">
+          <button id="resetViewButton" class="tool-button" type="button">回到全景</button>
+          <button id="fullscreenButton" class="tool-button" type="button">全屏</button>
+          <button id="inspectorToggle" class="tool-button inspector-toggle" type="button" aria-expanded="true">零件信息</button>
+        </div>
+
+        <aside id="inspector" class="inspector" aria-label="零件信息面板">
+          <div class="inspector-head">
+            <p class="eyebrow">当前对象</p>
+            <button id="closeInspector" class="close-inspector" type="button" aria-label="收起零件信息">×</button>
+          </div>
+          <h2 id="selectedLabel">整机装配体</h2>
+          <p id="selectedRole" class="selected-role">15 个实例 · 11 种零件</p>
+          <dl class="part-facts">
+            <div><dt>约束</dt><dd id="selectedConstraint">丝杠—螺母联动</dd></div>
+            <div><dt>状态</dt><dd id="selectedState">可操作</dd></div>
+          </dl>
+          <div id="stepCard" class="step-card" hidden>
+            <span id="stepNumber">步骤 01 / 14</span>
+            <strong id="stepTitle">旋出顶部螺钉</strong>
+            <p id="stepHint">点中高亮零件，沿提示轴拖动；螺纹段会先旋出。</p>
+          </div>
+          <div class="part-list-wrap">
+            <p class="eyebrow">装配清单</p>
+            <div id="partList" class="part-list"></div>
+          </div>
+        </aside>
+      </section>
+
+      <footer class="control-dock">
+        <section class="control-panel is-active" data-control-panel="operate" aria-label="夹紧原理控制">
+          <div class="pitch-signature">
+            <div id="pitchWheel" class="pitch-wheel" aria-hidden="true"><i></i><b></b></div>
+            <div>
+              <span class="eyebrow">丝杠导程</span>
+              <strong>4.00 <small>mm / 圈</small></strong>
+            </div>
+          </div>
+          <div class="range-control">
+            <label for="jawRange">拖动改变钳口开度</label>
+            <input id="jawRange" type="range" min="0" max="55" step="0.01" value="39.34" />
+            <div class="range-scale" aria-hidden="true"><span>0</span><span>夹紧方向</span><span>55 mm</span></div>
+          </div>
+          <div class="live-readout">
+            <div><span>钳口开度</span><strong id="gapValue">39.3<small> mm</small></strong></div>
+            <div><span>相对转数</span><strong id="turnValue">0.00<small> 圈</small></strong></div>
+          </div>
+          <div class="turn-buttons">
+            <button id="closeOneTurn" type="button">− 1 圈夹紧</button>
+            <button id="openOneTurn" type="button">+ 1 圈松开</button>
+          </div>
+        </section>
+
+        <section class="control-panel" data-control-panel="disassemble" aria-label="拆装步骤控制">
+          <button id="previousStep" class="step-button secondary" type="button">上一步 · 装回</button>
+          <div class="step-progress-area">
+            <div><span id="dockStepNumber">01 / 14</span><strong id="dockStepTitle">旋出顶部螺钉</strong></div>
+            <span class="step-track"><i id="stepProgressBar"></i></span>
+            <p>点中当前零件后，沿它的拆卸方向拖动；空白处拖动仍用于旋转视角。</p>
+          </div>
+          <button id="autoDemoButton" class="step-button auto-demo-button" type="button" aria-pressed="false" disabled>▶ 自动演示</button>
+          <button id="nextStep" class="step-button primary" type="button">下一步 · 拆下</button>
+        </section>
+
+        <section class="control-panel" data-control-panel="inspect" aria-label="自由取件控制">
+          <div class="range-control inspect-range">
+            <label for="explodeRange">展开整机，让每个零件完全分开</label>
+            <input id="explodeRange" type="range" min="0" max="100" step="1" value="0" />
+            <div class="range-scale" aria-hidden="true"><span>装配</span><span>错层展开</span><span>完全爆炸</span></div>
+          </div>
+          <div id="mobilePartStrip" class="mobile-part-strip" aria-label="快速选择零件"></div>
+          <div class="free-actions">
+            <button id="takeSelectedButton" class="step-button primary" type="button" disabled>完全取出所选</button>
+            <button id="resetFreeTakeButton" class="step-button secondary" type="button">全部装回</button>
+            <button id="isolateButton" class="step-button secondary" type="button" disabled>单独观察所选</button>
+          </div>
+          <p class="inspect-help">点中任意零件，沿橙色箭头拖出。自由模式不检查装配顺序或碰撞；拖空白处仍旋转视角。</p>
+        </section>
+      </footer>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </main>
+  </body>
+</html>

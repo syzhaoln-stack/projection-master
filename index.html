@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#e9ecf0">
+<link rel="icon" href="data:,">
+<title>工图投影大师 v8.3 · 三视图、拆分与剖切</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  /* 浅灰外壳（仿专业 CAD：AutoCAD / SolidWorks 风） */
+  --bg-app:#e6e9ee;
+  --chrome-0:#f7f8fa;
+  --chrome-1:#eef0f3;
+  --chrome-2:#e4e7ec;
+  --panel:#fafbfc;
+  --panel-2:#eff2f5;
+  --panel-3:#e7eaef;
+  --line:#cdd3db;
+  --line-soft:#dfe3e9;
+  --line-strong:#b8c0cb;
+  --text:#252a31;
+  --text-2:#444b54;
+  --muted:#6c747f;
+  --muted-2:#8b929b;
+  --accent:#0a66c2;        /* CAD 蓝 */
+  --accent-2:#1577d6;
+  --accent-soft:#e6f0fb;
+  --accent-line:#0a66c2;
+  --ok:#2e7d32;
+  --ok-soft:#e6f3e7;
+  --warn:#c2410c;
+  --warn-soft:#fbeadf;
+  --danger-soft:#fae8e8;
+  --viewport-bg:#f3f6f9;   /* 浅色模型空间，便于教材截图和远距离观察 */
+  --shadow-sm:0 1px 2px rgba(20,30,45,.10);
+  --shadow-md:0 4px 14px -6px rgba(20,30,45,.28);
+  --shadow-lg:0 14px 40px -12px rgba(20,30,45,.40);
+  --radius:6px;
+  --radius-sm:4px;
+  --radius-lg:9px;
+  --tx:.14s cubic-bezier(.3,0,.2,1);
+  --mono:"Cascadia Code","JetBrains Mono","Consolas","SFMono-Regular",monospace;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;}
+body{
+  height:100vh;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  color:var(--text);
+  background:var(--bg-app);
+  font-family:"Segoe UI","Microsoft YaHei","PingFang SC","HarmonyOS Sans SC",system-ui,Arial,sans-serif;
+  font-size:13px;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* ============ 标题条（应用条） ============ */
+#appbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  height:40px;
+  padding:0 12px;
+  background:linear-gradient(180deg,var(--chrome-0),var(--chrome-1));
+  border-bottom:1px solid var(--line);
+  position:relative;
+  z-index:40;
+}
+#brand{display:flex;align-items:center;gap:9px;min-width:0;}
+#logo{
+  flex-shrink:0;width:24px;height:24px;border-radius:5px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  display:grid;place-items:center;box-shadow:var(--shadow-sm);
+}
+#logo svg{width:15px;height:15px;fill:#fff;display:block;}
+#brand h1{font-size:13.5px;font-weight:700;color:var(--text);letter-spacing:.01em;white-space:nowrap;}
+#brand h1 .ver{
+  margin-left:6px;padding:1px 6px;border-radius:4px;
+  background:var(--accent-soft);color:var(--accent);
+  font-size:10.5px;font-weight:800;vertical-align:middle;
+}
+#brand .sub{margin-left:10px;color:var(--muted);font-size:11px;white-space:nowrap;}
+
+/* 文档标签（自由探索 / 空间测评）—— mode-tab，JS 绑定 */
+#doc-tabs{display:flex;align-items:flex-end;gap:2px;height:100%;}
+.mode-tab{
+  position:relative;border:1px solid transparent;border-bottom:0;
+  background:transparent;color:var(--muted);
+  font-size:12px;font-weight:600;
+  padding:7px 16px 8px;cursor:pointer;border-radius:6px 6px 0 0;
+  transition:background var(--tx),color var(--tx);
+  display:flex;align-items:center;gap:6px;
+}
+.mode-tab::before{content:"";width:8px;height:8px;border-radius:2px;background:currentColor;opacity:.55;}
+.mode-tab:hover{background:var(--chrome-2);color:var(--text-2);}
+.mode-tab.active{
+  background:var(--panel);color:var(--accent);
+  border-color:var(--line);border-bottom:1px solid var(--panel);
+  margin-bottom:-1px;
+}
+
+/* ============ Ribbon 工具栏 ============ */
+#ribbon{
+  background:var(--panel);
+  border-bottom:1px solid var(--line);
+  position:relative;z-index:30;
+  box-shadow:var(--shadow-sm);
+}
+#ribbon-tabs{
+  display:flex;align-items:center;gap:1px;
+  height:30px;padding:0 8px;
+  background:linear-gradient(180deg,var(--chrome-1),var(--panel-2));
+  border-bottom:1px solid var(--line-soft);
+}
+.rib-tab{
+  border:0;background:transparent;color:var(--text-2);
+  font-size:12px;font-weight:600;letter-spacing:.02em;
+  padding:0 16px;height:100%;cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:color var(--tx),border-color var(--tx),background var(--tx);
+}
+.rib-tab:hover{background:var(--chrome-2);}
+.rib-tab.active{color:var(--accent);border-bottom-color:var(--accent-line);background:var(--panel);}
+
+#ribbon-body{
+  display:flex;align-items:stretch;gap:0;
+  min-height:84px;padding:8px 6px 6px;
+  overflow-x:auto;
+}
+.rib-panel{display:none;align-items:stretch;gap:0;}
+.rib-panel.active{display:flex;}
+/* 命令分组 */
+.rib-group{
+  display:flex;flex-direction:column;
+  padding:0 12px 2px;
+  border-right:1px solid var(--line-soft);
+  min-width:0;
+}
+.rib-group:last-child{border-right:0;}
+.rib-group-row{display:flex;align-items:stretch;gap:6px;flex:1;}
+.rib-group-label{
+  text-align:center;color:var(--muted);font-size:10.5px;
+  padding-top:5px;margin-top:auto;letter-spacing:.04em;
+}
+/* 大命令按钮（图标在上） */
+.rib-cmd{
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;
+  min-width:62px;max-width:96px;padding:7px 9px 5px;
+  border:1px solid transparent;border-radius:var(--radius);
+  background:transparent;color:var(--text);cursor:pointer;
+  font-size:11.5px;font-weight:600;line-height:1.25;text-align:center;
+  transition:background var(--tx),border-color var(--tx),box-shadow var(--tx),transform var(--tx);
+}
+.rib-cmd .ico{width:26px;height:26px;display:grid;place-items:center;}
+.rib-cmd .ico svg{width:24px;height:24px;fill:none;stroke:var(--text-2);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+.rib-cmd .cap{white-space:nowrap;}
+.rib-cmd .cap.wrap{white-space:normal;max-width:74px;}
+.rib-cmd:hover{background:var(--accent-soft);border-color:var(--line-soft);}
+.rib-cmd:active{transform:translateY(1px);}
+.rib-cmd.primary .ico svg{stroke:var(--accent);}
+.rib-cmd.primary{color:var(--accent);}
+.rib-cmd.primary:hover{background:var(--accent-soft);border-color:var(--accent);box-shadow:var(--shadow-sm);}
+/* 可勾选命令（toggle：JS 切换 .on） */
+.rib-cmd.check{position:relative;}
+.rib-cmd.check::after{
+  content:"";position:absolute;top:6px;right:8px;
+  width:13px;height:13px;border-radius:3px;
+  border:1.5px solid var(--line-strong);background:#fff;
+  transition:background var(--tx),border-color var(--tx);
+}
+.rib-cmd.check.on{background:var(--accent-soft);}
+.rib-cmd.check.on::after{
+  background:var(--accent);border-color:var(--accent);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size:11px;background-repeat:no-repeat;background-position:center;
+}
+.rib-cmd.check.on .ico svg{stroke:var(--accent);}
+.rib-hint{
+  align-self:center;color:var(--muted);font-size:11px;line-height:1.6;
+  max-width:200px;padding:0 4px;
+}
+.rib-hint b{color:var(--accent);font-weight:700;}
+.rib-hint code{font-family:var(--mono);background:var(--panel-3);padding:1px 5px;border-radius:4px;color:var(--text-2);}
+/* 快捷资产选择（Ribbon 文件页：三类各预览数个，更多展开模型树） */
+.rib-group-row.quick-col{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:3px;padding-top:1px;}
+.quick-chip,.quick-more{
+  display:flex;align-items:center;gap:7px;
+  border:1px solid var(--line);border-radius:6px;background:#fff;
+  color:var(--text);font:inherit;font-size:11.5px;font-weight:600;
+  padding:4px 10px;cursor:pointer;white-space:nowrap;text-align:left;line-height:1.3;
+  transition:background var(--tx),border-color var(--tx),transform var(--tx);
+}
+.quick-chip::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--accent);opacity:.65;flex-shrink:0;}
+.quick-chip:hover{background:var(--accent-soft);border-color:#bcd9f5;}
+.quick-chip:active{transform:translateY(1px);}
+.quick-chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+.quick-more{justify-content:center;color:var(--accent);border-style:dashed;font-weight:700;}
+.quick-more:hover{background:var(--accent-soft);}
+
+/* ============ 工作区：树 | 视口 | 属性 ============ */
+#workspace{flex:1;display:flex;position:relative;min-height:0;background:var(--bg-app);}
+
+/* 左：模型树 */
+#tree-panel{
+  width:248px;min-width:248px;height:100%;
+  display:flex;flex-direction:column;
+  background:var(--panel);border-right:1px solid var(--line);
+  z-index:20;
+}
+.panel-head{
+  display:flex;align-items:center;gap:7px;
+  height:30px;padding:0 12px;flex-shrink:0;
+  background:var(--panel-2);border-bottom:1px solid var(--line-soft);
+  font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;
+}
+.panel-head .ph-ico{width:13px;height:13px;}
+.panel-head .ph-ico svg{width:13px;height:13px;fill:none;stroke:var(--accent);stroke-width:1.7;}
+.panel-scroll{flex:1;overflow-y:auto;padding:6px 0;}
+.panel-scroll::-webkit-scrollbar{width:10px;}
+.panel-scroll::-webkit-scrollbar-thumb{background:#c4cbd4;border-radius:6px;border:2px solid var(--panel);}
+.panel-scroll::-webkit-scrollbar-thumb:hover{background:#aab2bd;}
+
+/* 树分组 */
+.tree-group{margin-bottom:2px;}
+.tree-group-head{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 10px;cursor:pointer;user-select:none;
+  color:var(--text-2);font-size:12px;font-weight:700;
+  transition:background var(--tx);
+}
+.tree-group-head:hover{background:var(--chrome-2);}
+.tree-group-head .caret{
+  width:0;height:0;border-left:5px solid var(--muted);
+  border-top:4px solid transparent;border-bottom:4px solid transparent;
+  transition:transform var(--tx);flex-shrink:0;
+}
+.tree-group.open .tree-group-head .caret{transform:rotate(90deg);}
+.tree-group-head .grp-ico{width:15px;height:15px;flex-shrink:0;}
+.tree-group-head .grp-ico svg{width:15px;height:15px;fill:none;stroke:var(--accent);stroke-width:1.6;}
+.tree-group-head .grp-badge{
+  margin-left:auto;font-size:9.5px;font-weight:700;letter-spacing:.02em;
+  padding:1px 6px;border-radius:999px;color:var(--muted);background:var(--panel-3);
+}
+.tree-children{display:none;padding:2px 0 4px;}
+.tree-group.open .tree-children{display:block;}
+
+/* 树叶：模型按钮（保留 .model-btn + data-model） */
+.model-btn{
+  position:relative;display:flex;align-items:center;gap:9px;width:100%;
+  border:0;border-left:3px solid transparent;background:transparent;
+  color:var(--text-2);text-align:left;cursor:pointer;
+  padding:6px 10px 6px 26px;font:inherit;
+  transition:background var(--tx),color var(--tx);
+}
+.model-btn .leaf-ico{width:17px;height:17px;flex-shrink:0;}
+.model-btn .leaf-ico svg{width:17px;height:17px;fill:none;stroke:var(--muted);stroke-width:1.5;}
+.model-btn .name{font-size:12.5px;font-weight:600;line-height:1.2;}
+.model-btn .desc{display:block;font-size:10.5px;color:var(--muted-2);margin-top:1px;line-height:1.25;}
+.model-btn:hover{background:var(--accent-soft);color:var(--text);}
+.model-btn:hover .leaf-ico svg{stroke:var(--accent);}
+.model-btn.active{
+  background:var(--accent-soft);border-left-color:var(--accent);color:var(--accent);
+  font-weight:700;
+}
+.model-btn.active .leaf-ico svg{stroke:var(--accent);}
+
+/* 占位节点（桥梁，待接入） */
+.tree-leaf-todo{
+  display:flex;align-items:center;gap:9px;width:100%;
+  padding:6px 10px 6px 26px;color:var(--muted-2);cursor:not-allowed;
+  font-size:12.5px;opacity:.85;
+}
+.tree-leaf-todo .leaf-ico{width:17px;height:17px;flex-shrink:0;}
+.tree-leaf-todo .leaf-ico svg{width:17px;height:17px;fill:none;stroke:#aab2bd;stroke-width:1.5;}
+.tree-leaf-todo .todo-badge{
+  margin-left:auto;font-size:9px;font-weight:700;color:var(--warn);
+  background:var(--warn-soft);padding:1px 5px;border-radius:4px;white-space:nowrap;
+}
+
+/* 中：视口 */
+#viewport{flex:1;position:relative;min-width:0;overflow:hidden;background:var(--viewport-bg);}
+#viewport canvas{display:block;width:100%;height:100%;}
+#tiled-layout{display:none;position:absolute;inset:0;z-index:2;background:var(--viewport-bg);}
+#viewport.tiled-mode #tiled-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(340px,.9fr);}
+#viewport.tiled-mode>.vp-corner,#viewport.tiled-mode>.vp-component,#viewport.tiled-mode>.vp-hint,#viewport.tiled-mode>.unfold-fab{z-index:10;}
+#model-pane{min-width:0;min-height:0;position:relative;border-right:1px solid var(--line-strong);background:var(--viewport-bg);}
+#model-pane canvas{display:block;width:100%;height:100%;}
+#three-view-pane{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;padding:42px 12px 12px;background:#eef2f6;min-width:0;min-height:0;}
+.tiled-pane-title{grid-column:1/-1;align-self:start;margin-bottom:-28px;color:var(--text-2);font-size:12px;font-weight:800;letter-spacing:.04em;pointer-events:none;}
+.tiled-view-card{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line-strong);border-radius:var(--radius);background:#fff;box-shadow:var(--shadow-sm);transition:border-color .2s,box-shadow .2s,transform .2s;}
+.tiled-view-card.front{grid-column:1;grid-row:1;}.tiled-view-card.top{grid-column:1;grid-row:2;}.tiled-view-card.side{grid-column:2;grid-row:1 / span 2;}
+.tiled-view-card header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-bottom:1px solid var(--line-soft);font-size:11px;font-weight:800;color:var(--text-2);background:var(--chrome-0);}
+.tiled-view-card img{display:block;width:100%;height:100%;min-height:0;object-fit:contain;background:#fff;image-rendering:auto;}
+.tiled-view-card.matched{border-color:#d39b18;box-shadow:0 0 0 2px rgba(235,181,47,.36),0 0 22px rgba(239,182,36,.45);}
+.tiled-view-card.sparkle::after{content:"✦";position:absolute;right:10px;top:28px;color:#e8b126;font-size:27px;text-shadow:0 0 8px #fff,0 0 16px #efb626;animation:view-sparkle .9s ease-out both;pointer-events:none;}
+.standard-view-actions{position:absolute;left:12px;bottom:12px;z-index:11;display:none;gap:6px;padding:6px;border:1px solid var(--line);border-radius:var(--radius-sm);background:rgba(255,255,255,.92);box-shadow:var(--shadow-sm);}
+#viewport.tiled-mode .standard-view-actions{display:flex;}
+body.quiz-rotate-task .standard-view-actions{display:none!important;}
+.standard-view-actions button{border:1px solid var(--line);border-radius:4px;background:#fff;padding:4px 7px;color:var(--text-2);font:inherit;font-size:11px;font-weight:700;cursor:pointer;}.standard-view-actions button:hover{background:var(--accent-soft);border-color:#bcd9f5;color:var(--accent);}
+@keyframes view-sparkle{0%{opacity:0;transform:scale(.35) rotate(-18deg)}35%{opacity:1;transform:scale(1.25) rotate(12deg)}100%{opacity:0;transform:scale(1.9) rotate(25deg)}}
+.vp-corner{
+  position:absolute;top:10px;left:12px;z-index:8;pointer-events:none;
+  display:flex;align-items:center;gap:7px;
+  padding:5px 10px;border-radius:var(--radius-sm);
+  background:rgba(255,255,255,.88);border:1px solid rgba(111,126,143,.28);
+  color:#344454;font-size:11px;font-weight:600;backdrop-filter:blur(6px);
+  box-shadow:0 2px 10px rgba(31,52,72,.08);
+}
+.vp-corner .dot{width:6px;height:6px;border-radius:99px;background:#5fb0ff;}
+.vp-hint{
+  position:absolute;left:12px;bottom:14px;z-index:9;pointer-events:none;
+  padding:5px 11px;border-radius:var(--radius-sm);
+  background:rgba(255,255,255,.88);border:1px solid rgba(111,126,143,.28);
+  color:#344454;font-size:11px;backdrop-filter:blur(6px);max-width:62%;
+  box-shadow:0 2px 10px rgba(31,52,72,.08);
+}
+.vp-hint b{color:#9a5b00;font-weight:700;}
+.vp-component{
+  position:absolute;left:12px;top:46px;z-index:9;pointer-events:none;
+  max-width:min(360px,65%);padding:8px 11px;border-radius:var(--radius-sm);
+  background:rgba(255,252,244,.94);border:1px solid rgba(194,119,20,.40);
+  color:#4a443b;font-size:11px;line-height:1.5;backdrop-filter:blur(6px);
+  box-shadow:0 3px 14px rgba(55,65,75,.10);
+}
+.vp-component[hidden]{display:none;}
+.vp-component strong{display:block;color:#985a00;font-size:12px;margin-bottom:1px;}
+/* 关键操作：展开/合并三视图悬浮按钮（视口底部居中，始终可见、最醒目） */
+.unfold-fab{
+  position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:12;
+  display:inline-flex;align-items:center;gap:9px;
+  height:46px;padding:0 22px;border:0;border-radius:999px;cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  color:#fff;font:inherit;font-size:14.5px;font-weight:800;letter-spacing:.02em;
+  box-shadow:0 12px 30px -8px rgba(10,102,194,.6),0 2px 0 rgba(255,255,255,.18) inset;
+  transition:transform var(--tx),box-shadow var(--tx),filter var(--tx);
+}
+.unfold-fab svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+.unfold-fab:hover{transform:translateX(-50%) translateY(-1px);box-shadow:0 16px 38px -8px rgba(10,102,194,.7);filter:saturate(1.05);}
+.unfold-fab:active{transform:translateX(-50%) translateY(0);}
+.unfold-fab[aria-pressed="true"]{background:linear-gradient(135deg,var(--warn),#d9591f);box-shadow:0 12px 30px -8px rgba(194,65,12,.6),0 2px 0 rgba(255,255,255,.18) inset;}
+
+/* 右：属性面板 */
+#props-panel{
+  width:264px;min-width:264px;height:100%;
+  display:flex;flex-direction:column;
+  background:var(--panel);border-left:1px solid var(--line);z-index:20;
+}
+.props-scroll{flex:1;overflow-y:auto;padding:0;}
+.props-scroll::-webkit-scrollbar{width:10px;}
+.props-scroll::-webkit-scrollbar-thumb{background:#c4cbd4;border-radius:6px;border:2px solid var(--panel);}
+.prop-section{border-bottom:1px solid var(--line-soft);padding:4px 0 10px;}
+.prop-section-title{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 13px 6px;color:var(--muted);
+  font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+}
+.prop-section-title::before{content:"";width:3px;height:11px;border-radius:2px;background:var(--accent);}
+
+/* 属性行（开关已移至 Ribbon 视图选项卡，此处主要放滑块/信息） */
+.prop-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:7px 13px;
+}
+.prop-row .label{color:var(--text-2);font-size:12px;}
+.prop-row .val{
+  font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--accent);
+  background:var(--accent-soft);padding:1px 7px;border-radius:4px;
+  min-width:42px;text-align:center;
+}
+.slider-block{padding:5px 13px 9px;}
+.slider-block label{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:7px;color:var(--text-2);font-size:12px;
+}
+.slider-block .val{
+  font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--accent);
+  background:var(--accent-soft);padding:1px 7px;border-radius:4px;
+}
+input[type=range]{
+  width:100%;height:4px;border-radius:999px;outline:none;-webkit-appearance:none;
+  background:linear-gradient(90deg,var(--accent) 0%,#9fc4ea 100%);cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+  background:#fff;border:2px solid var(--accent);cursor:pointer;box-shadow:var(--shadow-sm);
+  transition:transform var(--tx);
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
+
+/* 属性面板里的开关（同时与 Ribbon 同步：共享 .on，但这里是独立显示用——保留可点） */
+.prop-toggle-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:7px 13px;
+}
+.prop-toggle-row .label{color:var(--text-2);font-size:12px;}
+
+.help-block{
+  margin:10px 13px 4px;padding:9px 11px;border-radius:var(--radius);
+  background:var(--panel-2);border:1px solid var(--line-soft);
+  color:var(--muted);font-size:11px;line-height:1.7;
+}
+.help-block b{color:var(--text-2);}
+.help-block kbd{
+  display:inline-block;min-width:30px;text-align:center;margin-right:4px;
+  padding:1px 6px;border-radius:4px;border:1px solid var(--line-strong);
+  background:#fff;color:var(--text-2);font-family:var(--mono);font-size:10px;font-weight:700;
+  box-shadow:0 1px 0 var(--line);
+}
+.task-actions{display:flex;gap:6px;padding:0 13px 8px;flex-wrap:wrap;}
+.task-actions[hidden]{display:none;}
+.task-btn{
+  flex:1;min-width:72px;border:1px solid var(--line);border-radius:var(--radius-sm);
+  background:#fff;color:var(--text-2);font:inherit;font-size:11.5px;font-weight:700;
+  padding:7px 8px;cursor:pointer;transition:background var(--tx),border-color var(--tx),transform var(--tx);
+}
+.task-btn:hover{background:var(--accent-soft);border-color:#bcd9f5;}
+.task-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.task-btn.correct{background:var(--ok-soft);border-color:#74b579;color:#27652c;}
+.task-btn.wrong{background:var(--danger-soft);border-color:#df9b9b;color:#9d3030;}
+.task-feedback{margin:0 13px 8px;padding:8px 9px;border-radius:var(--radius-sm);font-size:11px;line-height:1.55;background:var(--panel-2);color:var(--muted);}
+.task-feedback[data-tone="success"]{background:var(--ok-soft);color:#27652c;}
+.task-feedback[data-tone="error"]{background:var(--danger-soft);color:#9d3030;}
+
+/* ============ 命令行 / 状态栏 ============ */
+#statusbar{
+  display:flex;align-items:center;gap:0;
+  height:30px;flex-shrink:0;
+  background:linear-gradient(180deg,var(--chrome-1),var(--chrome-2));
+  border-top:1px solid var(--line);
+  padding:0 0 0 0;font-size:11.5px;
+  padding-bottom:var(--safe-bottom);
+}
+#cmd-prompt{
+  display:flex;align-items:center;gap:8px;flex:1;min-width:0;
+  height:100%;padding:0 12px;
+  font-family:var(--mono);color:var(--text-2);
+}
+#cmd-prompt .caret{color:var(--accent);font-weight:800;flex-shrink:0;}
+#status-strip{
+  flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  color:var(--muted);font-family:inherit;font-size:11.5px;
+}
+.status-cell{
+  display:flex;align-items:center;gap:6px;height:100%;padding:0 13px;
+  border-left:1px solid var(--line);color:var(--text-2);white-space:nowrap;
+}
+.status-cell .dot{width:6px;height:6px;border-radius:99px;background:var(--ok);}
+#hud-mode{font-weight:600;color:var(--accent);}
+.status-cell.std{color:var(--muted);font-weight:600;letter-spacing:.02em;}
+
+/* ============ 空间练习：保留模型与真实投影作为证据 ============ */
+#quiz-overlay{
+  position:absolute;inset:0;display:none;z-index:25;pointer-events:none;
+}
+.quiz-card{
+  position:absolute;right:18px;top:18px;width:min(380px,calc(100vw - 36px));max-height:calc(100% - 36px);
+  display:flex;flex-direction:column;pointer-events:auto;
+  background:rgba(250,251,252,.97);border:1px solid var(--line-strong);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:auto;
+}
+.quiz-titlebar{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 14px;background:linear-gradient(180deg,var(--chrome-0),var(--chrome-1));
+  border-bottom:1px solid var(--line);
+}
+.quiz-titlebar .qt-left{display:flex;align-items:center;gap:9px;min-width:0;}
+.quiz-titlebar .qt-ico{
+  width:24px;height:24px;border-radius:5px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;
+}
+.quiz-titlebar .qt-ico svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:1.8;}
+.quiz-titlebar h2{font-size:13.5px;font-weight:700;color:var(--text);}
+.quiz-pill{padding:3px 9px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-size:10.5px;font-weight:800;letter-spacing:.04em;white-space:nowrap;}
+.quiz-body{padding:14px;}
+.quiz-intro{color:var(--muted);font-size:11.5px;line-height:1.55;margin-bottom:10px;}
+.quiz-memory{margin:0 0 10px;padding:9px 10px;border:1px solid #d8cfbf;border-left:3px solid #8b7c69;border-radius:var(--radius-sm);background:#fffdf8;}.quiz-memory[hidden]{display:none}.quiz-memory-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}.quiz-memory-head span:first-child{color:#756b5d;font-size:10.5px;font-weight:800}.quiz-memory-head span:last-child{color:var(--muted-2);font-size:9.5px;letter-spacing:.08em}.quiz-memory svg{display:block;width:100%;height:92px;border:1px solid var(--line-soft);border-radius:5px;background:#f8fafb}.quiz-memory p{margin:6px 0 0;color:var(--text-2);font-size:10.5px;line-height:1.5}.quiz-memory-pulse{animation:quizMemoryPulse 1.2s ease-in-out infinite}@keyframes quizMemoryPulse{0%,100%{opacity:.38}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.quiz-memory-pulse{animation:none!important}}
+.progress-bar{width:100%;height:5px;border-radius:999px;background:var(--panel-3);overflow:hidden;margin-bottom:12px;}
+.progress-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width var(--tx);}
+.quiz-question{padding:11px 12px;border-radius:var(--radius);background:var(--panel-2);border:1px solid var(--line-soft);}
+.quiz-qmeta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:7px;color:var(--muted);font-size:10.5px;font-weight:700;}
+.quiz-qmeta span{padding:2px 6px;border-radius:999px;background:#fff;border:1px solid var(--line-soft);}
+.quiz-qtext{font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;line-height:1.5;}
+.quiz-stage{padding:8px 10px;border:1px solid var(--line-soft);border-radius:var(--radius-sm);background:#fff;margin-bottom:10px;}
+.quiz-stage>span{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px;}
+.quiz-view-tags{display:flex;gap:6px;flex-wrap:wrap;}
+.quiz-view-tag{padding:3px 9px;border-radius:5px;background:var(--panel-3);color:var(--muted);font-size:11px;font-weight:700;border:1px solid transparent;}
+.quiz-view-tag.on{background:var(--accent-soft);color:var(--accent);border-color:#bcd9f5;}
+.quiz-evidence{margin:0 0 10px;padding:8px 10px;border-left:3px solid var(--accent);background:#f4f9ff;color:var(--text-2);font-size:11.5px;line-height:1.55;}
+.quiz-evidence[hidden]{display:none;}
+.quiz-options{display:grid;grid-template-columns:1fr;gap:7px;}
+.quiz-interaction{margin:0 0 10px;padding:9px 10px;border:1px dashed #9ab8d6;border-radius:var(--radius-sm);background:#f5f9fd;color:var(--text-2);font-size:11.5px;line-height:1.5;}
+.quiz-interaction[hidden]{display:none;}
+.quiz-interaction.ready{border-color:#78b57d;background:var(--ok-soft);color:#27652c;}
+.quiz-option{border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--text-2);padding:9px 10px;cursor:pointer;text-align:left;font:inherit;font-size:12px;font-weight:600;transition:background var(--tx),border-color var(--tx),transform var(--tx);}
+.quiz-option:hover{background:var(--accent-soft);border-color:#bcd9f5;transform:translateY(-1px);}
+.quiz-option.selected{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent) inset;}
+.quiz-option.correct{border-color:#a8d3aa;background:var(--ok-soft);}
+.quiz-option.wrong{border-color:#df9b9b;background:var(--danger-soft);}
+.quiz-option.missed{border-style:dashed;border-color:#d5a450;}
+.quiz-option:disabled{cursor:default;transform:none;}
+.quiz-feedback{min-height:36px;margin-top:11px;color:var(--text-2);font-size:12px;line-height:1.55;}
+.quiz-feedback[data-tone="success"]{color:#27652c;}
+.quiz-feedback[data-tone="error"]{color:#9d3030;}
+.quiz-reflection{margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);}
+.quiz-reflection label{display:block;color:var(--text-2);font-size:11.5px;font-weight:700;line-height:1.5;margin-bottom:6px;}
+.quiz-reflection select{width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--text);padding:7px 8px;font:inherit;font-size:11.5px;}
+.quiz-summary{margin-top:10px;padding:9px 10px;border-radius:var(--radius-sm);background:var(--ok-soft);color:#27652c;font-size:11.5px;line-height:1.55;}
+.quiz-summary[hidden]{display:none;}
+.quiz-footer{display:flex;gap:8px;padding:11px 14px;background:var(--panel-2);border-top:1px solid var(--line-soft);}
+.dlg-btn{flex:1;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--text-2);font:inherit;font-size:12px;font-weight:600;padding:8px 8px;cursor:pointer;transition:background var(--tx),border-color var(--tx),transform var(--tx);}
+.dlg-btn:hover{background:var(--chrome-2);}
+.dlg-btn:active{transform:translateY(1px);}
+.dlg-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.dlg-btn.primary:hover{background:var(--accent-2);}
+.dlg-btn:disabled{opacity:.58;cursor:default;}
+.dlg-btn.primary:disabled{background:#a9bdd2;border-color:#a9bdd2;}
+
+/* ============ 响应式 ============ */
+#panel-toggle-l,#panel-toggle-r{display:none;}
+@media(max-width:1180px){
+  #props-panel{width:230px;min-width:230px;}
+  #tree-panel{width:220px;min-width:220px;}
+}
+@media(max-width:960px){
+  #brand .sub{display:none;}
+  #tree-panel,#props-panel{
+    position:absolute;top:0;bottom:0;z-index:35;box-shadow:var(--shadow-lg);
+    transform:translateX(0);transition:transform var(--tx);
+  }
+  #tree-panel{left:0;transform:translateX(-102%);}
+  #props-panel{right:0;transform:translateX(102%);}
+  #tree-panel.open{transform:translateX(0);}
+  #props-panel.open{transform:translateX(0);}
+  /* 浮动开合按钮 */
+  #panel-toggle-l,#panel-toggle-r{
+    display:grid;place-items:center;position:absolute;top:10px;z-index:18;
+    width:34px;height:34px;border-radius:var(--radius);cursor:pointer;
+    background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow-md);
+  }
+  #panel-toggle-l{left:10px;}
+  #panel-toggle-r{right:10px;}
+  #panel-toggle-l svg,#panel-toggle-r svg{width:18px;height:18px;fill:none;stroke:var(--accent);stroke-width:1.7;}
+  .vp-corner{left:54px;}
+  #viewcube{right:54px;}
+  #viewport.tiled-mode #tiled-layout{grid-template-columns:1fr;grid-template-rows:minmax(260px,1fr) minmax(260px,1fr);}
+  #viewport.tiled-mode #model-pane{border-right:0;border-bottom:1px solid var(--line-strong);}
+  #three-view-pane{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
+}
+@media(max-width:600px){
+  #brand h1{font-size:12.5px;}
+  #ribbon-body{min-height:74px;}
+  .quiz-options{grid-template-columns:1fr;}
+  .status-cell.std{display:none;}
+}
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+  "three-bvh-csg":"https://cdn.jsdelivr.net/npm/three-bvh-csg@0.0.17/build/index.module.js",
+  "three-mesh-bvh":"https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.8.0/build/index.module.js"
+}}
+</script>
+  <script type="module" crossorigin src="./assets/index-DKXIyN78.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BJmH5ePQ.css">
+</head>
+<body class="mode-lab">
+
+<!-- ===== 应用条 ===== -->
+<header id="appbar">
+  <div id="brand">
+    <div id="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M5 4.5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6.5l-3 2v-2h-1a1.5 1.5 0 0 1-1.5-1.5v-11A1 1 0 0 1 5 4.5zm3.5 2h-2v2h2v-2zm0 4h-2v2h2v-2zm0 4h-2v2h2v-2zm4-8h7v2h-7v-2zm0 4h7v2h-7v-2zm0 4h7v2h-7v-2z"/></svg>
+    </div>
+    <h1>工图投影大师<span class="ver">v8.3</span></h1>
+    <span class="sub">空间智能教学工作台 · 第一角投影</span>
+  </div>
+  <div id="doc-tabs" role="tablist">
+    <button class="mode-tab active" data-mode="lab" role="tab" aria-selected="true">第3章·投影基础</button>
+    <button class="mode-tab" data-mode="compound" role="tab" aria-selected="false">第5章·组合体投影</button>
+    <button class="mode-tab" data-mode="explore" role="tab" aria-selected="false">模型与三视图</button>
+    <button class="mode-tab" data-mode="vice" role="tab" aria-selected="false">虎钳拆装</button>
+    <button class="mode-tab" data-mode="quiz" role="tab" aria-selected="false">空间练习</button>
+  </div>
+</header>
+
+<!-- ===== Ribbon ===== -->
+<div id="ribbon">
+  <div id="ribbon-tabs" role="tablist">
+    <button class="rib-tab active" data-rib="file">文件</button>
+    <button class="rib-tab" data-rib="view">视图</button>
+  </div>
+  <div id="ribbon-body">
+    <!-- 文件 -->
+    <div class="rib-panel active" data-rib-panel="file">
+      <div class="rib-group">
+        <div class="rib-group-row quick-col">
+          <button class="quick-chip" data-model="cableStayedFan">斜拉桥·扇形</button>
+          <button class="quick-chip" data-model="suspension">悬索桥</button>
+          <button class="quick-chip" data-model="archBridge">拱桥（提篮）</button>
+          <button class="quick-more" data-cat="bridge">更多桥型 ▾</button>
+        </div>
+        <div class="rib-group-label">桥梁结构</div>
+      </div>
+      <div class="rib-group">
+        <div class="rib-group-row quick-col">
+          <button class="quick-chip" data-model="drawing_bago">Bago 斜拉桥</button>
+          <button class="quick-chip" data-model="drawing_nrg">新河峡谷拱桥</button>
+          <button class="quick-chip" data-model="drawing_forth">Forth 悬索桥</button>
+          <button class="quick-more" data-cat="bridge-asset">更多图纸模型 ▾</button>
+        </div>
+        <div class="rib-group-label">按图纸重构</div>
+      </div>
+      <div class="rib-group">
+        <div class="rib-group-row quick-col">
+          <button class="quick-chip" data-model="step">叠加台阶块</button>
+          <button class="quick-chip" data-model="throughHolePlate">通孔板</button>
+          <button class="quick-chip" data-model="bearingSeat">轴承座</button>
+          <button class="quick-chip" data-url="assets/step_bearing_block.step">STEP轴承座</button>
+          <button class="quick-more" data-cat="solids">更多 ▾</button>
+        </div>
+        <div class="rib-group-label">机械组合体</div>
+      </div>
+      <div class="rib-group">
+        <div class="rib-group-row" style="flex-direction:column;align-items:stretch;gap:5px;">
+          <button class="rib-cmd primary" id="obj-import-btn" title="导入本地 STEP / OBJ / STL / GLB / GLTF 模型">
+            <span class="ico"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/></svg></span>
+            <span class="cap">导入模型</span>
+          </button>
+          <input type="file" id="obj-file" accept=".step,.stp,.obj,.stl,.glb,.gltf,application/step,model/step,text/plain,model/stl,model/gltf-binary" style="display:none">
+          <div class="rib-hint" id="obj-status" style="font-size:10px;max-width:148px;line-height:1.4;">支持 STEP/OBJ/STL/GLB/GLTF，自动生成三视图</div>
+        </div>
+        <div class="rib-group-label">导入本地模型</div>
+      </div>
+    </div>
+
+    <!-- 视图（开关：保留 toggle ID，JS 切换 .on） -->
+    <div class="rib-panel" data-rib-panel="view">
+      <div class="rib-group">
+        <div class="rib-group-row">
+          <button class="rib-cmd check on" id="tog-projlines" title="显示/隐藏投影连线">
+            <span class="ico"><svg viewBox="0 0 24 24"><path d="M4 20L20 4"/><path d="M4 12h16M12 4v16" stroke-dasharray="2 3"/></svg></span>
+            <span class="cap">投影连线</span>
+          </button>
+          <button class="rib-cmd check on" id="tog-hidden" title="显示/隐藏虚线与中心线">
+            <span class="ico"><svg viewBox="0 0 24 24"><path d="M4 8h16" stroke-dasharray="3 3"/><path d="M4 14h16"/><path d="M4 19h16" stroke-dasharray="1 3"/></svg></span>
+            <span class="cap wrap">虚线·中心线</span>
+          </button>
+          <button class="rib-cmd check on" id="tog-axes" title="显示/隐藏坐标轴">
+            <span class="ico"><svg viewBox="0 0 24 24"><path d="M5 19V5m0 14h14M5 19l-2-2m2 2l2-2M19 19l-2-2m2 2l2 2"/></svg></span>
+            <span class="cap">坐标轴</span>
+          </button>
+          <button class="rib-cmd check" id="tog-transparent" title="模型半透明显示">
+            <span class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1.5" stroke-dasharray="3 2"/><path d="M8 16L16 8"/></svg></span>
+            <span class="cap wrap">半透明体</span>
+          </button>
+        </div>
+        <div class="rib-group-label">显示开关</div>
+      </div>
+      <div class="rib-group">
+        <div class="rib-group-row">
+          <button class="rib-cmd" id="tile-btn" aria-pressed="false" title="左侧自由旋转模型，右侧平铺第一角三视图">
+            <span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="14" y="4" width="7" height="4" rx="1"/><rect x="14" y="10" width="7" height="4" rx="1"/><rect x="14" y="16" width="7" height="4" rx="1"/></svg></span>
+            <span class="cap wrap">平铺三视图</span>
+          </button>
+        </div>
+        <div class="rib-group-label">对照学习</div>
+      </div>
+      <div class="rib-group">
+        <div class="rib-group-row">
+          <div class="rib-hint">勾选项即时生效；<b>模型与投影面距离</b>在右侧<b>属性</b>面板调节（投影面尺寸已自适应）。</div>
+        </div>
+        <div class="rib-group-label">提示</div>
+      </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ===== 工作区 ===== -->
+<div id="workspace">
+
+  <!-- 左：模型树 -->
+  <aside id="tree-panel">
+    <div class="panel-head">
+      <span class="ph-ico"><svg viewBox="0 0 24 24"><path d="M4 5h7l2 2h7v12H4z"/></svg></span>
+      模型树
+    </div>
+    <div class="panel-scroll">
+
+      <!-- 教材模型：保持命名构件与米制方向，供三视图和单件识读 -->
+      <div class="tree-group open">
+        <div class="tree-group-head" data-group="bridge"><span class="caret"></span>桥梁模型墙<span class="grp-badge">20</span></div>
+        <p class="library-note">教材新版 · 桥向水平、竖向向上<br>点击构件可单独查看三视图</p>
+        <div class="tree-children" id="bridge-library-list"></div>
+      </div>
+      <div class="tree-group open">
+        <div class="tree-group-head" data-group="bridge-asset"><span class="caret"></span>按图纸重构的桥梁<span class="grp-badge">3</span></div>
+        <p class="library-note">保留零件与材质 · 含教学简化</p>
+        <div class="tree-children" id="drawing-bridge-list"></div>
+      </div>
+
+      <div class="tree-group open">
+        <div class="tree-group-head" data-group="engineering-joints"><span class="caret"></span>工程节点<span class="grp-badge">1</span></div>
+        <div class="tree-children">
+          <button class="model-btn" data-model="jointDetail"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 14h16M12 14V5M9 9h6M7 14l-1 5m12-5l1 5"/></svg></span><span><span class="name">节点构造</span><span class="desc">吊杆、横梁与主梁连接</span></span></button>
+        </div>
+      </div>
+
+      <!-- 机械组合体（入门）—— 现有可用模型 -->
+      <div class="tree-group open">
+        <div class="tree-group-head" data-group="solids">
+          <span class="caret"></span>
+          <span class="grp-ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 3v18M4 7.5l8 4.5 8-4.5"/></svg></span>
+          机械组合体
+          <span class="grp-badge">入门</span>
+        </div>
+        <div class="tree-children">
+          <button class="model-btn active" data-model="step"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h5v-4h5v-4h6"/></svg></span><span><span class="name">叠加台阶块</span><span class="desc">三层叠加，训练长对正</span></span></button>
+          <button class="model-btn" data-model="slottedBlock"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4zM9 6v6h6V6"/></svg></span><span><span class="name">开槽导块</span><span class="desc">矩形导槽与槽底虚线</span></span></button>
+          <button class="model-btn" data-model="throughHolePlate"><span class="leaf-ico"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/><circle cx="12" cy="12" r="3"/></svg></span><span><span class="name">通孔板</span><span class="desc">竖直通孔、圆与中心线</span></span></button>
+          <button class="model-btn" data-model="ribBracket"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 20V8h4v12M8 12l8-4v12M4 20h16"/></svg></span><span><span class="name">肋板支架</span><span class="desc">底板、立板、三角肋板</span></span></button>
+          <button class="model-btn" data-model="bearingSeat"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M6 18v-5a6 6 0 0 1 12 0v5"/><circle cx="12" cy="13" r="2"/></svg></span><span><span class="name">轴承座</span><span class="desc">经典综合组合体</span></span></button>
+          <button class="model-btn" data-url="assets/step_bearing_block.step" data-name="STEP轴承座样件" data-zup="1"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M6 18v-5a6 6 0 0 1 12 0v5"/><circle cx="12" cy="13" r="2"/></svg></span><span><span class="name">STEP轴承座样件</span><span class="desc">浏览器内解析并生成三视图</span></span></button>
+          <button class="model-btn" data-model="dovetailSlide"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M8 18l2-9h4l2 9"/></svg></span><span><span class="name">燕尾槽滑块</span><span class="desc">斜面投影训练</span></span></button>
+          <button class="model-btn" data-model="vBlock"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4zM8 6l4 6 4-6"/></svg></span><span><span class="name">V形定位块</span><span class="desc">V槽与对称中心线</span></span></button>
+          <button class="model-btn" data-model="compoundSeat"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M7 18v-4h10v4M9 14v-3h6v3M11 11V8h2v3"/></svg></span><span><span class="name">综合支座</span><span class="desc">凸台、槽口、圆柱混合</span></span></button>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- 中：视口 -->
+  <main id="viewport">
+    <section id="lab-shell" aria-label="教材实验：工程图投影基础">
+      <header class="lab-coursebar">
+        <div class="lab-course-title">
+          <span>第 3 章</span>
+          <strong>工程图的投影基础</strong>
+        </div>
+        <nav id="lab-lesson-nav" aria-label="基础投影学习路径">
+          <button type="button" class="lab-lesson active" data-lab-lesson="projection" aria-current="step"><span>1</span><b>投影形成</b></button>
+          <button type="button" class="lab-lesson" data-lab-lesson="point"><span>2</span><b>点的投影</b></button>
+          <button type="button" class="lab-lesson" data-lab-lesson="line"><span>3</span><b>直线投影</b></button>
+          <button type="button" class="lab-lesson" data-lab-lesson="plane"><span>4</span><b>平面投影</b></button>
+          <button type="button" class="lab-lesson" data-lab-lesson="relation"><span>5</span><b>相对位置</b></button>
+        </nav>
+        <button type="button" id="lab-reset" class="lab-quiet-action" title="复位当前实验">复位</button>
+      </header>
+
+      <div class="lab-workspace">
+        <section id="lab-canvas-host" aria-label="可旋转的空间几何实验区">
+          <div class="lab-canvas-heading">
+            <span id="lab-kicker">3.1 投影法的基本知识</span>
+            <strong id="lab-title">投影是怎样形成的</strong>
+          </div>
+          <div class="lab-canvas-help">拖动旋转 · 滚轮缩放 · 右键平移</div>
+          <div id="lab-context-controls" class="lab-context-controls" aria-label="当前对象参数"></div>
+        </section>
+
+        <aside class="lab-side">
+          <section class="lab-projection-board" aria-labelledby="lab-board-title">
+            <header>
+              <div>
+                <span id="lab-board-kicker">投影形成</span>
+                <strong id="lab-board-title">单面投影观察板</strong>
+              </div>
+              <span id="lab-board-state">实时对应</span>
+            </header>
+            <div class="lab-view-grid">
+              <article class="lab-view-card" data-lab-view-card="front">
+                <div><strong id="lab-view-label-front">正面观察</strong><span id="lab-view-meta-front">正面</span></div>
+                <svg id="lab-view-front" viewBox="0 0 180 120" role="img" aria-label="主视图"></svg>
+              </article>
+              <article class="lab-view-card" data-lab-view-card="side">
+                <div><strong id="lab-view-label-side">侧面观察</strong><span id="lab-view-meta-side">侧面</span></div>
+                <svg id="lab-view-side" viewBox="0 0 180 120" role="img" aria-label="左视图"></svg>
+              </article>
+              <article class="lab-view-card" data-lab-view-card="top">
+                <div><strong id="lab-view-label-top">俯视观察</strong><span id="lab-view-meta-top">水平面</span></div>
+                <svg id="lab-view-top" viewBox="0 0 180 120" role="img" aria-label="俯视图"></svg>
+              </article>
+            </div>
+            <div id="lab-correspondence" class="lab-correspondence" aria-live="polite"></div>
+          </section>
+
+          <section class="lab-task-card" aria-labelledby="lab-task-title">
+            <div class="lab-task-meta"><span id="lab-phase">观察判断</span><span id="lab-progress">1 / 5</span></div>
+            <h2 id="lab-task-title">先观察投射线</h2>
+            <p id="lab-task-prompt">当前平行投射线与投影面是否垂直？</p>
+            <div id="lab-answer-options" class="lab-answer-options" aria-label="判断选项"></div>
+            <div id="lab-feedback" class="lab-feedback" hidden aria-live="polite"></div>
+            <button type="button" id="lab-primary-action" class="lab-primary-action" disabled>核对判断</button>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="compound-shell" aria-label="第5章组合体投影交互例题">
+      <header class="compound-coursebar">
+        <div class="compound-course-title">
+          <span>第 5<br>章</span>
+          <div><strong>组合体构形实验</strong><small>三个教材例题 · 精确 BRep 与第一角三视图</small></div>
+        </div>
+        <nav id="compound-lesson-nav" aria-label="第五章例题选择"></nav>
+        <button type="button" id="compound-reset" class="compound-quiet-action" title="复位当前例题">复位本例</button>
+      </header>
+
+      <div class="compound-workspace">
+        <section class="compound-model-panel" aria-label="可交互组合体模型">
+          <header class="compound-panel-head">
+            <div><span id="compound-source">第5章</span><strong id="compound-title">组合体投影例题</strong></div>
+            <div id="compound-operation-tags" aria-label="本例涉及的建模操作"></div>
+          </header>
+          <div id="compound-model-host">
+            <div class="compound-axis-note">黄色为刀具 B · 蓝色为实体 A</div>
+            <div class="compound-model-help">拖动黄色刀具 · 滚轮缩放 · 右侧执行 A−B · 三视图同步</div>
+          </div>
+        </section>
+
+        <section class="compound-projection-panel" aria-label="同步生成的第一角三视图">
+          <header class="compound-panel-head">
+            <div><span>实时成图</span><strong>当前组合步骤的三视图</strong></div>
+            <div class="compound-projection-meta"><span id="compound-kernel-status" data-tone="idle">精确内核待算</span><div id="compound-stage-progress">1 / 1</div></div>
+          </header>
+          <div class="compound-projection-board">
+            <div class="compound-mobile-view-tabs" role="tablist" aria-label="手机端三视图切换">
+              <button type="button" class="active" role="tab" aria-selected="true" data-compound-view-tab="front">主视</button>
+              <button type="button" role="tab" aria-selected="false" data-compound-view-tab="side">左视</button>
+              <button type="button" role="tab" aria-selected="false" data-compound-view-tab="top">俯视</button>
+            </div>
+            <article class="compound-view-card front"><header><strong>主视图</strong><span>从前向后</span></header><div class="compound-view-image"><img data-compound-image="front" alt="当前组合步骤主视图"><span class="compound-projected-point" data-compound-point="front" hidden><b>P</b></span></div></article>
+            <article class="compound-view-card side"><header><strong>左视图</strong><span>置于主视图右侧</span></header><div class="compound-view-image"><img data-compound-image="side" alt="当前组合步骤左视图"><span class="compound-projected-point" data-compound-point="side" hidden><b>P</b></span></div></article>
+            <article class="compound-view-card top"><header><strong>俯视图</strong><span>置于主视图下方</span></header><div class="compound-view-image"><img data-compound-image="top" alt="当前组合步骤俯视图"><span class="compound-projected-point" data-compound-point="top" hidden><b>P</b></span></div></article>
+            <div class="compound-first-angle-note"><strong>第一角画法</strong><span>三个视图共用一把比例尺</span><div class="compound-alignment-checks"><span>↕ 主视—俯视：X 坐标同列（长对正）</span><span>↔ 主视—左视：Z 坐标同行（高平齐）</span><span>⌞ 俯视—左视：Y 尺寸等长（宽相等）</span></div></div>
+          </div>
+        </section>
+
+        <aside class="compound-control-rail" aria-label="例题操作与判断">
+          <section class="compound-card compound-example-head">
+            <span class="compound-source" id="compound-source-label">教材原例</span>
+            <h2 id="compound-title-label">观察组合体形成</h2>
+            <p id="compound-objective">按教材顺序装载构件，并观察对应投影变化。</p>
+            <details class="compound-ai-disclosure">
+              <summary>AI 如何把题图变成 CAD</summary>
+              <div class="compound-ai-chain" aria-label="AI到CAD再到成图核验的执行链">
+                <div><span>AI 识别</span><b id="compound-ai-input">识别组成形体</b></div>
+                <i aria-hidden="true">→</i>
+                <div><span>CAD / SOLIDWORKS</span><b id="compound-cad-action">建立参数特征</b></div>
+                <i aria-hidden="true">→</i>
+                <div><span>平台核验</span><b>OpenCascade 重建并投影</b></div>
+              </div>
+            </details>
+          </section>
+
+          <section class="compound-card compound-step-card">
+            <div class="compound-card-title"><strong>本步任务</strong><span>选步骤 → 调刀具 → 看结果</span></div>
+            <div id="compound-sequence"></div>
+            <p id="compound-stage-note" aria-live="polite"></p>
+            <div class="compound-boolean-card" id="compound-boolean-card">
+              <div id="compound-boolean-workbench"></div>
+            </div>
+            <div class="compound-stage-actions">
+              <button type="button" id="compound-prev-stage" class="compound-secondary-action">退回一步</button>
+              <button type="button" id="compound-next-stage" class="compound-primary-action">装载下一步</button>
+            </div>
+          </section>
+
+          <details class="compound-card compound-tool-disclosure compound-observation-card" id="compound-observation-card" hidden>
+            <summary><strong>显示与精确校核</strong><span>边线 · 透明 · 点投影</span></summary>
+            <div id="compound-observation-tools"></div>
+          </details>
+
+          <details class="compound-card compound-tool-disclosure">
+            <summary><strong>构件独立观察</strong><span>按需拆看</span></summary>
+            <div id="compound-components"></div>
+          </details>
+
+          <details class="compound-card compound-tool-disclosure compound-assembly-card" id="compound-assembly-card" hidden>
+            <summary><strong>叠加装配台</strong><span>拿开 ⇄ 装回</span></summary>
+            <div id="compound-assembly-workbench"></div>
+          </details>
+
+          <details class="compound-card compound-tool-disclosure">
+            <summary><strong>参数与爆炸</strong><span>进阶探索</span></summary>
+            <div class="compound-tool-body">
+            <label class="compound-explode-row" for="compound-explode"><span>爆炸距离</span><input id="compound-explode" type="range" min="0" max="100" step="1" value="0"><output id="compound-explode-output">0%</output></label>
+            <div class="compound-explode-actions">
+              <button type="button" id="compound-assemble" class="compound-secondary-action">恢复装配</button>
+              <button type="button" id="compound-explode-all" class="compound-secondary-action">完全爆炸</button>
+            </div>
+            <div id="compound-parameters"></div>
+            </div>
+          </details>
+
+          <section class="compound-card compound-question">
+            <div class="compound-card-title"><strong>用题检验读图</strong><span>依据当前例题</span></div>
+            <p id="compound-question-prompt"></p>
+            <div id="compound-answers"></div>
+            <div id="compound-feedback" hidden aria-live="polite"></div>
+            <button type="button" id="compound-submit" class="compound-primary-action" disabled>核对判断</button>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <div id="tiled-layout" aria-label="第一角三视图平铺对照">
+      <section id="model-pane" aria-label="可自由旋转的三维模型"></section>
+      <section id="three-view-pane" aria-label="第一角三视图">
+        <div class="tiled-pane-title">第一角画法 · 三视图对照</div>
+        <article class="tiled-view-card front" data-tiled-card="front"><header><span>主视图</span><span>前</span></header><img data-tiled-image="front" alt="主视图工程图"></article>
+        <article class="tiled-view-card top" data-tiled-card="top"><header><span>俯视图</span><span>上</span></header><img data-tiled-image="top" alt="俯视图工程图"></article>
+        <article class="tiled-view-card side" data-tiled-card="side"><header><span>左视图</span><span>左</span></header><img data-tiled-image="side" alt="左视图工程图"></article>
+        <aside class="tiled-alignment-note"><strong>长对正 · 高平齐 · 宽相等</strong><span>三张视图采用同一比例。<br>俯视图在下，左视图在右。</span></aside>
+      </section>
+    </div>
+    <div class="standard-view-actions" aria-label="对准标准视图">
+      <button type="button" data-standard-view="front">主视</button><button type="button" data-standard-view="top">俯视</button><button type="button" data-standard-view="side">左视</button>
+    </div>
+    <button id="panel-toggle-l" aria-label="模型树"><svg viewBox="0 0 24 24"><path d="M4 5h7l2 2h7v12H4z"/></svg></button>
+    <button id="panel-toggle-r" aria-label="属性"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M9 6v0m6 6v0m-3 6v0"/></svg></button>
+    <div class="vp-corner"><span class="dot"></span><span id="hud-mode">三维透视 · 第一角</span></div>
+    <div class="vp-component" id="component-info" hidden>
+      <strong id="component-info-name">桥梁构件</strong>
+      <span id="component-info-role"></span>
+    </div>
+    <div class="vp-hint">💡 点击模型构件 → <b>高亮并生成该构件三视图</b>；点击空白处恢复整体</div>
+
+    <!-- 关键操作：展开/合并三视图（最外层、始终可见） -->
+    <button id="unfold-btn" class="unfold-fab" aria-pressed="false" title="展开 / 合并第一角三视图（空格）">
+      <svg viewBox="0 0 24 24"><rect x="3" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/><rect x="9" y="3" width="6" height="6" rx="1"/><path d="M15 12h4M9 15v4"/></svg>
+      <span>展开三视图</span>
+    </button>
+
+    <!-- 空间练习：题干在侧栏，三维模型与真实投影始终作为判断证据 -->
+    <div id="quiz-overlay" aria-hidden="true">
+      <section class="quiz-card" role="dialog" aria-modal="false" aria-labelledby="quiz-title">
+        <div class="quiz-titlebar">
+          <div class="qt-left">
+            <span class="qt-ico"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 6-7"/><path d="M20 12v6H4V6h11"/></svg></span>
+            <h2 id="quiz-title">空间练习 · 预测与核对</h2>
+          </div>
+          <div class="quiz-pill" id="quiz-stage-pill">第 1 / 6 题</div>
+        </div>
+        <div class="quiz-body">
+          <p class="quiz-intro">先观察当前模型和已展开的真实三视图，再作答；提交后用图学证据核对判断。</p>
+          <div class="quiz-memory" id="quiz-memory" hidden>
+            <div class="quiz-memory-head"><span>前一步缩略 · 随时可借用</span><span>VISUAL MEMORY</span></div>
+            <svg id="quiz-memory-svg" viewBox="0 0 300 92" role="img" aria-label="目标视图、观察轴与保留投影面的缩略示意"></svg>
+            <p id="quiz-memory-text"></p>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="quiz-progress-fill"></div></div>
+          <div class="quiz-question">
+            <div class="quiz-qmeta"><span id="quiz-skill">第一角投影展开</span><span id="quiz-difficulty">难度 1</span></div>
+            <div class="quiz-qtext" id="quiz-question-text">展开投影面后，俯视图相对于主视图应位于什么位置？</div>
+            <div class="quiz-stage">
+              <span>本题可用的视图</span>
+              <div class="quiz-view-tags">
+                <span class="quiz-view-tag" id="quiz-tag-front">正面图</span>
+                <span class="quiz-view-tag" id="quiz-tag-top">俯视图</span>
+                <span class="quiz-view-tag" id="quiz-tag-side">侧面图</span>
+              </div>
+            </div>
+            <div class="quiz-evidence" id="quiz-evidence" hidden></div>
+            <div class="quiz-interaction" id="quiz-interaction" hidden><span id="quiz-interaction-status"></span></div>
+            <div class="quiz-options" id="quiz-options" aria-label="练习选项"></div>
+            <div class="quiz-feedback" id="quiz-feedback" aria-live="polite">请先根据模型与三视图作出判断。</div>
+            <div class="quiz-reflection" id="quiz-reflection" hidden>
+              <label for="quiz-reflection-select" id="quiz-reflection-prompt">核对前，你依据了什么？</label>
+              <select id="quiz-reflection-select">
+                <option value="">请选择判断依据</option>
+                <option value="孔轴线">孔轴线或中心线</option>
+                <option value="隐藏线">可见线与隐藏线</option>
+                <option value="投影面展开">投影面展开方向</option>
+                <option value="视图对应">长对正、高平齐或宽相等</option>
+                <option value="其他">其他依据</option>
+              </select>
+            </div>
+            <div class="quiz-summary" id="quiz-summary" hidden></div>
+          </div>
+        </div>
+        <div class="quiz-footer">
+          <button class="dlg-btn" id="quiz-close">退出练习</button>
+          <button class="dlg-btn" id="quiz-hint">查看提示</button>
+          <button class="dlg-btn primary" id="quiz-submit" disabled>提交判断</button>
+          <button class="dlg-btn" id="quiz-next-view" disabled>下一题</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- 右：属性面板 -->
+  <aside id="props-panel">
+    <div class="panel-head">
+      <span class="ph-ico"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>
+      属性
+    </div>
+    <div class="props-scroll">
+      <div class="prop-section">
+        <div class="prop-section-title">投影面</div>
+        <div class="slider-block">
+          <label>模型与投影面距离<span class="val" id="plane-gap-val">3.5</span></label>
+          <input type="range" id="plane-gap" min="0.4" max="6.0" step="0.1" value="3.5">
+        </div>
+        <div class="help-block" style="margin:6px 13px 2px;">投影面尺寸已随模型<b>自适应</b>，三视图与模型保持 1:1 对齐。</div>
+      </div>
+
+      <div class="prop-section">
+        <div class="prop-section-title">桥梁主动任务</div>
+        <div class="help-block" id="bridge-task-prompt">从三维模型中识别目标构件，再判断哪个正交视图最能表达其空间特征。</div>
+        <div class="task-actions">
+          <button class="task-btn primary" id="bridge-task-start">开始斜拉桥任务</button>
+        </div>
+        <div class="task-actions" id="bridge-task-view-actions" hidden aria-label="选择最能表达斜拉索倾斜特征的视图">
+          <button class="task-btn" data-task-view="front">正面图</button>
+          <button class="task-btn" data-task-view="top">俯视图</button>
+          <button class="task-btn" data-task-view="side">侧面图</button>
+        </div>
+        <div class="task-feedback" id="bridge-task-feedback" data-tone="info" aria-live="polite">任务尚未开始。</div>
+      </div>
+
+      <div class="prop-section">
+        <div class="prop-section-title">当前状态</div>
+        <div class="prop-row"><span class="label">投影制式</span><span class="val">第一角</span></div>
+        <div class="prop-row"><span class="label">渲染</span><span class="val">透视</span></div>
+        <div class="help-block">
+          <b>操作</b><br>
+          <kbd>左键</kbd>旋转 &nbsp; <kbd>滚轮</kbd>缩放<br>
+          <kbd>右键</kbd>平移 &nbsp; <kbd>空格</kbd>展开 / 合并<br>
+          显示开关位于 <b>Ribbon → 视图</b> 选项卡。
+        </div>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- ===== 命令行 / 状态栏 ===== -->
+<footer id="statusbar">
+  <div id="cmd-prompt">
+    <span class="caret">命令:</span>
+    <span id="status-strip">v7：正交三视图（含中心线/消隐）· STEP/OBJ/STL/GLB/GLTF 模型导入 · 点击构件高亮并生成对应三视图。</span>
+  </div>
+  <div class="status-cell std" title="开发者：赵诗宇（大连交通大学）szhao@djtu.edu.cn">开发者 赵诗宇 · 大连交通大学 · szhao@djtu.edu.cn</div>
+  <div class="status-cell std">第一角投影</div>
+  <div class="status-cell"><span class="dot"></span>就绪</div>
+</footer>
+
+
+
+<!-- Ribbon 选项卡切换 + 面板开合（纯界面逻辑，不动核心引擎） -->
+<script>
+(function(){
+  // Ribbon 选项卡
+  const ribTabs = Array.from(document.querySelectorAll('.rib-tab'));
+  const ribPanels = Array.from(document.querySelectorAll('.rib-panel'));
+  ribTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      ribTabs.forEach(t => t.classList.toggle('active', t === tab));
+      const key = tab.dataset.rib;
+      ribPanels.forEach(p => p.classList.toggle('active', p.dataset.ribPanel === key));
+    });
+  });
+
+  // 模型树分组折叠
+  document.querySelectorAll('.tree-group-head').forEach(head => {
+    head.addEventListener('click', () => head.parentElement.classList.toggle('open'));
+  });
+
+  // 窄屏：左右面板开合
+  const tree = document.getElementById('tree-panel');
+  const props = document.getElementById('props-panel');
+  document.getElementById('panel-toggle-l')?.addEventListener('click', () => {
+    tree.classList.toggle('open'); props.classList.remove('open');
+  });
+  document.getElementById('panel-toggle-r')?.addEventListener('click', () => {
+    props.classList.toggle('open'); tree.classList.remove('open');
+  });
+  // 选模型后在窄屏自动收起树面板
+  document.querySelectorAll('.model-btn').forEach(b => {
+    b.addEventListener('click', () => { if (window.innerWidth <= 960) tree.classList.remove('open'); });
+  });
+
+  // Ribbon 快捷资产：点击 chip → 触发模型树中对应模型（复用其加载/高亮逻辑）
+  const chips = Array.from(document.querySelectorAll('.quick-chip'));
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      let sel = null;
+      if (chip.dataset.model) sel = document.querySelector(`.model-btn[data-model="${chip.dataset.model}"]`);
+      else if (chip.dataset.url) sel = document.querySelector(`.model-btn[data-url="${chip.dataset.url}"]`);
+      if (sel) {
+        sel.click();
+        chips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+      }
+    });
+  });
+  // 「更多」→ 展开模型树（窄屏弹出抽屉；并把对应分组展开滚动到视野）
+  document.querySelectorAll('.quick-more').forEach(m => {
+    m.addEventListener('click', () => {
+      const cat = m.dataset.cat;
+      const grp = document.querySelector(`.tree-group-head[data-group="${cat}"]`);
+      if (grp) {
+        grp.parentElement.classList.add('open');
+        if (window.innerWidth > 960) grp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      if (window.innerWidth <= 960) { tree.classList.add('open'); props.classList.remove('open'); }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

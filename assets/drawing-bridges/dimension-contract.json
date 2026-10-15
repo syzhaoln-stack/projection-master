@@ -1,0 +1,130 @@
+{
+  "schema": "bridge-dimension-contract/1",
+  "date": "2026-09-08",
+  "purpose": "三种典型桥梁的 Blender / Godot 教学重构尺寸与证据记录。",
+  "unit_system": "SI",
+  "coordinates": {
+    "engineering": "X 顺桥，Y 横桥，Z 向上；长度单位 m。各模型 X=0 位于本次建模范围左端。",
+    "godot_mapping": "(x,y,z) -> (x,z,-y)，只转换一次。",
+    "datums": "各桥 Z 基准独立，不共享同一水位或绝对高程体系。"
+  },
+  "evidence_kinds": {
+    "drawing_dimension": "工程图纸直接标注的尺寸或高程；若四舍五入，保留 source_value。",
+    "source_text": "设计者、业主或官方档案正文明确说明。",
+    "derived": "由列出的来源锚点、组成尺寸或单位换算推导，并非独立图纸标注。",
+    "drawing_digitized": "扫描图面采样；精度受原图与取点方式约束。",
+    "teaching_assumption": "为当前教学模型补充或简化的值；不代表已核实实桥尺寸。"
+  },
+  "sources": {
+    "bago_tender_2017": {"publisher":"JICA","title":"Detailed Design on Bago River Bridge Construction Project, Steel Cable Stayed Bridge Drawings","url":"https://openjicareport.jica.go.jp/pdf/12304689_10.pdf","local_file":"../references/Bago_JICA_Tender_Steel_Cable_Stayed_Drawings.pdf","pdf_pages":{"30":"P1-CS-0001 总体布置与横断面","31":"P1-CS-0002 架设节段","102":"P1-CS-1201 钢塔","118":"P1-CS-1401 索锚点坐标","119":"P1-CS-1402 索几何","253-255":"涂装系统"}},
+    "bago_design_2017": {"publisher":"JICA","title":"Detailed Design on Bago River Bridge Construction Project, Final Report","url":"https://openjicareport.jica.go.jp/pdf/12304598_05.pdf","local_file":"../references/Bago_JICA_Detailed_Design_2017_part05.pdf","pdf_pages":{"3":"报告 4-86，塔高","4":"报告 4-87，三室钢箱梁方案","11":"报告 4-94，独柱塔方案"}},
+    "bago_preparatory_2014": {"publisher":"JICA","title":"Preparatory Survey Drawings","url":"https://openjicareport.jica.go.jp/pdf/12183257_04.pdf","local_file":"../references/Bago_JICA_Preparatory_Drawings_2014.pdf","pdf_pages":{"39":"BG-EP-01，Sheet 12，六步架设施工图"}},
+    "forth_existing_2008": {"publisher":"Transport Scotland; Jacobs / Arup","title":"Forth Replacement Crossing: Existing Forth Road Bridge Study","url":"https://www.transport.gov.scot/media/24880/j10568b.pdf","local_file":"../references/Forth_Road_Bridge_Jacobs_Arup_2008.pdf","pdf_pages":{"6":"报告第 4 页，既有桥纵断面、主缆高程、横断面"}},
+    "forth_operator": {"publisher":"The Forth Bridges","title":"Forth Road Bridge history and construction gallery","url":"https://www.theforthbridges.org/about-the-forth-bridges/forth-road-bridge/forth-road-bridge-construction-gallery/","related_url":"https://www.theforthbridges.org/about-the-forth-bridges/forth-road-bridge/forth-road-bridge-facts-figures/"},
+    "nrg_register_2013": {"publisher":"West Virginia State Historic Preservation Office / National Register nomination","title":"New River Gorge Bridge, National Register documentation","url":"https://wvculture.org/wp-content/uploads/2021/03/New-river-gorge-bridge.pdf","local_file":"../references/New_River_Gorge_National_Register_2013.pdf","pdf_pages":{"5-7":"尺寸、构造与材料正文","38-49":"施工照片","56":"Figure 2，Michael Baker 1991 检查图总体立面","57-59":"构造图","61-67":"成桥照片"}},
+    "nrg_design_1978": {"publisher":"Transportation Research Board; Knudsen / Cain, Michael Baker / American Bridge","title":"New River Gorge Bridge Design and Construction, Transportation Research Record 665","url":"https://onlinepubs.trb.org/Onlinepubs/trr/1978/665v2/665v2-017.pdf","local_file":"../references/New_River_Gorge_Design_Construction_1978.pdf","pdf_pages":{"1":"原论文 140 页，立面","2-3":"拱轴与钢构造","4-6":"扣索架设与合龙"}}
+  },
+  "bridges": [
+    {
+      "id": "cable_stayed",
+      "prototype": "Bago River Bridge, Myanmar",
+      "model_file": "../models/cable_stayed.glb",
+      "blender_file": "../blender/cable_stayed.blend",
+      "parameters": [
+        {"key":"span_layout","value":[112,224,112],"unit":"m","evidence_kind":"drawing_dimension","source":"bago_tender_2017","locator":"PDF 30, P1-CS-0001","note":"采用名义跨径。端部支承中心与梁端细部不以 112 m 直接等同。"},
+        {"key":"modeled_length","value":448,"unit":"m","evidence_kind":"derived","expression":"112+224+112"},
+        {"key":"deck_width","value":22.9,"unit":"m","evidence_kind":"drawing_dimension","source":"bago_tender_2017","locator":"PDF 30, 横断面","composition_m":[0.6,9,3.7,9,0.6],"note":"每侧 9 m 行车区由 1.5+3.5+3.5+0.5 m 组成。"},
+        {"key":"box_depth","value":2.7,"unit":"m","evidence_kind":"drawing_dimension","source":"bago_tender_2017","locator":"PDF 30, 横断面"},
+        {"key":"box_upper_width","value":12.5,"unit":"m","evidence_kind":"drawing_dimension","source":"bago_tender_2017","locator":"PDF 30"},
+        {"key":"box_bottom_width","value":9.5,"unit":"m","evidence_kind":"drawing_dimension","source":"bago_tender_2017","locator":"PDF 30","composition_m":[3.5,2.5,3.5]},
+        {"key":"box_cells","value":3,"unit":"count","evidence_kind":"drawing_dimension","source":"bago_tender_2017","locator":"PDF 30","note":"内腹板横向 Y=±1.25 m，外腹板倾斜。"},
+        {"key":"cantilever_wing_each_side","value":5.2,"unit":"m","evidence_kind":"derived","expression":"(22.9-12.5)/2"},
+        {"key":"deck_datum_z","value":17.9496,"unit":"m","evidence_kind":"drawing_dimension","source":"bago_tender_2017","locator":"塔位桥面 / 索锚点坐标，PDF 118","note":"模型把该塔位基准延伸为全桥平桥面；原图小幅纵向竖曲线未重构。局部铺装及横坡表面可能高于该基准。"},
+        {"key":"longitudinal_deck_profile","value":"constant datum z=17.9496","evidence_kind":"teaching_assumption","note":"忽略小竖曲线，不应称为完整复原原桥纵断面。"},
+        {"key":"tower_x","value":[112,336],"unit":"m","evidence_kind":"derived","expression":"名义跨径边界"},
+        {"key":"tower_height_above_deck","value":58,"unit":"m","evidence_kind":"drawing_dimension","source":"bago_design_2017","locator":"PDF 3，报告 4-86"},
+        {"key":"tower_section_plan","value":[3,2.5],"unit":"m","evidence_kind":"drawing_dimension","source":"bago_tender_2017","locator":"PDF 102, P1-CS-1201","definition":"顺桥向 × 横桥向；独柱钢塔，非 A 形双塔柱。"},
+        {"key":"stay_plane_y","value":0,"unit":"m","evidence_kind":"drawing_dimension","source":"bago_tender_2017","locator":"PDF 30, 118","definition":"中央单索面"},
+        {"key":"stay_count","value":40,"unit":"count","evidence_kind":"derived","expression":"2 座塔 × 每塔 2 侧 × 每侧 10 根","source":"bago_tender_2017","locator":"PDF 118"},
+        {"key":"deck_stay_anchor_offsets_from_tower","value":[25,34,43,52,61,70,79,88,97,106],"unit":"m","evidence_kind":"drawing_dimension","source":"bago_tender_2017","locator":"PDF 118"},
+        {"key":"tower_stay_anchor_heights_above_deck","value":[35,37,39,41,43,45,47,49,51,53],"unit":"m","evidence_kind":"drawing_dimension","source":"bago_tender_2017","locator":"PDF 118"},
+        {"key":"display_stay_radius","value":0.105,"unit":"m","evidence_kind":"teaching_assumption","note":"可辨识的示意半径，未逐根采用原索径；直索线忽略 PDF 119 中的索垂度。"}
+      ],
+      "construction": {"evidence_kind":"source_text","sources":["bago_preparatory_2014","bago_tender_2017"],"sequence":["基础、桥墩和临时支承","钢塔及起始梁段","两侧平衡悬臂架梁并逐根安装索","临时支墩转移配合","合龙与临时支承退出","路面和附属"],"note":"施工逻辑取自 2014 六步方案，几何采用 2017 正式图纸；早期 P14/P15 与最终 P11/P12 墩号不直接混用。"},
+      "appearance": {"verified":"钢箱梁、钢独柱塔及防腐涂装系统。","assumed":"灰白涂层的具体 RGB、局部污渍、地形水位与桩基细部。"}
+    },
+    {
+      "id": "suspension",
+      "prototype": "Forth Road Bridge, Scotland",
+      "model_file": "../models/suspension.glb",
+      "blender_file": "../blender/suspension.blend",
+      "parameters": [
+        {"key":"span_layout","value":[408,1006,408],"unit":"m","evidence_kind":"drawing_dimension","source":"forth_existing_2008","locator":"PDF 6"},
+        {"key":"modeled_length","value":1822,"unit":"m","evidence_kind":"derived","expression":"408+1006+408"},
+        {"key":"deck_outer_width","value":36.026,"unit":"m","evidence_kind":"derived","source":"forth_existing_2008","locator":"PDF 6，图示横断面","expression":"23.774+2*6.126","note":"采用该图的最外边缘宽度；运营概述常见 33 m，报告文字分项又合计 35.95 m，口径不一致。本次采用图示 36.026 m，不把 33 m 混作同一外宽。"},
+        {"key":"main_truss_spacing","value":23.774,"unit":"m","evidence_kind":"drawing_dimension","source":"forth_existing_2008","locator":"PDF 6","definition":"两片主加劲桁架横向间距，模型 Y=±11.887。"},
+        {"key":"main_truss_depth","value":8.382,"unit":"m","evidence_kind":"drawing_dimension","source":"forth_existing_2008","locator":"PDF 6"},
+        {"key":"tower_x","value":[408,1414],"unit":"m","evidence_kind":"derived","expression":"408; 408+1006"},
+        {"key":"tower_main_cable_z","value":156.1,"unit":"m","evidence_kind":"drawing_dimension","source":"forth_existing_2008","locator":"PDF 6，主缆在塔处标高"},
+        {"key":"main_cable_center_z","value":64.7,"unit":"m","evidence_kind":"drawing_dimension","source":"forth_existing_2008","locator":"PDF 6"},
+        {"key":"main_cable_sag","value":91.4,"unit":"m","evidence_kind":"derived","expression":"156.1-64.7","source":"forth_existing_2008","locator":"PDF 6"},
+        {"key":"side_cable_end_z","value":47.9,"unit":"m","evidence_kind":"drawing_dimension","source":"forth_existing_2008","locator":"PDF 6"},
+        {"key":"side_cable_sag_from_inclined_chord","value":20.3,"unit":"m","evidence_kind":"drawing_dimension","source":"forth_existing_2008","locator":"PDF 6","definition":"相对边跨倾斜弦线的垂度，不是相对水平塔顶的高差。"},
+        {"key":"main_cable_diameter","value":0.59,"unit":"m","evidence_kind":"source_text","source":"forth_existing_2008","locator":"既有桥主缆描述"},
+        {"key":"main_cable_profile","value":"64.7 + 91.4*((x-911)/503)^2","evidence_kind":"derived","definition":"408 ≤ x ≤ 1414，z 单位 m。","note":"由来源高程锚点建立抛物线教学近似，未重建实桥逐点索形。"},
+        {"key":"side_cable_profile","value":"47.9+(156.1-47.9)*t-4*20.3*t*(1-t)","evidence_kind":"derived","definition":"左边跨 t=x/408；右边跨镜像。"},
+        {"key":"shortest_center_hanger","value":2.44,"unit":"m","evidence_kind":"drawing_dimension","source":"forth_existing_2008","locator":"PDF 6"},
+        {"key":"tower_truss_center_z","value":53.4,"unit":"m","evidence_kind":"drawing_dimension","source":"forth_existing_2008","locator":"PDF 6"},
+        {"key":"deck_z_at_towers","value":58.191,"unit":"m","evidence_kind":"derived","expression":"53.4+8.382/2+0.6","note":"0.6 m 为桁架上弦至显示桥面的补充假设，故桥面值不是来源直接标高。"},
+        {"key":"deck_z_at_mainspan_center","value":62.86,"unit":"m","evidence_kind":"derived","expression":"64.7-2.44+0.6","note":"假设最短吊杆锚在主桁上弦，再增加 0.6 m 显示桥面偏置。"},
+        {"key":"mainspan_deck_profile","value":"58.191+4.669*(1-((x-911)/503)^2)","evidence_kind":"derived","definition":"408 ≤ x ≤ 1414，z 单位 m。","note":"用塔处与跨中两个来源关系推导的平滑教学纵线，不是已查得完整竖曲线。"},
+        {"key":"deck_z_at_outer_ends","value":45,"unit":"m","evidence_kind":"teaching_assumption","note":"两边跨桥面从端部 45 m 线性过渡至塔处 58.191 m。"},
+        {"key":"display_panel_count_all_spans","value":99,"unit":"count","evidence_kind":"teaching_assumption","note":"1822/99≈18.404 m；跨界不等同原桥逐节段位置。原文 nominal 60 ft 精确换算为 18.288 m；报告出现的 18.124 m 与该换算冲突，不直接采用。"},
+        {"key":"display_hanger_rope_radius","value":0.038,"unit":"m","evidence_kind":"teaching_assumption","note":"成对绳的可视化半径，区别于来源主跨 48 mm、边跨 57 mm 的实际绳直径。"},
+        {"key":"tower_base_z","value":0,"unit":"m","evidence_kind":"teaching_assumption","note":"模型塔从 0 至 156.1 m 的坐标表达，不应把主缆标高 156.1 m 宣称为实桥钢塔自身总高。"}
+      ],
+      "construction": {"evidence_kind":"source_text","sources":["forth_operator"],"sequence":["基础与锚固","钢塔","主缆","吊杆与加劲梁节段","桥面与附属"],"note":"阶段保留悬索桥主要建造逻辑，未按实桥每一吊装批次重现。"},
+      "geometry_limits": ["可见大型外露锚块是教学替代表达；实桥使用岩层锚固隧道，二者不能作为相同锚固构造讲解。","塔横梁、X 支撑及桁架节点保留典型关系，截面、连接板与焊接细节未逐件按制造图建立。"],
+      "appearance": {"verified":"涂装钢塔、钢加劲桁架、双主缆、混凝土基础。","assumed":"显示涂层 RGB、局部锈蚀、场景岸线、水位和植被。"}
+    },
+    {
+      "id": "arch",
+      "prototype": "New River Gorge Bridge, West Virginia",
+      "model_file": "../models/arch.glb",
+      "blender_file": "../blender/arch.blend",
+      "parameters": [
+        {"key":"arch_span","value":518.16,"unit":"m","evidence_kind":"derived","source":"nrg_design_1978","locator":"PDF 1-3","expression":"1700 ft * 0.3048","definition":"两拱脚铰心间水平距离。"},
+        {"key":"arch_rise","value":112.776,"unit":"m","evidence_kind":"derived","source":"nrg_design_1978","locator":"立面 370 ft rise","expression":"370 ft * 0.3048","definition":"模型拱脚铰心至拱轴冠顶的高差；不是拱上桥面高。"},
+        {"key":"deck_width","value":22.38,"source_value":22.3774,"unit":"m","evidence_kind":"source_text","source":"nrg_register_2013","locator":"PDF 5-7","note":"73 ft 5 in 换算为 22.3774 m，模型取至厘米。"},
+        {"key":"arch_plane_spacing","value":21.946,"source_value":21.9456,"unit":"m","evidence_kind":"derived","source":"nrg_design_1978","locator":"构造说明","expression":"72 ft * 0.3048","definition":"双拱肋 / 立柱平面的中心间距。"},
+        {"key":"arch_depth_at_crown","value":10.363,"source_value":10.3632,"unit":"m","evidence_kind":"derived","source":"nrg_design_1978","locator":"PDF 1-3","expression":"34 ft * 0.3048"},
+        {"key":"maximum_arch_depth_near_first_panel","value":16.154,"source_value":16.1544,"unit":"m","evidence_kind":"derived","source":"nrg_design_1978","locator":"PDF 1-3","expression":"53 ft * 0.3048","note":"最大值位于近拱脚第一节间，铰心处两弦汇合，不能把 16.154 m 延伸到铰心。"},
+        {"key":"arch_depth_at_pin","value":0,"unit":"m","evidence_kind":"drawing_dimension","source":"nrg_register_2013","locator":"PDF 56, Figure 2","definition":"简化两弦轴线在铰心汇合。"},
+        {"key":"nominal_deck_truss_depth","value":5.486,"source_value":5.4864,"unit":"m","evidence_kind":"derived","source":"nrg_design_1978","expression":"18 ft * 0.3048","note":"源资料名义桁高；铺装偏置与杆件外包络应结合模型查看，不将此数直接当作路面到最低可见面的净高。"},
+        {"key":"deck_datum_z","value":125,"unit":"m","evidence_kind":"teaching_assumption","source":"nrg_register_2013","locator":"PDF 56 图面相对关系","definition":"相对于拱脚 z=0 的教学桥面标高。","note":"与冠顶拱轴 112.776 m、半桁高约 5.1815 m 和桥面下部空间相容；未获得该坐标基准下的直接桥面标高尺寸。"},
+        {"key":"approach_length_each_side","value":40,"unit":"m","evidence_kind":"teaching_assumption","definition":"本次保留的短接引长度，不代表实桥全部引桥。"},
+        {"key":"modeled_length","value":598.16,"unit":"m","evidence_kind":"derived","expression":"518.16+2*40","note":"不等于约 923.6 m 的原桥全长。"},
+        {"key":"arch_pin_x","value":[40,558.16],"unit":"m","evidence_kind":"derived","expression":"40; 40+518.16"},
+        {"key":"arch_axis_reconstruction","value":"14 points per half span, linear interpolation, mirrored","evidence_kind":"drawing_digitized","source":"nrg_register_2013","locator":"PDF 56, Figure 2","data_file":"../references/NRG_arch_axis_digitized.json","estimated_reading_error_m":1.5,"note":"原桥为五心圆轴线，弦杆在节间中直线连接。本次没有五心圆的精确分段半径，以图面中弦采样折线重构，禁止改称精确五心圆或用抛物线替代后仍标为真实轴。"},
+        {"key":"display_arch_panels","value":26,"unit":"count","evidence_kind":"teaching_assumption","note":"本次 26 节间，原设计 40 节间；采样精度与腹杆划分均属于教学重构。"}
+      ],
+      "construction": {"evidence_kind":"source_text","sources":["nrg_design_1978","nrg_register_2013"],"sequence":["拱脚基础与两岸引桥支承","临时塔、缆索吊运和扣索","两岸钢拱悬臂拼装","拱顶合龙并解除临时扣索","拱上立柱和桥面桁架","桥面与附属"],"note":"临时塔和扣索表达受力关系；其尺寸与扣点并非逐项施工设备复刻。"},
+      "appearance": {"verified":"主钢结构为耐候钢，COR-TEN B / ASTM A588；自然深棕色外观有档案照片依据。","assumed":"风化深浅与粗糙度贴图、显示路面外观、地形断面、植被和车辆。原桥桥面结构为混凝土，显示表面材质不能据以推断原始铺装构造。"}
+    }
+  ],
+  "shared_limits": [
+    "这是可观察构造与施工先后的教学重构，不是制造、放样或竣工测量模型。误差应按各项 evidence_kind 和 note 解释。",
+    "基础细部、连接板、索锚具、局部板厚、材质色号和地形缺少完整逐项资料，模型中采用可辨识形体。",
+    "图集端面图是沿桥向视图，不是对模型做实体剖切获得的横断面。",
+    "爆炸和施工显隐不计算阶段应力或变形；渲染网格不直接定义有限元拓扑。",
+    "analysis 目录当前 teaching_demo 曲线用于显示接口测试，不代表本桥设计内力。"
+  ],
+  "interaction_data_contract": {
+    "component_fields": ["component_id","category","label","stage","end_stage"],
+    "force_overlay_schema": "bridge-force-overlay/1",
+    "schema_file": "../analysis/schema.json",
+    "guide": "godot-交互与数据接口.md",
+    "force_position_basis": "original un-exploded engineering coordinates",
+    "kinds": ["teaching_demo","analysis_result"]
+  }
+}
