@@ -1,6 +1,7 @@
 import opencascade from 'replicad-opencascadejs/src/replicad_single.js';
 import opencascadeWasm from 'replicad-opencascadejs/src/replicad_single.wasm?url';
 import {
+  BoundingBox,
   cast,
   Compound,
   CompSolid,
@@ -379,7 +380,18 @@ const BUILDERS = Object.freeze({
 });
 
 function commonFacts(shape, lessonId, projections) {
-  const [min, max] = shape.boundingBox.bounds;
+  // Replicad's standard boundingBox uses BRepBndLib.Add with triangulation.
+  // A moved curved cut can inflate that conservative box by ~0.0023 kernel
+  // units despite an unchanged cylinder radius. Query exact surface extrema
+  // without triangulation instead; retain the strict dimensional tolerances.
+  const bounds = new BoundingBox();
+  let min, max;
+  try {
+    getOC().BRepBndLib.AddOptimal(shape.wrapped, bounds.wrapped, false, false);
+    [min, max] = bounds.bounds;
+  } finally {
+    bounds.delete();
+  }
   const size = max.map((value, index) => value - min[index]);
   const renderMesh = {
     faces: shape.mesh({ tolerance: 0.05, angularTolerance: 0.1 }),
@@ -390,6 +402,7 @@ function commonFacts(shape, lessonId, projections) {
     kernel: 'Replicad 0.23.1 / OpenCascade WASM',
     shapeType: semanticShapeType(shape),
     bounds: { min, max, size },
+    boundsMethod: 'BRepBndLib.AddOptimal (no triangulation)',
     volume: measureVolume(shape),
     solidCount: Array.from(iterTopo(shape.wrapped, 'solid')).length,
     faceCount: shape.faces.length,
@@ -466,17 +479,27 @@ function addLessonChecks(shape, facts, payload) {
       lowerRingProbeHeight,
       [RING56.x, 0, 0.5]
     );
-    const frontWallProbe = makeBox(
-      [RING56.x - 0.2, -RING56.outer + 0.45, 21.6],
-      [RING56.x + 0.2, -RING56.inner - 0.35, 22.4]
-    );
-    const rearWallProbe = makeBox(
-      [RING56.x - 0.2, RING56.inner + 0.35, 21.6],
-      [RING56.x + 0.2, RING56.outer - 0.45, 22.4]
-    );
+    const frontX = valueAt(payload.cutterValues, 'cut-iii', 'x', 0.55) * SCALE;
+    const frontFloor = (valueAt(payload.cutterValues, 'cut-iii', 'y', 2.4) - 0.525) * SCALE;
+    const rearX = valueAt(payload.cutterValues, 'cut-iv', 'x', 0.55) * SCALE;
+    const rearArcCenter = valueAt(payload.cutterValues, 'cut-iv', 'y', 1.9) * SCALE;
+    // Sample within the actual wall at each current cutter centre, rather than
+    // assuming the slots remain at the cylinder axis. A 0.4-unit cube is much
+    // smaller than the minimum remaining radial wall thickness (~2.9 units).
+    const wallProbe = (x, side, z) => {
+      const dx = x - RING56.x;
+      const depth = (Math.sqrt(RING56.outer ** 2 - dx ** 2) + Math.sqrt(RING56.inner ** 2 - dx ** 2)) / 2;
+      return makeBox([x - 0.2, side * depth - 0.2, z - 0.2], [x + 0.2, side * depth + 0.2, z + 0.2]);
+    };
+    const frontWallProbe = wallProbe(frontX, -1, (frontFloor + RING56.top) / 2);
+    const rearWallProbe = wallProbe(rearX, 1, (rearArcCenter + RING56.top) / 2);
+    const frontFloorSupportProbe = wallProbe(frontX, -1, frontFloor - 0.4);
+    const rearArcProbe = wallProbe(rearX, 1, rearArcCenter - SLOT56_HALF_WIDTH / 2);
+    // This far-right wall is outside both tools' entire allowed X range, even
+    // with an off-centre slot. The old diagonal probe could be legitimately cut.
     const sideWallProbe = makeBox(
-      [RING56.x + 4.8, 7.9, 21.6],
-      [RING56.x + 5.2, 8.3, 22.4]
+      [RING56.x + RING56.outer - 0.8, -0.2, 21.6],
+      [RING56.x + RING56.outer - 0.4, 0.2, 22.4]
     );
     const vSlotProbe = makeBox(
       [vSlotProbeX - 0.2, -0.2, centerZ - Math.min(0.2, height / 4)],
@@ -491,6 +514,8 @@ function addLessonChecks(shape, facts, payload) {
     facts.baseTangencyIntrusion = measureVolume(base56().intersect(baseTangencyProbe));
     facts.frontWallProbeMaterial = measureVolume(shape.intersect(frontWallProbe));
     facts.rearWallProbeMaterial = measureVolume(shape.intersect(rearWallProbe));
+    facts.frontFloorSupportMaterial = measureVolume(shape.intersect(frontFloorSupportProbe));
+    facts.rearArcProbeMaterial = measureVolume(shape.intersect(rearArcProbe));
     facts.sideWallProbeMaterial = measureVolume(shape.intersect(sideWallProbe));
     facts.vSlotProbeMaterial = measureVolume(shape.intersect(vSlotProbe));
     facts.lowerBoreClear = facts.lowerBoreIntrusion < EPSILON;
@@ -502,6 +527,10 @@ function addLessonChecks(shape, facts, payload) {
     facts.rearWallStateMatches = applied.has('cut-iv')
       ? facts.rearWallProbeMaterial < EPSILON
       : facts.rearWallProbeMaterial > 0.01;
+    facts.frontFloorSupportValid = facts.frontFloorSupportMaterial > 0.01;
+    facts.rearArcStateMatches = applied.has('cut-iv')
+      ? facts.rearArcProbeMaterial < EPSILON
+      : facts.rearArcProbeMaterial > 0.01;
     facts.vSlotStateMatches = applied.has('cut-v')
       ? facts.vSlotProbeMaterial < EPSILON
       : facts.vSlotProbeMaterial > 0.01;
@@ -513,6 +542,8 @@ function addLessonChecks(shape, facts, payload) {
       && facts.baseTangencyClear
       && facts.frontWallStateMatches
       && facts.rearWallStateMatches
+      && facts.frontFloorSupportValid
+      && facts.rearArcStateMatches
       && facts.vSlotStateMatches
       && facts.sideWallProbeMaterial > 0.01;
   } else {

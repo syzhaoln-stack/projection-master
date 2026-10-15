@@ -31,6 +31,9 @@ import { BRIDGE_MODELS, BRIDGE_CATALOG } from './bridge-models.js';
 import { DETAILED_BRIDGE_MODELS, DETAILED_BRIDGE_CATALOG } from './detailed-bridges.js';
 import { createViceLab } from './vice-lab.js';
 import { computeTiledProjectionLayout } from './tiled-projection-layout.js';
+import { applyGeometryVariation, geometryVariationVector } from './ai-geometry-variation.js';
+import { createAiWorkbenchAdapter } from './ai-workbench-adapter.js';
+import { createAiModelAssistant } from './ai-model-assistant.js';
 
 // ===== 基础设置 =====
 const viewport = document.getElementById('viewport');
@@ -80,6 +83,7 @@ scene.add(rimLight);
 // ===== 状态 =====
 const state = {
   currentModel: 'step',
+  geometryVariationFactors: [1, 1, 1],
   unfoldProgress: 0,
   isUnfolded: false,
   transitionActive: false,
@@ -121,6 +125,8 @@ let compoundController = null;
 const viceController = createViceLab();
 let modelLoadRequest = 0;
 let exploreRestoreState = null;
+const modelVariations = new Map();
+let modelRevision = 0;
 
 // 语义构件选择：真实构件包围盒（null=整体）
 let focusBox = null;
@@ -864,6 +870,10 @@ function computeCenterLines(box) {
         selectedComponent.updateWorldMatrix(true, false);
         a.applyMatrix4(selectedComponent.matrixWorld);
         b.applyMatrix4(selectedComponent.matrixWorld);
+      } else if (state.geometryVariationFactors) {
+        const factors = new THREE.Vector3(...state.geometryVariationFactors);
+        a.multiply(factors);
+        b.multiply(factors);
       }
       const d = new THREE.Vector3().subVectors(b, a).normalize().multiplyScalar(pad);
       segs.push([a.clone().sub(d), b.clone().add(d)]);
@@ -1354,7 +1364,14 @@ function rebuildModel() {
     statusText = `${def.name}：${def.note}`;
   }
 
+  const variation = state.mode === 'explore' ? modelVariations.get(state.currentModel) : undefined;
+  state.geometryVariationFactors = geometryVariationVector(variation || {});
+  model = applyGeometryVariation(model, variation || {});
+  if (variation && Object.values(variation).some(value => value !== 100)) {
+    statusText = `${def?.name || state.importedName} · 教学几何变体：纵向 ${variation.lengthPercent ?? 100}% / 横向 ${variation.widthPercent ?? 100}% / 竖向 ${variation.heightPercent ?? 100}%。原图尺寸仅供对照。`;
+  }
   modelGroup.add(model);
+  modelRevision += 1;
   updateModelTransparency();
   modelGroup.updateMatrixWorld(true);
   applyClearance();   // 据模型尺寸 + 统一距离设定投影面，并重建投影面/地面/坐标轴
@@ -2735,3 +2752,15 @@ if (entryMode === 'explore') {
   const entryButton = modelButtons.find(button => button.dataset.model === entryModel);
   if (entryButton) selectLibraryModel(entryButton);
 }
+
+const aiWorkbench = createAiWorkbenchAdapter({
+  getMode: () => state.mode,
+  getModelId: () => state.currentModel,
+  getModelLabel: () => MODELS[state.currentModel]?.name || '当前模型',
+  getRevision: () => modelRevision,
+  getCompound: () => compoundController,
+  getVariation: id => modelVariations.get(id),
+  setVariation: (id, values) => modelVariations.set(id, { ...values }),
+  rebuild: rebuildModel
+});
+createAiModelAssistant(aiWorkbench);

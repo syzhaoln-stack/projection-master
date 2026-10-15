@@ -137,6 +137,9 @@ export function createCompoundProjectionLab({
   let mobileProjectionView = 'front';
   let edgeResolution = { width: 0, height: 0 };
   const assemblyCurrentOffsets = new Map();
+  const aiSnapshots = new WeakMap();
+  let aiContextLastKey = null;
+  let aiContextSerial = 0;
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const eventController = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -2521,6 +2524,196 @@ export function createCompoundProjectionLab({
     return [];
   }
 
+  // AI receives this numeric allowlist, never a builder, script or model path.
+  // Only parameters of cuts already present in the current solid are offered.
+  function aiParameterDefinitions() {
+    const parameters = (lesson.parameters || []).map(parameter => ({
+      key: `parameter:${parameter.id}`,
+      kind: 'parameter',
+      parameterId: parameter.id,
+      label: parameter.label,
+      value: state.parameters[parameter.id],
+      min: parameter.min,
+      max: parameter.max,
+      step: parameter.step,
+      unit: parameter.unit || '格',
+      applied: parameter.id === 'slotLength' ? isApplied('cut-slot') : true
+    }));
+    const cutters = (lesson.cutters || []).flatMap(cutter => cutter.axes.map(axis => ({
+      key: `cutter:${cutter.id}:${axis.id}`,
+      kind: 'cutter',
+      cutterId: cutter.id,
+      axis: axis.id,
+      label: `${cutter.label} · ${axis.label}`,
+      value: state.cutterValues[cutter.id][axis.id],
+      min: axis.min,
+      max: axis.max,
+      step: axis.step,
+      unit: axis.unit || '格',
+      applied: isApplied(cutter.id)
+    })));
+    return [...parameters, ...cutters].filter(parameter => parameter.applied);
+  }
+
+  function getAiContext() {
+    const contextKey = exactKernelStateKey();
+    if (contextKey !== aiContextLastKey) {
+      aiContextLastKey = contextKey;
+      aiContextSerial += 1;
+    }
+    const stage = lesson.stages[state.stageIndex];
+    return {
+      schemaVersion: 1,
+      targetId: `compound:${lesson.id}:${aiContextSerial}`,
+      contextKey,
+      label: `${lesson.label} · ${stage.label}`,
+      active,
+      lesson: { id: lesson.id, label: lesson.label, title: lesson.title },
+      stage: { index: state.stageIndex, label: stage.label },
+      coordinateAxes: { x: '左右', y: '高度', z: '前后（正向为前）' },
+      parameters: aiParameterDefinitions()
+    };
+  }
+
+  function requireAiEditReady() {
+    if (!active) throw new Error('请先回到第5章组合体，再应用这次修改。');
+    if (drag) throw new Error('请先结束当前拖动，再应用这次修改。');
+  }
+
+  function captureAiState() {
+    return {
+      state: cloneState(state),
+      explodeCurrent,
+      explodeTarget,
+      explodeProjectionDirty,
+      offsets: new Map([...assemblyCurrentOffsets].map(([id, vector]) => [id, vector.clone()]))
+    };
+  }
+
+  function assignAiState(snapshot) {
+    state = cloneState(snapshot.state);
+    explodeCurrent = snapshot.explodeCurrent;
+    explodeTarget = snapshot.explodeTarget;
+    explodeProjectionDirty = snapshot.explodeProjectionDirty;
+    assemblyCurrentOffsets.clear();
+    snapshot.offsets.forEach((vector, id) => assemblyCurrentOffsets.set(id, vector.clone()));
+  }
+
+  function rebuildAiEdit({ restorePoint = false } = {}) {
+    const view = {
+      position: camera.position.clone(),
+      quaternion: camera.quaternion.clone(),
+      up: camera.up.clone(),
+      zoom: camera.zoom,
+      target: controls.target.clone()
+    };
+    const pickedPoint = restorePoint && state.pickedPoint ? [...state.pickedPoint] : null;
+    if (rebuildFrame) cancelAnimationFrame(rebuildFrame);
+    rebuildFrame = 0;
+    invalidateExactKernel();
+    try {
+      rebuildCurrentModel();
+      if (pickedPoint) {
+        state.pickedPoint = pickedPoint;
+        mountPointMarker();
+      }
+      renderAll();
+      syncProjectionImages();
+    } finally {
+      camera.position.copy(view.position);
+      camera.quaternion.copy(view.quaternion);
+      camera.up.copy(view.up);
+      camera.zoom = view.zoom;
+      controls.target.copy(view.target);
+      camera.updateProjectionMatrix();
+      camera.updateMatrixWorld(true);
+    }
+  }
+
+  function applyAiParameters(plan) {
+    requireAiEditReady();
+    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) throw new TypeError('修改计划必须是参数对象。');
+    const allowedPlanKeys = new Set(['contextKey', 'targetId', 'lessonId', 'changes']);
+    if (Object.keys(plan).some(key => !allowedPlanKeys.has(key))) throw new TypeError('修改计划包含不支持的字段。');
+    const context = getAiContext();
+    const hasContextKey = Object.hasOwn(plan, 'contextKey');
+    const hasTargetId = Object.hasOwn(plan, 'targetId');
+    if ((!hasContextKey && !hasTargetId)
+      || (hasContextKey && plan.contextKey !== context.contextKey)
+      || (hasTargetId && plan.targetId !== context.targetId)
+      || plan.lessonId !== lesson.id) throw new Error('模型或步骤已经变化，请基于当前模型重新生成修改。');
+    if (!Array.isArray(plan.changes) || plan.changes.length > context.parameters.length) throw new TypeError('修改项必须是允许参数的列表。');
+    const allowed = new Map(context.parameters.map(parameter => [parameter.key, parameter]));
+    const seen = new Set();
+    const changes = plan.changes.map(change => {
+      if (!change || typeof change !== 'object' || Array.isArray(change)
+        || Object.keys(change).some(key => !['key', 'value'].includes(key))) throw new TypeError('每项修改只能包含 key 和 value。');
+      const definition = allowed.get(change.key);
+      if (!definition || seen.has(change.key)) throw new TypeError('修改项包含未知、未应用或重复参数。');
+      seen.add(change.key);
+      if (typeof change.value !== 'number' || !Number.isFinite(change.value)) throw new TypeError(`${definition.label}必须是有限数字。`);
+      if (change.value < definition.min || change.value > definition.max) throw new RangeError(`${definition.label}必须介于 ${definition.min} 与 ${definition.max} 之间。`);
+      // Preserve an unchanged value exactly (some textbook defaults predate the
+      // slider's step grid); otherwise use the existing slider's min/step grid.
+      const value = change.value === definition.value ? change.value : Number(clamp(
+        definition.min + Math.round((change.value - definition.min) / definition.step) * definition.step,
+        definition.min, definition.max
+      ).toFixed(8));
+      return { definition, key: definition.key, label: definition.label, previousValue: definition.value, value };
+    }).filter(change => change.value !== change.previousValue);
+    if (!changes.length) return { changed: false, changes: [], snapshot: null, context };
+
+    // Validate every change before mutating any value. A failed rebuild also
+    // restores the previous state instead of leaving a partially applied plan.
+    const previous = captureAiState();
+    changes.forEach(({ definition, value }) => {
+      if (definition.kind === 'parameter') state.parameters[definition.parameterId] = value;
+      else state.cutterValues[definition.cutterId][definition.axis] = value;
+    });
+    try {
+      rebuildAiEdit();
+    } catch (error) {
+      assignAiState(previous);
+      try { rebuildAiEdit({ restorePoint: true }); } catch (rollbackError) {
+        const failure = new AggregateError([error, rollbackError], '实体重建与恢复均失败，请重新选择例题。');
+        failure.rollbackFailed = true;
+        throw failure;
+      }
+      throw error;
+    }
+    const snapshot = Object.freeze({ schemaVersion: 1, lessonId: lesson.id, label: context.label });
+    aiSnapshots.set(snapshot, previous);
+    return {
+      changed: true,
+      changes: changes.map(({ definition, ...change }) => change),
+      snapshot,
+      context: getAiContext()
+    };
+  }
+
+  function restoreAiSnapshot(snapshot) {
+    requireAiEditReady();
+    const previous = snapshot && typeof snapshot === 'object' ? aiSnapshots.get(snapshot) : null;
+    if (!previous || previous.state.lessonId !== lesson.id) throw new Error('这份撤销记录不属于当前模型，或已经使用。');
+    const current = captureAiState();
+    assignAiState(previous);
+    setProjectionHidden?.(state.display.showHidden);
+    try {
+      rebuildAiEdit({ restorePoint: true });
+    } catch (error) {
+      assignAiState(current);
+      setProjectionHidden?.(state.display.showHidden);
+      try { rebuildAiEdit({ restorePoint: true }); } catch (rollbackError) {
+        const failure = new AggregateError([error, rollbackError], '实体重建与恢复均失败，请重新选择例题。');
+        failure.rollbackFailed = true;
+        throw failure;
+      }
+      throw error;
+    }
+    aiSnapshots.delete(snapshot);
+    return { restored: true, context: getAiContext() };
+  }
+
   const controller = {
     buildCurrentModel,
     enter,
@@ -2532,6 +2725,9 @@ export function createCompoundProjectionLab({
     syncProjectionImages,
     scrollActiveLessonIntoView,
     update,
+    getAiContext,
+    applyAiParameters,
+    restoreAiSnapshot,
     getCenterAxes: centerAxesForLesson,
     getProjectionStyle: () => ({
       boldEdges: displayToolsActive() && Boolean(state.display?.boldEdges),

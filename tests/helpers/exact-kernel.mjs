@@ -20,7 +20,7 @@ export async function loadExactKernel() {
   let worker = await readFile(new URL('../../replicad-kernel-worker.js', import.meta.url), 'utf8');
   worker = worker.replace(/^import opencascade[^\n]*\n/gm, '')
     .replace(/import \{[\s\S]*?\} from 'replicad';/, '');
-  return vm.runInNewContext(`${worker}\n({ buildExample51, buildExample55, buildExample56, auditLesson, projection, textbookProjectionFrame, TEXTBOOK_PROJECTION_CAMERAS, TEXTBOOK_PROJECTION_HORIZONTAL_MIRRORS });`, {
+  return vm.runInNewContext(`${worker}\n({ buildExample51, buildExample55, buildExample56, auditLesson, commonFacts, addLessonChecks, projection, textbookProjectionFrame, TEXTBOOK_PROJECTION_CAMERAS, TEXTBOOK_PROJECTION_HORIZONTAL_MIRRORS });`, {
     ...replicad, console, self: { addEventListener() {} }
   });
 }

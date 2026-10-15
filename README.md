@@ -1,8 +1,22 @@
-# Projection Master v8.3.1 · 工图投影大师
+# Projection Master v8.4.0 · 工图投影大师
 
 开发者：赵诗宇（大连交通大学） · szhao@djtu.edu.cn
 
-公网版本：[工图投影大师 v8.3.1](https://syzhaoln-stack.github.io/projection-master/?mode=explore&model=cableStayedFan&v=2373393)（2026-10-15 修订）。
+公网入口：[工图投影大师](https://syzhaoln-stack.github.io/projection-master/?mode=explore&model=cableStayedFan)（2026-10-15 修订）。
+
+## v8.4 · DeepSeek 文字改图
+
+新增顶部“AI 改图”：输入 DeepSeek 官方 API 密钥与修改要求 → 生成参数方案 → 核对修改前后数值 → 应用到实体并重绘三视图 → 可撤销一次。模型与三视图的包裹/展开方式、当前相机方向和缩放保留。也可在“查看参数 / 手动调整”中走同一预览、应用、撤销流程，无需 API。
+
+- 模型库：纵向、横向、竖向整体几何比例，范围 50%–150%。这是全体构件一起缩放的教学变体，会改变截面；不等同于单独修改桥面宽、索塔高或孔径。原图尺寸仅作对照。
+- 第5章：仅修改当前步骤已经切入实体的孔、槽和刀具位置参数；由原布尔几何与精确投影流程同步更新。单位“格”为教学模型坐标，不承诺原图实际毫米尺寸。
+- 第一版不支持凭图片重建、任意新增构件、虎钳零件改造或修改本地导入模型。超出参数范围的要求应返回说明，不直接改图。
+- API 固定连接 `https://api.deepseek.com/chat/completions`，使用 `deepseek-flash` 与 JSON 输出。密钥只在当前页面内存中使用，刷新/离开后清除；不写入源码、Git、URL、浏览器存储或公共服务器。发给 DeepSeek 的内容仅为用户指令、当前模型名称、修改范围和参数表。
+- AI 返回内容只按白名单数值校验，不能执行 JavaScript。参数越界、未知字段、模型/步骤变化会拒绝应用。AI 方案在点击应用前不会改变模型。
+
+接入前源码检查点：[961fa5e](https://github.com/syzhaoln-stack/projection-master/commit/961fa5e88076ba8884a489f0cae49e07e8460f29)。未经实际 API 密钥验证的环境只运行模拟响应测试，不能据此声称真实调用成功。
+
+本版验证：185 项测试通过，含真实几何变体、界面状态、API 模拟响应、例5-6全部128种参数边界组合和实际 OpenCascade/HLR。浏览器核验了预览、应用、撤销、保留展开状态，以及偏移拱形槽后的精确三视图；未进行带真实密钥的 API 调用。修复了原精确审计使用保守曲面包围盒和固定探针造成的误报，保留真实尺寸错误与前后槽交换的拒绝检查。
 
 桥梁工程专项分支的构件接口、训练序列与测评边界见 [BRIDGE_SPATIAL_LAB.md](BRIDGE_SPATIAL_LAB.md)。
 
