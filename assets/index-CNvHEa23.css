@@ -1006,3 +1006,43 @@ body.mode-vice #vice-lab-shell:not([hidden]) {
   #brand .sub { display: none; }
   #brand h1 { font-size: 15px; }
 }
+#ai-edit-launcher{flex:0 0 auto;margin-left:10px;padding:6px 12px;border:1px solid var(--accent);border-radius:5px;background:var(--accent-soft);color:var(--accent);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+#ai-edit-panel{position:fixed;z-index:90;right:12px;top:58px;bottom:14px;width:366px;max-width:calc(100vw - 24px);background:var(--panel,#fff);border:1px solid var(--line,#ccd4dd);border-top:3px solid var(--accent,#226495);border-radius:8px;box-shadow:0 12px 42px #1c34452c;color:var(--text,#23384d);display:flex;flex-direction:column;font-size:12px;line-height:1.55}
+#ai-edit-panel[hidden],#ai-edit-panel [hidden]{display:none!important}
+.ai-edit-header{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;padding:14px 16px 12px;border-bottom:1px solid var(--line-soft,#e1e7ee)}
+.ai-edit-kicker{font-size:9px;letter-spacing:.12em;color:var(--muted,#64778b)}
+.ai-edit-header h2{margin:3px 0 0;font-size:18px;font-weight:700;letter-spacing:.02em}
+#ai-edit-panel .ai-edit-header button{font-size:24px;line-height:1;padding:5px 9px;border:0;background:transparent;color:var(--muted)}
+.ai-edit-body{overflow-y:auto;padding:14px 16px 18px;min-height:0;overscroll-behavior:contain}
+.ai-edit-target{padding:11px 12px;border-left:3px solid var(--accent);background:var(--chrome-0,#f4f7fa);margin-bottom:14px}
+.ai-edit-target>span{display:block;font-size:10px;color:var(--muted)}
+.ai-edit-target strong{display:block;margin:3px 0;font-size:14px}
+.ai-edit-target p{margin:3px 0 0;color:var(--text-2,#53677b);font-size:11px}
+#ai-edit-panel details{padding:9px 0;border-bottom:1px solid var(--line-soft,#e1e7ee);margin-bottom:12px}
+#ai-edit-panel summary{cursor:pointer;font-weight:600;color:var(--accent);padding:2px 0 5px}
+#ai-edit-panel label{display:block}
+.ai-edit-label{font-weight:700;margin:15px 0 6px}
+#ai-edit-panel input,#ai-edit-panel textarea{box-sizing:border-box;border:1px solid var(--line-strong,#b9c6d5);background:#fff;color:var(--text);font:inherit;border-radius:4px;padding:8px;max-width:100%}
+#ai-edit-panel input[type=password],#ai-edit-panel textarea{width:100%}
+#ai-edit-panel textarea{resize:vertical;min-height:78px;max-height:200px}
+#ai-edit-panel input:focus-visible,#ai-edit-panel textarea:focus-visible,#ai-edit-panel button:focus-visible,#ai-edit-panel summary:focus-visible,#ai-edit-launcher:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#ai-edit-panel .ai-edit-connection p,.ai-edit-hint{color:var(--muted,#64778b);font-size:11px;margin:7px 0;line-height:1.6}
+#ai-edit-panel button{border:1px solid var(--line-strong,#b9c6d5);background:var(--chrome-0,#f4f7fa);color:var(--text);border-radius:4px;font-family:inherit;font-size:12px;font-weight:600;line-height:1.4;padding:7px 10px;cursor:pointer}
+#ai-edit-panel button:hover{filter:brightness(.97)}
+#ai-edit-panel button:disabled{opacity:.48;cursor:default}
+#ai-edit-panel .ai-edit-primary{background:var(--accent,#27679c);border-color:var(--accent,#27679c);color:white}
+.ai-edit-request-row{display:flex;gap:8px;margin-top:8px}
+.ai-edit-request-row .ai-edit-primary{flex:1}
+#ai-edit-panel .ai-edit-parameter{display:grid;grid-template-columns:minmax(0,1fr) 74px 16px;gap:6px;align-items:center;margin:9px 0;font-size:11px}
+#ai-edit-panel .ai-edit-parameter input{width:74px;padding:5px}
+.ai-edit-plan{margin-top:14px;padding:11px;border:1px solid var(--line);border-radius:5px;background:var(--chrome-0)}
+.ai-edit-plan h3{font-size:13px;margin:0 0 6px}
+.ai-edit-plan p{font-size:11px;margin:5px 0 8px;overflow-wrap:anywhere}
+.ai-edit-plan table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px}
+.ai-edit-plan th,.ai-edit-plan td{text-align:right;padding:6px 3px;border-bottom:1px solid var(--line-soft)}
+.ai-edit-plan th:first-child,.ai-edit-plan td:first-child{text-align:left}
+.ai-edit-plan td:last-child{color:var(--accent);font-weight:700}
+.ai-edit-plan button{width:100%}
+.ai-edit-status{color:var(--accent);margin:12px 0;font-size:11px;min-height:17px;overflow-wrap:anywhere}
+.ai-edit-status.is-error{color:#a83d33}
+@media(max-width:760px){#ai-edit-launcher{margin-left:auto}#ai-edit-panel{top:52px;right:8px;bottom:8px;max-width:calc(100vw - 16px)}}
