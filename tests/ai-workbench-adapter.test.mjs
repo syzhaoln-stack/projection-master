@@ -150,12 +150,13 @@ test('stale plans cannot edit a different model or a revised instance of the sam
 test('the owner/target is rechecked at the mutation boundary', t => {
   const h = harness(t);
   const candidate = plan(h, [{ key: 'widthPercent', value: 120 }]);
-  Object.defineProperty(candidate, 'summary', { enumerable: true, get() { h.state.mode = 'quiz'; return '调整允许参数'; } });
+  const revision = h.state.revision;
+  Object.defineProperty(h.state, 'revision', { get() { h.state.mode = 'quiz'; return revision; } });
   assert.throws(() => h.adapter.applyPlan(candidate), /模型或步骤已变化/);
   assert.equal(h.writes.length, 0);
 });
 
-test('unsupported modes and imported/chapter5 placeholders have no explore editing context', t => {
+test('unsupported modes stay unavailable; imported/chapter5 allow read-only model conversation', t => {
   const h = harness(t);
   const candidate = plan(h, [{ key: 'widthPercent', value: 120 }]);
   for (const mode of ['lab', 'quiz', 'vice']) {
@@ -166,8 +167,15 @@ test('unsupported modes and imported/chapter5 placeholders have no explore editi
   h.state.mode = 'explore';
   for (const modelId of ['imported', 'chapter5']) {
     h.state.modelId = modelId;
-    assert.equal(h.adapter.getContext(), null);
+    const context = h.adapter.getContext();
+    assert.ok(context);
+    assert.equal(context.conversationId, `explore:${modelId}`);
+    assert.deepEqual(context.parameters, []);
+    assert.match(context.description, /讲解、识别和提出建模建议/);
+    assert.match(context.description, /暂未开放可执行尺寸修改/);
     assert.throws(() => h.adapter.applyPlan(candidate));
+    assert.throws(() => h.adapter.applyPlan({ targetId: context.targetId, summary: '解释当前模型。', changes: [] }), /没有参数变化/);
+    assert.throws(() => h.adapter.applyPlan({ targetId: context.targetId, summary: '改变尺寸。', changes: [{ key: 'widthPercent', value: 120 }] }));
   }
   h.state.mode = 'compound'; h.compound.active = false;
   assert.equal(h.adapter.getContext(), null);

@@ -19,6 +19,44 @@ const dispose = root => root.traverse(mesh => {
   mesh.material?.dispose();
 });
 
+// The owned fan/harp generator adds an explicit edit contract to the original
+// defaults. Compare every physical/source field with the independent vendor
+// builder; permit only these enumerated metadata additions and verify each one.
+function assertDefaultSourceIdentity(actual, source) {
+  if (!['stayed_fan', 'stayed_harp'].includes(source.id)) {
+    assert.deepEqual(actual, source, 'adapter changed source physical geometry');
+    return;
+  }
+  const parameters = { mainSpan: 96, deckWidth: 8, towerHeight: 28, cablesPerSide: 7 };
+  assert.deepEqual(actual.parameters, parameters);
+  assert.deepEqual(actual.optionsUsed, parameters);
+  assert.deepEqual(actual.parameterSchema, [
+    { key: 'mainSpan', label: '主跨（两塔轴线间距）', unit: 'm', min: 72, max: 144, step: 0.1, default: 96 },
+    { key: 'deckWidth', label: '桥面总宽', unit: 'm', min: 6, max: 16, step: 0.1, default: 8 },
+    { key: 'towerHeight', label: '桥面以上塔高', unit: 'm', min: 18, max: 45, step: 0.1, default: 28 },
+    { key: 'cablesPerSide', label: '每塔每侧每索面索数', unit: '根', min: 4, max: 12, step: 1, default: 7 }
+  ]);
+  assert.equal(actual.sourceGeometrySignature, source.geometrySignature, 'vendor provenance must remain exact');
+  assert.equal(actual.revision, `${source.revision}:parametric-stayed-1:96:8:28:7`);
+  assert.equal(actual.geometrySignature, `${source.id}@${actual.revision}`);
+
+  const extraContract = {
+    cablesPerTowerPerSidePerPlane: 7, cableStationSpacing: 6, deckElevation: 7, girderDepth: 1.3,
+    spanDefinition: '主跨为两塔轴线间距；两端边跨各为主跨的一半。',
+    parameterScope: 'owned constituent teaching geometry; no structural analysis'
+  };
+  assert.deepEqual(actual.geometryContract, { ...source.geometryContract, ...extraContract },
+    'all original dimension, cable-group and connection contract fields must remain exact');
+  const physicalAndSource = { ...actual,
+    parameters: source.parameters, optionsUsed: source.optionsUsed, parameterSchema: source.parameterSchema,
+    revision: source.revision, geometrySignature: source.geometrySignature, geometryContract: source.geometryContract
+  };
+  delete physicalAndSource.sourceGeometrySignature;
+  // This includes the complete parts/members/panels/people/mobility/stages,
+  // assumptions, axes and sourceIds, and rejects any other added field.
+  assert.deepEqual(physicalAndSource, source, 'adapter changed source physical geometry or unapproved metadata');
+}
+
 test('all twenty catalogue entries are distinct and preserve the five existing routes', () => {
   assert.equal(BRIDGE_CATALOG.length, 20);
   assert.equal(new Set(BRIDGE_CATALOG.map(item => item.id)).size, 20);
@@ -120,10 +158,27 @@ for (const item of BRIDGE_CATALOG) {
       assert.ok(root.children.some(mesh => mesh.name === 'stay_cable'));
     }
     assert.equal(JSON.stringify(source), snapshot, 'reference builder data changed');
-    assert.deepEqual(root.userData.sourceModel, source, 'adapter changed source physical geometry');
+    assertDefaultSourceIdentity(root.userData.sourceModel, source);
     dispose(root);
   });
 }
+
+test('default source contract still rejects changed geometry, source identity and unapproved metadata', () => {
+  const root = BRIDGE_MODELS.cableStayedFan.build(), source = buildModel('stayed_fan');
+  for (const mutate of [
+    model => { model.parts[0].center[0] += 0.01; },
+    model => { model.sourceIds.push('unexpected-source'); },
+    model => { model.geometryContract.groups[0].cableIds[0] = 'wrong-cable'; },
+    model => { model.parameters.mainSpan = 120; },
+    model => { model.sourceGeometrySignature = 'different-vendor-revision'; },
+    model => { model.unapprovedMetadata = true; }
+  ]) {
+    const changed = structuredClone(root.userData.sourceModel);
+    mutate(changed);
+    assert.throws(() => assertDefaultSourceIdentity(changed, source), assert.AssertionError);
+  }
+  dispose(root);
+});
 
 test('the existing fan-bridge stay selection task recognizes real independent stay meshes', () => {
   const root = BRIDGE_MODELS.cableStayedFan.build();

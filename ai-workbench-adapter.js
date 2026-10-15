@@ -2,13 +2,13 @@ import { GEOMETRY_VARIATION_PARAMETERS } from './ai-geometry-variation.js';
 import { validateEditPlan } from './ai-edit-protocol.js';
 
 export function createAiWorkbenchAdapter({ getMode, getModelId, getModelLabel, getRevision,
-  getCompound, getVariation, setVariation, rebuild }) {
+  getCompound, getVariation, setVariation, rebuild, getEditContext = () => null, getFacts = () => undefined }) {
   function getContext() {
     const mode = getMode();
     if (mode === 'compound') {
       const context = getCompound()?.getAiContext();
       if (!context?.active) return null;
-      return { ...context,
+      return { ...context, conversationId: `compound:${context.lesson.id}`, modelFacts: getFacts(context),
         description: context.parameters.length
           ? '调整本步骤已经作用于实体的孔、槽或切割参数。“格”为教学模型坐标单位，不代表原图实际毫米尺寸。'
           : '请先选择含切割的构建步骤，再修改对应的孔、槽或切割参数。',
@@ -16,14 +16,18 @@ export function createAiWorkbenchAdapter({ getMode, getModelId, getModelLabel, g
       };
     }
     const modelId = getModelId();
-    if (mode !== 'explore' || ['imported', 'chapter5'].includes(modelId)) return null;
+    if (mode !== 'explore') return null;
     const values = getVariation(modelId) || {};
+    const editContext = getEditContext(modelId, values);
+    const readOnly = ['imported', 'chapter5'].includes(modelId);
     return {
       targetId: `explore:${modelId}:${getRevision()}`,
+      conversationId: `explore:${modelId}`,
       label: getModelLabel(),
-      description: '整体几何比例练习：纵向、横向、竖向分别缩放，会一起改变构件截面。原图纸尺寸仅供对照；暂不支持单独改桥面、索塔或新增构件。',
-      parameters: GEOMETRY_VARIATION_PARAMETERS.map(p => ({ ...p, value: values[p.key] ?? p.value })),
-      example: '例如：把横向整体比例改为 120%，其余不变。'
+      modelFacts: getFacts(),
+      description: editContext?.description || (readOnly ? '可以结合当前模型与三视图讲解、识别和提出建模建议；此模型暂未开放可执行尺寸修改。' : '可以讲解当前模型与三视图。整体几何比例练习：纵向、横向、竖向分别缩放，会一起改变构件截面。原图纸尺寸仅供对照；暂不支持单独改桥面、索塔或新增构件。'),
+      parameters: editContext?.parameters || (readOnly ? [] : GEOMETRY_VARIATION_PARAMETERS.map(p => ({ ...p, value: values[p.key] ?? p.value }))),
+      example: editContext ? '桥面加宽 2 米，塔高保持不变，索再密一些。也可以先解释这座桥的三视图。' : '解释当前模型和三视图，也可以描述您想做的修改。'
     };
   }
   function applyPlan(plan) {

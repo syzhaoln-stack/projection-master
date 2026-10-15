@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { presets, buildModel } from './assets/textbook-bridges/model.js';
+import { buildParametricStayedBridge, getStayedParameterContext, isParametricStayedBridge } from './parametric-stayed-bridge.js';
 
 // Source geometry remains in metres (X longitudinal, Y transverse, Z up).
 // Only this mapping and the returned root's uniform display transform are applied.
 export const bridgePointToThree = (x, y, z) => new THREE.Vector3(x, z, -y);
 export const BRIDGE_DISPLAY_EXTENT = 5;
+const originalStayedDisplayScales = new Map();
 const LEGACY_IDS = Object.freeze({
   girder_reference: 'beamBridge',
   arch_basket: 'archBridge',
@@ -147,7 +149,16 @@ function createPartMesh(part, material, model) {
 }
 
 export function buildTextbookBridge(sourceId, options = {}) {
-  const model = buildModel(sourceId, options);
+  const semantic = isParametricStayedBridge(sourceId);
+  // Fix the metres-to-display scale to the original model. A longer span must
+  // actually grow on screen instead of being normalized back to the old length.
+  if (semantic && Object.keys(options).length && !originalStayedDisplayScales.has(sourceId)) {
+    const reference = buildTextbookBridge(sourceId);
+    const materials = new Set();
+    reference.traverse(node => { node.geometry?.dispose(); if (node.material) materials.add(node.material); });
+    materials.forEach(material => material.dispose());
+  }
+  const model = semantic ? buildParametricStayedBridge(sourceId, options) : buildModel(sourceId, options);
   const root = new THREE.Group();
   root.name = `textbook-bridge:${sourceId}`;
   const materials = new Map();
@@ -161,7 +172,8 @@ export function buildTextbookBridge(sourceId, options = {}) {
   const size = physicalBounds.getSize(new THREE.Vector3());
   const maxDimension = Math.max(size.x, size.y, size.z);
   if (!Number.isFinite(maxDimension) || maxDimension <= 0) throw new Error(`桥梁模型尺寸无效：${sourceId}`);
-  const scale = BRIDGE_DISPLAY_EXTENT / maxDimension;
+  const scale = (semantic && originalStayedDisplayScales.get(sourceId)) || BRIDGE_DISPLAY_EXTENT / maxDimension;
+  if (semantic && !originalStayedDisplayScales.has(sourceId)) originalStayedDisplayScales.set(sourceId, scale);
   const center = physicalBounds.getCenter(new THREE.Vector3());
   root.scale.setScalar(scale);
   root.position.set(-center.x * scale, -physicalBounds.min.y * scale, -center.z * scale);
@@ -196,5 +208,7 @@ export const BRIDGE_CATALOG = Object.freeze(presets.map(preset => Object.freeze(
 export const BRIDGE_MODELS = Object.freeze(Object.fromEntries(BRIDGE_CATALOG.map(item => [item.id, {
   name: item.name,
   note: item.note,
-  build: () => buildTextbookBridge(item.sourceId)
+  sourceId: item.sourceId,
+  editContext: isParametricStayedBridge(item.sourceId) ? values => getStayedParameterContext(item.sourceId, values) : undefined,
+  build: options => buildTextbookBridge(item.sourceId, options)
 }])));

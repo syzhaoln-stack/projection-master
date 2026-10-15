@@ -34,6 +34,7 @@ import { computeTiledProjectionLayout } from './tiled-projection-layout.js';
 import { applyGeometryVariation, geometryVariationVector } from './ai-geometry-variation.js';
 import { createAiWorkbenchAdapter } from './ai-workbench-adapter.js';
 import { createAiModelAssistant } from './ai-model-assistant.js';
+import { collectModelFacts } from './ai-model-facts.js';
 
 // ===== 基础设置 =====
 const viewport = document.getElementById('viewport');
@@ -1360,15 +1361,19 @@ function rebuildModel() {
     model = buildImportedModel();
     statusText = `已导入 ${state.importedName || '模型'}：自动居中缩放，三视图投影（含消隐虚线）已就绪。`;
   } else {
-    model = def.build();
+    model = def.build(state.mode === 'explore' && def.editContext ? modelVariations.get(state.currentModel) : undefined);
     statusText = `${def.name}：${def.note}`;
   }
 
-  const variation = state.mode === 'explore' ? modelVariations.get(state.currentModel) : undefined;
+  const variation = state.mode === 'explore' && !def?.editContext ? modelVariations.get(state.currentModel) : undefined;
   state.geometryVariationFactors = geometryVariationVector(variation || {});
   model = applyGeometryVariation(model, variation || {});
   if (variation && Object.values(variation).some(value => value !== 100)) {
     statusText = `${def?.name || state.importedName} · 教学几何变体：纵向 ${variation.lengthPercent ?? 100}% / 横向 ${variation.widthPercent ?? 100}% / 竖向 ${variation.heightPercent ?? 100}%。原图尺寸仅供对照。`;
+  }
+  if (state.mode === 'explore' && def?.editContext && modelVariations.has(state.currentModel)) {
+    const parameters = def.editContext(modelVariations.get(state.currentModel)).parameters;
+    statusText = `${def.name} · ${parameters.map(p => `${p.label} ${p.value}${p.unit}`).join(' / ')}。三视图由当前构件重绘。`;
   }
   modelGroup.add(model);
   modelRevision += 1;
@@ -2761,6 +2766,136 @@ const aiWorkbench = createAiWorkbenchAdapter({
   getCompound: () => compoundController,
   getVariation: id => modelVariations.get(id),
   setVariation: (id, values) => modelVariations.set(id, { ...values }),
+  getEditContext: (id, values) => MODELS[id]?.editContext?.(values),
+  getFacts: compoundContext => collectModelFacts({
+    modelRoot: modelGroup, modelId: state.currentModel, label: MODELS[state.currentModel]?.name,
+    note: MODELS[state.currentModel]?.note, selectedComponent, mode: state.mode, compoundContext
+  }),
   rebuild: rebuildModel
 });
-createAiModelAssistant(aiWorkbench);
+createAiModelAssistant({ ...aiWorkbench, captureImages: captureAiImages });
+
+// BEGIN AI VIEW CAPTURE
+async function captureAiImages() {
+  if (!['explore', 'compound'].includes(state.mode)) return [];
+  const mode = state.mode, revision = modelRevision;
+  const views = [['front', '主视图'], ['top', '俯视图'], ['side', '左视图']];
+  // Only the renderer canvas and the three drawing images are captured. Read the
+  // WebGL canvas synchronously immediately after rendering, before any await.
+  let modelImage;
+  try {
+    renderer.render(scene, camera);
+    modelImage = renderer.domElement.toDataURL('image/jpeg', 0.9);
+    if (!/^data:image\/jpeg;base64,/.test(modelImage)) throw new Error();
+  } catch {
+    throw new Error('无法读取当前模型画布，请等待模型显示后重试。');
+  }
+  const images = [{ label: '当前三维模型与观察角度', dataUrl: modelImage }];
+  if (mode === 'explore') {
+    for (const [key, label] of views) {
+      const dataUrl = projectionTargetDataUrl(key);
+      if (!/^data:image\/png;base64,/.test(dataUrl)) throw new Error(`${label}尚未生成，请等待三视图显示后重试。`);
+      images.push({ label: `${label}（当前实体的正投影）`, dataUrl });
+    }
+    return images;
+  }
+
+  // The compound UI can be showing exact BREP SVGs while render targets still
+  // contain an interactive mesh preview. Always capture the actual UI source.
+  const snapshots = views.map(([key, label]) => {
+    const element = document.querySelector(`[data-compound-image="${key}"]`);
+    if (!element?.src || !element.complete || !(element.naturalWidth > 0)) {
+      throw new Error(`${label}尚未加载完成，请等待三视图显示后重试。`);
+    }
+    return { element, label, src: element.src, source: element.dataset.projectionSource === 'exact-brep' ? 'exact-brep' : 'interactive-preview' };
+  });
+  for (const snapshot of snapshots) {
+    const dataUrl = await aiDrawingImagePng(snapshot);
+    images.push({ label: `${snapshot.label}（${snapshot.source === 'exact-brep' ? '当前精确投影' : '当前交互预览'}）`, dataUrl });
+  }
+  if (state.mode !== mode || modelRevision !== revision || snapshots.some(snapshot =>
+    snapshot.element.src !== snapshot.src
+    || (snapshot.element.dataset.projectionSource === 'exact-brep' ? 'exact-brep' : 'interactive-preview') !== snapshot.source)) {
+    throw new Error('模型或三视图已变化，请重新附上当前图像。');
+  }
+  return images;
+}
+
+async function aiDrawingImagePng({ src, label, source, element }) {
+  const svgHeader = /^data:image\/svg\+xml(?:;charset=[\w-]+)?(;base64)?,/i.exec(src);
+  let imageSrc = src, width, height;
+  if (svgHeader) {
+    try {
+      const encoded = src.slice(svgHeader[0].length);
+      const xml = svgHeader[1]
+        ? new TextDecoder().decode(Uint8Array.from(atob(encoded), character => character.charCodeAt(0)))
+        : decodeURIComponent(encoded);
+      const parsed = new DOMParser().parseFromString(xml, 'image/svg+xml');
+      const svg = parsed.documentElement;
+      if (parsed.querySelector('parsererror') || svg?.localName !== 'svg') throw new Error();
+      const box = (svg.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+      if (box.length !== 4 || !box.every(Number.isFinite) || box[2] <= 0 || box[3] <= 0) throw new Error();
+      const scale = 1200 / Math.max(box[2], box[3]);
+      width = Math.max(1, Math.round(box[2] * scale));
+      height = Math.max(1, Math.round(box[3] * scale));
+      // Specify intrinsic dimensions on the export copy so a browser's default
+      // SVG viewport (often 300×150) cannot change the viewBox aspect ratio.
+      svg.setAttribute('width', String(width));
+      svg.setAttribute('height', String(height));
+      // Non-scaling strokes otherwise stay around one pixel even in a larger
+      // export. Preserve the displayed relative weight on this detached copy.
+      const displayedWidth = element?.getBoundingClientRect?.().width;
+      const strokeScale = Math.min(4, width / (Number.isFinite(displayedWidth) && displayedWidth > 0 ? displayedWidth : 400));
+      for (const item of svg.querySelectorAll('[stroke-width], [stroke-dasharray]')) {
+        const stroke = item.getAttribute('stroke-width');
+        if (stroke !== null && /^\d*\.?\d+(?:px)?$/.test(stroke.trim())) {
+          item.setAttribute('stroke-width', String(Number.parseFloat(stroke) * strokeScale));
+        }
+        const dash = item.getAttribute('stroke-dasharray');
+        if (dash !== null && dash.trim()) {
+          const lengths = dash.trim().split(/[\s,]+/).map(Number);
+          if (lengths.every(value => Number.isFinite(value) && value >= 0)) {
+            item.setAttribute('stroke-dasharray', lengths.map(value => value * strokeScale).join(' '));
+          }
+        }
+      }
+      imageSrc = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+    } catch {
+      throw new Error(`${label}的SVG或viewBox无效，请刷新该视图后重试。`);
+    }
+  } else if (source === 'exact-brep' || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/i.test(src)) {
+    throw new Error(`${label}的图像来源无效，请等待当前视图重新生成后重试。`);
+  }
+  const image = await new Promise((resolve, reject) => {
+    const loaded = new Image();
+    const fail = () => reject(new Error(`${label}图像无法加载，请刷新该视图后重试。`));
+    const timer = setTimeout(() => { loaded.onload = null; loaded.onerror = null; fail(); }, 5000);
+    loaded.onload = () => {
+      clearTimeout(timer);
+      if (!(loaded.naturalWidth > 0 && loaded.naturalHeight > 0)) { fail(); return; }
+      resolve(loaded);
+    };
+    loaded.onerror = () => { clearTimeout(timer); fail(); };
+    loaded.src = imageSrc;
+  });
+  if (!width || !height) {
+    const scale = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
+    width = Math.max(1, Math.round(image.naturalWidth * scale));
+    height = Math.max(1, Math.round(image.naturalHeight * scale));
+  }
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error();
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+    const png = canvas.toDataURL('image/png');
+    if (!/^data:image\/png;base64,/.test(png)) throw new Error();
+    return png;
+  } catch {
+    throw new Error(`${label}无法转换为图像，请刷新该视图后重试。`);
+  }
+}
+// END AI VIEW CAPTURE
