@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#e9ecf0">
 <link rel="icon" href="data:,">
-<title>工图投影大师 v8.6.0 · AI改图、三视图与剖切</title>
+<title>工图投影大师 v8.7.0 · AI改图、三视图与剖切</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -506,9 +506,6 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 .quiz-feedback{min-height:36px;margin-top:11px;color:var(--text-2);font-size:12px;line-height:1.55;}
 .quiz-feedback[data-tone="success"]{color:#27652c;}
 .quiz-feedback[data-tone="error"]{color:#9d3030;}
-.quiz-reflection{margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);}
-.quiz-reflection label{display:block;color:var(--text-2);font-size:11.5px;font-weight:700;line-height:1.5;margin-bottom:6px;}
-.quiz-reflection select{width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--text);padding:7px 8px;font:inherit;font-size:11.5px;}
 .quiz-summary{margin-top:10px;padding:9px 10px;border-radius:var(--radius-sm);background:var(--ok-soft);color:#27652c;font-size:11.5px;line-height:1.55;}
 .quiz-summary[hidden]{display:none;}
 .quiz-footer{display:flex;gap:8px;padding:11px 14px;background:var(--panel-2);border-top:1px solid var(--line-soft);}
@@ -565,6 +562,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 <link rel="stylesheet" href="./compound-projection-lab.css?v=8.3.1">
 <link rel="stylesheet" href="./vice-lab.css">
 <link rel="stylesheet" href="./integrated-library.css">
+<link rel="stylesheet" href="./model-gallery.css">
 </head>
 <body class="mode-lab">
 
@@ -574,7 +572,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     <div id="logo" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M5 4.5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6.5l-3 2v-2h-1a1.5 1.5 0 0 1-1.5-1.5v-11A1 1 0 0 1 5 4.5zm3.5 2h-2v2h2v-2zm0 4h-2v2h2v-2zm0 4h-2v2h2v-2zm4-8h7v2h-7v-2zm0 4h7v2h-7v-2zm0 4h7v2h-7v-2z"/></svg>
     </div>
-    <h1>工图投影大师<span class="ver">v8.6.0</span></h1>
+    <h1>工图投影大师<span class="ver">v8.7.0</span></h1>
     <span class="sub">空间智能教学工作台 · 第一角投影</span>
   </div>
   <div id="doc-tabs" role="tablist">
@@ -597,30 +595,38 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     <div class="rib-panel active" data-rib-panel="file">
       <div class="rib-group">
         <div class="rib-group-row quick-col">
-          <button class="quick-chip" data-model="cableStayedFan">斜拉桥·扇形</button>
-          <button class="quick-chip" data-model="suspension">悬索桥</button>
-          <button class="quick-chip" data-model="archBridge">拱桥（提篮）</button>
-          <button class="quick-more" data-cat="bridge">更多桥型 ▾</button>
-        </div>
-        <div class="rib-group-label">桥梁结构</div>
-      </div>
-      <div class="rib-group">
-        <div class="rib-group-row quick-col">
-          <button class="quick-chip" data-model="drawing_bago">Bago 斜拉桥</button>
-          <button class="quick-chip" data-model="drawing_nrg">新河峡谷拱桥</button>
-          <button class="quick-chip" data-model="drawing_forth">Forth 悬索桥</button>
-          <button class="quick-more" data-cat="bridge-asset">更多图纸模型 ▾</button>
-        </div>
-        <div class="rib-group-label">按图纸重构</div>
-      </div>
-      <div class="rib-group">
-        <div class="rib-group-row quick-col">
           <button class="quick-chip" data-model="textbookObliqueCylinder">斜切圆柱</button>
           <button class="quick-chip" data-model="textbook51">例5-1 支座</button>
           <button class="quick-chip" data-model="textbookFlange">轮盘</button>
-          <button class="quick-more" data-cat="solids">更多 ▾</button>
+          <button class="quick-more" data-cat="solids">机械模型墙 ▦</button>
         </div>
         <div class="rib-group-label">教材机械模型</div>
+      </div>
+      <div class="rib-group">
+        <div class="rib-group-row gallery-bridge-shortcuts">
+          <div class="quick-col">
+            <button class="quick-chip" data-model="cableStayedFan">斜拉桥·扇形</button>
+            <button class="quick-chip" data-model="suspension">悬索桥</button>
+            <button class="quick-chip" data-model="archBridge">拱桥（提篮）</button>
+            <button class="quick-more" data-cat="bridge">全部桥梁模型 ▦</button>
+          </div>
+          <div class="quick-col">
+            <button class="quick-chip" data-model="drawing_bago">Bago 斜拉桥</button>
+            <button class="quick-chip" data-model="drawing_nrg">新河峡谷拱桥</button>
+            <button class="quick-chip" data-model="drawing_forth">Forth 悬索桥</button>
+            <span class="gallery-shortcut-note">含 3 个图纸重构模型</span>
+          </div>
+        </div>
+        <div class="rib-group-label">桥梁结构 · 12 个模型</div>
+      </div>
+      <div class="rib-group">
+        <div class="rib-group-row">
+          <button class="rib-cmd primary gallery-open-button" data-open-model-gallery="all" aria-haspopup="dialog">
+            <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+            <span class="cap">打开模型墙</span>
+          </button>
+        </div>
+        <div class="rib-group-label">取下观察 · 放回展柜</div>
       </div>
       <div class="rib-group">
         <div class="rib-group-row" style="flex-direction:column;align-items:stretch;gap:5px;">
@@ -690,25 +696,21 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     <div class="panel-head">
       <span class="ph-ico"><svg viewBox="0 0 24 24"><path d="M4 5h7l2 2h7v12H4z"/></svg></span>
       模型树
+      <button class="gallery-tree-open" data-open-model-gallery="all" aria-haspopup="dialog">模型墙 ▦</button>
     </div>
     <div class="panel-scroll">
 
-      <!-- 教材模型：保持命名构件与米制方向，供三视图和单件识读 -->
-      <div class="tree-group open">
-        <div class="tree-group-head" data-group="bridge"><span class="caret"></span>典型桥梁 · 三视图<span class="grp-badge">9</span></div>
-        <p class="library-note">梁、拱、索的典型投影对照<br>点击构件可单独查看三视图</p>
-        <div class="tree-children" id="bridge-library-list"></div>
-      </div>
-      <div class="tree-group open">
-        <div class="tree-group-head" data-group="bridge-asset"><span class="caret"></span>工程图纸模型<span class="grp-badge">3</span></div>
-        <p class="library-note">适合进阶识图 · 保留来源与教学简化说明</p>
-        <div class="tree-children" id="drawing-bridge-list"></div>
-      </div>
-
+      <!-- 机械在前；所有桥梁处在同一栏目，原列表 ID 保持兼容。 -->
       <div class="tree-group open">
         <div class="tree-group-head" data-group="solids"><span class="caret"></span>教材机械模型<span class="grp-badge" id="mechanical-model-count">8</span></div>
         <p class="library-note">《现代机械制图》原图对应<br>截切 → 组合体 → 零件表达</p>
         <div class="tree-children" id="textbook-mechanical-list"></div>
+      </div>
+      <div class="tree-group open">
+        <div class="tree-group-head" data-group="bridge"><span class="caret"></span>桥梁结构<span class="grp-badge">12</span></div>
+        <p class="library-note">9 个典型结构 + 3 个图纸重构<br>点击构件，在完整三视图中同步高亮</p>
+        <div class="tree-children" id="bridge-library-list"></div>
+        <div class="tree-children" id="drawing-bridge-list"></div>
       </div>
 
     </div>
@@ -908,7 +910,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       <strong id="component-info-name">桥梁构件</strong>
       <span id="component-info-role"></span>
     </div>
-    <div class="vp-hint">💡 点击模型构件 → <b>高亮并生成该构件三视图</b>；点击空白处恢复整体</div>
+    <div class="vp-hint">💡 点击构件或实体表面 → <b>完整三视图同步高亮</b>；点击空白处取消</div>
 
     <!-- 关键操作：展开/合并三视图（最外层、始终可见） -->
     <button id="unfold-btn" class="unfold-fab" aria-pressed="false" title="展开 / 合并第一角三视图（空格）">
@@ -917,6 +919,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     </button>
 
     <!-- 空间练习：题干在侧栏，三维模型与真实投影始终作为判断证据 -->
+    <section id="quiz-canvas-host" aria-label="空间练习：可旋转的模型与三视图"></section>
     <div id="quiz-overlay" aria-hidden="true">
       <section class="quiz-card" role="dialog" aria-modal="false" aria-labelledby="quiz-title">
         <div class="quiz-titlebar">
@@ -940,26 +943,15 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
             <div class="quiz-stage">
               <span>本题可用的视图</span>
               <div class="quiz-view-tags">
-                <span class="quiz-view-tag" id="quiz-tag-front">正面图</span>
+                <span class="quiz-view-tag" id="quiz-tag-front">主视图</span>
                 <span class="quiz-view-tag" id="quiz-tag-top">俯视图</span>
-                <span class="quiz-view-tag" id="quiz-tag-side">侧面图</span>
+                <span class="quiz-view-tag" id="quiz-tag-side">左视图</span>
               </div>
             </div>
             <div class="quiz-evidence" id="quiz-evidence" hidden></div>
             <div class="quiz-interaction" id="quiz-interaction" hidden><span id="quiz-interaction-status"></span></div>
             <div class="quiz-options" id="quiz-options" aria-label="练习选项"></div>
             <div class="quiz-feedback" id="quiz-feedback" aria-live="polite">请先根据模型与三视图作出判断。</div>
-            <div class="quiz-reflection" id="quiz-reflection" hidden>
-              <label for="quiz-reflection-select" id="quiz-reflection-prompt">核对前，你依据了什么？</label>
-              <select id="quiz-reflection-select">
-                <option value="">请选择判断依据</option>
-                <option value="孔轴线">孔轴线或中心线</option>
-                <option value="隐藏线">可见线与隐藏线</option>
-                <option value="投影面展开">投影面展开方向</option>
-                <option value="视图对应">长对正、高平齐或宽相等</option>
-                <option value="其他">其他依据</option>
-              </select>
-            </div>
             <div class="quiz-summary" id="quiz-summary" hidden></div>
           </div>
         </div>
@@ -1028,7 +1020,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 <footer id="statusbar">
   <div id="cmd-prompt">
     <span class="caret">命令:</span>
-    <span id="status-strip">v7：正交三视图（含中心线/消隐）· STEP/OBJ/STL/GLB/GLTF 模型导入 · 点击构件高亮并生成对应三视图。</span>
+    <span id="status-strip">正交三视图 · 点击构件或实体表面同步高亮，保持完整图纸和观察角度。</span>
   </div>
   <div class="status-cell std" title="开发者：赵诗宇（大连交通大学）szhao@djtu.edu.cn">开发者 赵诗宇 · 大连交通大学 · szhao@djtu.edu.cn</div>
   <div class="status-cell std">第一角投影</div>
@@ -1091,21 +1083,10 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       }
     });
   });
-  // 「更多」→ 展开模型树（窄屏弹出抽屉；并把对应分组展开滚动到视野）
-  document.querySelectorAll('.quick-more').forEach(m => {
-    m.addEventListener('click', () => {
-      const cat = m.dataset.cat;
-      const grp = document.querySelector(`.tree-group-head[data-group="${cat}"]`);
-      if (grp) {
-        grp.parentElement.classList.add('open');
-        if (window.innerWidth > 960) grp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-      if (window.innerWidth <= 960) { tree.classList.add('open'); props.classList.remove('open'); }
-    });
-  });
+  // 「更多」和模型墙入口由模型库模块统一处理。
 })();
 </script>
 
-<script type="module" src="projection-master.js?v=8.6.0"></script>
+<script type="module" src="projection-master.js?v=8.7.0"></script>
 </body>
 </html>

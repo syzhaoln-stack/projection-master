@@ -6,6 +6,7 @@ import { auditTextbookMechanicalShape, buildTextbookMechanicalShape } from '../t
 import { createTextbookMechanicalModels, TEXTBOOK_MECHANICAL_CATALOG, textbookProjectionSegments } from '../textbook-mechanical-models.js';
 import contract from '../textbook-mechanical-contract.json' with { type: 'json' };
 import { makeBox, measureVolume } from 'replicad';
+import { createFaceSelection, disposeFaceSelection } from '../projection-selection.js';
 
 // Exercise Three's production SVG path parser with actual OpenCascade HLR
 // strings. Only the browser's XML-node plumbing is replaced in this Node test.
@@ -57,6 +58,44 @@ test('curated mechanical catalog ties eight models to checked figures across cha
   }
 });
 
+test('HLR guide conversion preserves real front, left and plan axes for an asymmetric solid', () => {
+  // Kernel (2..5,-9..-4,3..8) maps to unscaled scene (2..5,3..8,4..9).
+  // A symmetric model cannot detect the mistaken second mirror of the plan.
+  const shape = makeBox([2, -9, 3], [5, -4, 8]);
+  const cases = [
+    ['front', 'front', 'front', 0, 1, [2, 5, 3, 8]],
+    ['side', 'right', 'right', 2, 1, [4, 9, 3, 8]],
+    ['top', 'top', 'bottom', 0, 2, [2, 5, 4, 9]]
+  ];
+  for (const [view, sheetView, camera, horizontal, vertical, expected] of cases) {
+    const projection = kernel.projection(shape, sheetView, camera, 'example-5-6');
+    const points = textbookProjectionSegments(projection.visiblePathData, view);
+    const h = [], v = [];
+    for (let i = 0; i < points.length; i += 3) { h.push(points[i + horizontal]); v.push(points[i + vertical]); }
+    assert.deepEqual([Math.min(...h), Math.max(...h), Math.min(...v), Math.max(...v)], expected, view);
+  }
+});
+
+test('example 5-1 front base holes align with the real solid in the top view rather than appearing behind it', () => {
+  const root = models.textbook51.build();
+  const mesh = root.getObjectByName('body');
+  const projection = mesh.children.find(child => child.name === 'textbook_top_visible');
+  const points = projection.geometry.attributes.position;
+  const scale = root.userData.geometryContract.displayScale;
+  for (const kernelX of [-15.5, 15.5]) {
+    const x = kernelX * scale, z = 10.5 * scale, r = 1.8 * scale;
+    let frontRim = 0, falseRearRim = 0;
+    for (let i = 0; i < points.count; i++) {
+      const px = points.getX(i), pz = points.getZ(i);
+      if (Math.abs(Math.hypot(px - x, pz - z) - r) < 1e-5) frontRim++;
+      if (Math.abs(Math.hypot(px - x, pz + z) - r) < 1e-5) falseRearRim++;
+    }
+    assert.ok(frontRim > 100, 'the front through-hole rim must be directly below the selected real hole');
+    assert.equal(falseRearRim, 0, 'no reflected hole is drawn at the rear');
+  }
+  dispose(root);
+});
+
 for (const entry of TEXTBOOK_MECHANICAL_CATALOG) {
   test(`${entry.id}: one validated solid, finite display geometry and HLR-only aligned projections`, () => {
     const result = audits.get(entry.id);
@@ -67,6 +106,14 @@ for (const entry of TEXTBOOK_MECHANICAL_CATALOG) {
     root.traverse(object => { if (object.isMesh) meshes.push(object); });
     assert.equal(meshes.length, 1, 'no overlapping parts or decorative fake holes');
     const mesh = meshes[0];
+    assert.deepEqual(mesh.geometry.userData.faceGroups, result.renderMesh.faces.faceGroups,
+      'the actual BRep face ranges must survive display normalization for picking');
+    const firstFace = mesh.geometry.userData.faceGroups[0];
+    const faceSelection = createFaceSelection(mesh, firstFace.start / 3);
+    assert.equal(faceSelection.faceId, firstFace.faceId);
+    assert.equal(faceSelection.geometry.index.count, firstFace.count);
+    assert.ok(firstFace.count < mesh.geometry.index.count, 'a picked face must not select the entire solid');
+    disposeFaceSelection(faceSelection);
     assert.deepEqual(mesh.userData.centerAxes, models[entry.id].centerAxes, 'selecting the body must preserve its explicit feature axes');
     assert.equal(mesh.geometry.userData.projectionAnalyticOnly, true);
     assert.ok(Array.from(mesh.geometry.attributes.position.array).every(Number.isFinite));

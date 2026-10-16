@@ -1,82 +1,522 @@
+// Mechanical source examples first, then the curated bridge practice.
+// No fixed UV hotspots: every item is a choice, a view direction, or a real bridge mesh.
 export const QUESTION_BANK = Object.freeze([
   {
-    id: 'first-angle-step-top', modelId: 'step', title: '第一角投影的位置', skill: '第一角投影展开', difficulty: 1, type: 'single',
-    views: ['front', 'top', 'side'], showHidden: false,
-    prompt: '展开投影面后，俯视图相对于主视图应位于什么位置？',
-    options: [{ id: 'top', label: '主视图上方' }, { id: 'bottom', label: '主视图下方' }, { id: 'left', label: '主视图左侧' }, { id: 'right', label: '主视图右侧' }],
-    answer: ['bottom'], evidence: '第一角投影中，水平投影面向下翻转后，俯视图位于主视图下方。', hint: '先观察水平投影面绕交线翻转的方向，再看它停在主视图的哪一侧。', misconception: 'first-angle-layout', reflection: '哪一个动作帮助你确定了俯视图的位置？'
+    "id": "textbook-flange-first-angle",
+    "modelId": "textbookFlange",
+    "title": "第一角投影的位置",
+    "skill": "第一角投影展开",
+    "difficulty": 1,
+    "type": "single",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": false,
+    "source": "《现代机械制图》例7-3 · 图7-23～7-29",
+    "prompt": "展开三投影面后，四肋轮盘的俯视图应位于主视图的哪一侧？",
+    "options": [
+      {
+        "id": "above",
+        "label": "上方"
+      },
+      {
+        "id": "below",
+        "label": "下方"
+      },
+      {
+        "id": "left",
+        "label": "左侧"
+      },
+      {
+        "id": "right",
+        "label": "右侧"
+      }
+    ],
+    "answer": [
+      "below"
+    ],
+    "evidence": "第一角投影展开后，俯视图位于主视图下方，左视图位于主视图右侧。",
+    "hint": "水平投影面绕与正面投影面的交线向下展开。",
+    "misconception": "first-angle-layout"
   },
   {
-    id: 'through-hole-axis', modelId: 'throughHolePlate', title: '孔轴与圆形投影', skill: '轴线方向与投影形状', difficulty: 1, type: 'single',
-    views: ['front', 'top', 'side'], showHidden: false,
-    prompt: '要把通孔直接看成圆，观察方向应当怎样？',
-    options: [{ id: 'along-axis', label: '沿孔轴线方向观察' }, { id: 'perpendicular-axis', label: '垂直孔轴线方向观察' }, { id: 'any-direction', label: '任意方向都能看成圆' }],
-    answer: ['along-axis'], evidence: '圆孔的端面只有在视线与孔轴线平行时才呈圆形；垂直孔轴线观察时，孔表现为轮廓或隐藏线。', hint: '先在三维模型中找到孔的中心线，再让视线与这条线比较。', misconception: 'axis-orientation', reflection: '你用孔轴线、圆轮廓还是中心线作出了判断？'
+    "id": "textbook-flange-counterbore",
+    "modelId": "textbookFlange",
+    "title": "沉孔与通孔",
+    "skill": "孔系识读",
+    "difficulty": 2,
+    "type": "single",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": true,
+    "source": "《现代机械制图》例7-3 · 图7-23～7-29",
+    "prompt": "轮盘的四个外围安装孔在俯视图中各有两个同心圆，它们对应什么结构？",
+    "options": [
+      {
+        "id": "counterbore",
+        "label": "上部较大的柱形沉孔与下部较小的通孔"
+      },
+      {
+        "id": "two-holes",
+        "label": "两个并排的独立通孔"
+      },
+      {
+        "id": "solid-boss",
+        "label": "没有孔的实心凸台"
+      }
+    ],
+    "answer": [
+      "counterbore"
+    ],
+    "evidence": "每个安装孔上部有φ30、深3 mm的柱形沉孔，下部保留较小通孔，形成同轴台阶。",
+    "hint": "从上方观察孔口，再检查较大圆孔下面是否有环形台阶。",
+    "misconception": "counterbore-vs-through-hole"
   },
   {
-    id: 'slot-hidden-line', modelId: 'slottedBlock', title: '槽底的线型', skill: '隐藏线判断', difficulty: 2, type: 'single',
-    views: ['front', 'top', 'side'], showHidden: false,
-    prompt: '关闭隐藏线后，请预测：槽底在被实体遮挡的视图中恢复显示时应采用什么线型？',
-    options: [{ id: 'visible', label: '粗实线或细实线' }, { id: 'hidden', label: '虚线' }, { id: 'center', label: '中心线' }],
-    answer: ['hidden'], evidence: '槽底是真实边，但在该观察方向被外部实体遮挡；工程图用虚线表达不可见轮廓。', hint: '先旋转模型确认槽底是否真实存在，再判断从该方向是否能直接看见它。', misconception: 'hidden-vs-visible-line', revealHiddenAfterSubmit: true, reflection: '决定线型的是边是否存在，还是该方向能否看见它？'
+    "id": "textbook-oblique-cut-front",
+    "modelId": "textbookObliqueCylinder",
+    "title": "正垂斜截面的投影",
+    "skill": "平面积聚投影",
+    "difficulty": 2,
+    "type": "single",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": true,
+    "source": "《现代机械制图》例4-8 · 图4-9",
+    "prompt": "本例顶部斜截面在主视图中积聚成什么？",
+    "options": [
+      {
+        "id": "line",
+        "label": "一条斜线"
+      },
+      {
+        "id": "circle",
+        "label": "一个圆"
+      },
+      {
+        "id": "true-ellipse",
+        "label": "截面椭圆的实形"
+      }
+    ],
+    "answer": [
+      "line"
+    ],
+    "evidence": "截平面垂直于正面投影面，因此斜截面在主视图中积聚为斜线。",
+    "hint": "正垂面在正面投影中具有积聚性。",
+    "misconception": "plane-edge-on-projection"
   },
   {
-    id: 'bearing-seat-barrel', modelId: 'bearingSeat', focusComponent: 'barrel', title: '圆筒的表达方向', skill: '构件—视图对应', difficulty: 2, type: 'single',
-    views: ['front', 'top', 'side'], showHidden: true,
-    prompt: '已高亮轴承座圆筒。哪个信息最能帮助你确定它在不同视图中为何有时是圆、有时是矩形轮廓？',
-    options: [{ id: 'axis', label: '圆筒轴线的方向' }, { id: 'color', label: '圆筒在三维模型中的颜色' }, { id: 'shadow', label: '三维模型表面的明暗' }],
-    answer: ['axis'], evidence: '圆筒的投影形状由观察方向与轴线的关系决定，而非模型颜色或渲染明暗。', hint: '点击或观察高亮圆筒，比较它的轴线与三个投影方向。', misconception: 'feature-correspondence', reflection: '你在哪一个视图中最先确认了圆筒轴线的方向？'
+    "id": "textbook-slot-tongue-width",
+    "modelId": "textbookSlotCylinder",
+    "title": "槽宽与舌宽",
+    "skill": "截切构造对应",
+    "difficulty": 2,
+    "type": "single",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": true,
+    "source": "《现代机械制图》例4-9 · 图4-10",
+    "prompt": "顶部贯穿槽与底部中央舌的宽度有什么关系？",
+    "options": [
+      {
+        "id": "equal",
+        "label": "相等，由同一对侧平面确定"
+      },
+      {
+        "id": "double",
+        "label": "槽宽是舌宽的两倍"
+      },
+      {
+        "id": "independent",
+        "label": "两者没有共同边界位置"
+      }
+    ],
+    "answer": [
+      "equal"
+    ],
+    "evidence": "顶部槽两侧与底部中央舌两侧采用同一对平行侧平面，槽宽与舌宽相等。",
+    "hint": "比较主视图中槽口两条侧边与中央舌两条侧边的左右位置。",
+    "misconception": "slot-tongue-correspondence"
   },
   {
-    id: 'view-insufficiency-hole', modelId: 'throughHolePlate', title: '单视图的信息边界', skill: '图样信息充分性', difficulty: 2, type: 'single',
-    views: ['front'], showHidden: false,
-    prompt: '只看到一个圆形轮廓时，能否确定它一定是通孔？',
-    options: [{ id: 'yes', label: '能，圆形一定表示通孔' }, { id: 'no', label: '不能，还需其他视图、剖视或尺寸' }, { id: 'irrelevant', label: '不能，圆形与三维结构无关' }],
-    answer: ['no'], evidence: '同心圆或圆形轮廓还可能表示凸台、沉孔或回转体端面；必须结合其他视图、剖视和尺寸判断。', hint: '想一想：除了通孔，哪些机械特征也可能在一个方向投影为圆？', misconception: 'insufficient-evidence', reflection: '若要确认该圆代表通孔，你还会请求哪一类图样信息？'
+    "id": "textbook-keyway-blind",
+    "modelId": "textbookKeyedShaft",
+    "title": "键槽是否贯穿",
+    "skill": "盲槽与通槽",
+    "difficulty": 1,
+    "type": "single",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": true,
+    "source": "《现代机械制图》例7-2 · 图7-21～7-22",
+    "prompt": "轴上的圆头键槽是否切穿整个轴身？",
+    "options": [
+      {
+        "id": "blind",
+        "label": "没有，槽底保留材料"
+      },
+      {
+        "id": "through",
+        "label": "切穿轴身，上下相通"
+      },
+      {
+        "id": "open-ends",
+        "label": "沿轴向切通两个端面"
+      }
+    ],
+    "answer": [
+      "blind"
+    ],
+    "evidence": "轴径20 mm，键槽深3.5 mm；槽底有材料，且两端封闭。",
+    "hint": "观察槽底，以及槽的两端与轴端面之间是否仍有材料。",
+    "misconception": "blind-vs-through-slot"
   },
   {
-    id: 'parameter-hole-change', modelId: 'throughHolePlate', title: '局部参数修改后的核对', skill: '参数变化与保持条件', difficulty: 3, type: 'multiple',
-    views: ['front', 'top', 'side'], showHidden: true,
-    prompt: '孔径增大、孔中心位置不变。下列哪些项目应随之更新？（可多选）',
-    options: [{ id: 'hole-outline', label: '有关视图中的孔轮廓或隐藏线' }, { id: 'diameter-dimension', label: '孔的直径尺寸' }, { id: 'centerline-position', label: '孔中心线的位置' }, { id: 'outer-profile', label: '未关联的外轮廓尺寸' }],
-    answer: ['hole-outline', 'diameter-dimension'], evidence: '孔的几何轮廓和直径标注随孔径改变；孔中心位置与未关联外轮廓应保持不变，修改后还需复查所有相关视图。', hint: '把“孔径改变”和“中心不变”分别转化为应改变与应保持的对象。', misconception: 'parameter-propagation', reflection: '除工程图外，你还会在模型或装配中检查什么？'
+    "id": "textbook-keyway-total-length",
+    "modelId": "textbookKeyedShaft",
+    "title": "圆头槽的总长",
+    "skill": "尺寸关系",
+    "difficulty": 2,
+    "type": "single",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": true,
+    "source": "《现代机械制图》图7-22",
+    "prompt": "键槽宽6 mm，两端半圆的圆心距为14 mm。键槽总长是多少？",
+    "options": [
+      {
+        "id": "14",
+        "label": "14 mm"
+      },
+      {
+        "id": "17",
+        "label": "17 mm"
+      },
+      {
+        "id": "20",
+        "label": "20 mm"
+      },
+      {
+        "id": "26",
+        "label": "26 mm"
+      }
+    ],
+    "answer": [
+      "20"
+    ],
+    "evidence": "两端半圆各伸出一个半径3 mm，总长为14+3+3=20 mm。",
+    "hint": "圆心距不包含两端伸出的两个半径。",
+    "misconception": "slot-length-vs-center-distance"
   },
   {
-    id: 'rotate-to-front', modelId: 'throughHolePlate', title: '旋转至主视方向', skill: '空间旋转与视图匹配', difficulty: 1, type: 'rotate-to-view',
-    views: ['front', 'top', 'side'], showHidden: true, targetView: 'front', targetDirection: [0, 0, 1], toleranceDegrees: 7,
-    prompt: '拖动三维模型，将视线旋至与主视图一致的正交方向；出现“已对正”后提交。', evidence: '正交视图由固定观察方向决定。模型外形与主视图卡片匹配时，说明视线已与主视方向一致。', hint: '不要找标准视图按钮。先追踪孔轴线和外轮廓，观察哪一个方向正在缩短并最终积聚。', misconception: 'view-direction-rotation', reflection: '你用外轮廓、孔轴线还是高度关系确认了主视方向？'
+    "id": "textbook-valve-stepped-bore",
+    "modelId": "textbookValveAdapter",
+    "title": "中央阶梯孔",
+    "skill": "内外轮廓区分",
+    "difficulty": 2,
+    "type": "multiple",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": true,
+    "source": "《现代机械制图》图10-42～10-43",
+    "prompt": "哪些尺寸属于阀体接头的中央阶梯通孔？（可多选）",
+    "options": [
+      {
+        "id": "25",
+        "label": "φ25 主通孔"
+      },
+      {
+        "id": "43",
+        "label": "背部φ43、深6 mm的扩大孔"
+      },
+      {
+        "id": "38",
+        "label": "φ38 管颈外径"
+      },
+      {
+        "id": "14",
+        "label": "法兰四个φ14安装孔"
+      }
+    ],
+    "answer": [
+      "25",
+      "43"
+    ],
+    "evidence": "中央孔由φ25通孔与背部φ43、深6 mm的扩大孔组成；φ38是管颈外径，φ14属于外围安装孔。",
+    "hint": "区分中心轴线上的内孔、管颈外表面与外围孔系。",
+    "misconception": "inner-outer-diameter"
   },
   {
-    id: 'bridge-rotate-plan', modelId: 'beamBridge', title: '把梁桥转到平面方向', skill: '桥梁坐标与平面投影', difficulty: 1, type: 'rotate-to-view',
-    views: ['front', 'top', 'side'], showHidden: false, targetView: 'top', targetDirection: [0, 1, 0], toleranceDegrees: 6,
-    prompt: '不使用标准视图按钮，拖动梁桥直到视线沿竖向观察，桥高被积聚，只留下桥向与横桥向的平面关系。', evidence: '平面图保留桥向与横桥向，竖向高度在投影方向上被压缩；能主动对准说明学生把坐标方向与视图联系了起来。', hint: '先找桥墩的竖向，再让这条方向在画面里逐渐缩短；不要靠背诵“俯视图在上面”。', misconception: 'bridge-plan-direction', reflection: '你用桥墩、桥面宽度还是桥跨方向确认了平面？'
+    "id": "textbook51-cylinder-front",
+    "modelId": "textbook51",
+    "title": "圆筒孔的圆形投影",
+    "skill": "轴线与投影形状",
+    "difficulty": 1,
+    "type": "single",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": true,
+    "source": "《现代机械制图》例5-1 · 图5-1～5-2",
+    "prompt": "本例圆筒轴线沿前后方向，中央孔在哪个视图中呈圆形？",
+    "options": [
+      {
+        "id": "front",
+        "label": "主视图"
+      },
+      {
+        "id": "top",
+        "label": "俯视图"
+      },
+      {
+        "id": "side",
+        "label": "左视图"
+      }
+    ],
+    "answer": [
+      "front"
+    ],
+    "evidence": "主视方向与圆筒及中央孔的轴线平行，因此孔口投影为圆。",
+    "hint": "从孔口沿轴线观察，圆形端面保持实形。",
+    "misconception": "axis-orientation"
   },
   {
-    id: 'bridge-rotate-elevation', modelId: 'cableStayedFan', title: '把斜拉桥转到立面方向', skill: '桥梁坐标与立面投影', difficulty: 2, type: 'rotate-to-view',
-    views: ['front', 'top', 'side'], showHidden: false, targetView: 'front', targetDirection: [0, 0, 1], toleranceDegrees: 6,
-    prompt: '换成斜拉桥后再次无提示旋转：让横桥向被积聚，在画面中保留桥向与竖向，能够直接看见塔高和拉索斜率。', evidence: '立面图保留桥向与竖向，因此塔高、跨径和拉索斜率可直接比较；横桥向宽度不能由这一张图单独确定。', hint: '观察双索面是否逐渐重合；当横桥向积聚时，桥塔和同一纵向位置的拉索会落到立面关系中。', misconception: 'bridge-elevation-direction', reflection: '哪一个构件的重合最能证明你已经沿横桥向观察？'
+    "id": "textbook55-through-slot",
+    "modelId": "textbook55",
+    "title": "底部贯穿槽",
+    "skill": "切除范围判断",
+    "difficulty": 2,
+    "type": "single",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": true,
+    "source": "《现代机械制图》例5-5 · 图5-14～5-15",
+    "prompt": "当前最终实体的底部槽沿哪个方向贯通？",
+    "options": [
+      {
+        "id": "left-right",
+        "label": "沿左右方向贯通两端"
+      },
+      {
+        "id": "front-back",
+        "label": "沿前后方向贯通两侧"
+      },
+      {
+        "id": "blind",
+        "label": "不贯通，只有一端开口"
+      }
+    ],
+    "answer": [
+      "left-right"
+    ],
+    "evidence": "底部槽的切除长度覆盖基体全长，左右两端的槽口相通。",
+    "hint": "对照主视图的长边与左视图中的槽口。",
+    "misconception": "slot-cut-extent"
   },
   {
-    id: 'bridge-rotate-section', modelId: 'beamBridge', title: '把梁桥转到横断面方向', skill: '桥梁坐标与横断面投影', difficulty: 2, type: 'rotate-to-view',
-    views: ['front', 'top', 'side'], showHidden: false, targetView: 'side', targetDirection: [1, 0, 0], toleranceDegrees: 6,
-    prompt: '再次换目标：让桥向长度被积聚，在画面中保留横桥向与竖向，形成桥面、主梁和桥墩的横断面关系。', evidence: '横断面保留横桥向和竖向，桥长在视线方向上被压缩；这一视图负责核对桥宽、梁间距、横坡和断面构件关系。', hint: '先追踪最长的桥向边，让它在画面中逐渐缩短；真正对准时，远近两个桥墩会趋于重合。', misconception: 'bridge-section-direction', reflection: '你通过哪一条长边或哪一组重合关系确认了横断面？'
+    "id": "textbook56-front-rear-slots",
+    "modelId": "textbook56",
+    "title": "前后槽口的区别",
+    "skill": "前后遮挡关系",
+    "difficulty": 2,
+    "type": "single",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": true,
+    "source": "《现代机械制图》例5-6 · 图5-16～5-17",
+    "prompt": "空心圆柱前壁和后壁的槽口分别是什么形状？",
+    "options": [
+      {
+        "id": "front-flat-rear-arc",
+        "label": "前壁为方槽，后壁为倒置拱形槽"
+      },
+      {
+        "id": "front-arc-rear-flat",
+        "label": "前壁为倒置拱形槽，后壁为方槽"
+      },
+      {
+        "id": "same-flat",
+        "label": "前后均为方槽"
+      }
+    ],
+    "answer": [
+      "front-flat-rear-arc"
+    ],
+    "evidence": "切除体Ⅲ形成前壁方槽，切除体Ⅳ形成后壁倒置拱形槽，主视图须区分前后可见性。",
+    "hint": "前壁槽底平直，后壁槽底带圆弧。",
+    "misconception": "front-rear-slot-confusion"
   },
   {
-    id: 'click-model-barrel', modelId: 'bearingSeat', title: '点击圆筒构件', skill: '三维构件识别', difficulty: 1, type: 'click-model',
-    views: ['front', 'top', 'side'], showHidden: true, targetComponents: ['barrel'],
-    prompt: '在左侧三维模型上点击轴承座中部的圆筒构件。', evidence: '圆筒构件的轴线方向决定其在三视图中是圆形端面还是矩形轮廓；先准确识别实体构件，才能建立视图对应。', hint: '圆筒位于两块支承板之间，具有连续的圆柱形外表面。', misconception: 'component-identification', reflection: '你通过形状、位置还是相邻构件识别出该圆筒？'
+    "id": "bridge-rotate-plan",
+    "modelId": "beamBridge",
+    "title": "梁桥的俯视方向",
+    "skill": "空间旋转与俯视投影",
+    "difficulty": 1,
+    "type": "rotate-to-view",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": false,
+    "source": "精选桥梁 · 单跨箱梁桥",
+    "targetView": "top",
+    "targetDirection": [
+      0,
+      1,
+      0
+    ],
+    "toleranceDegrees": 6,
+    "prompt": "拖动模型，从桥梁正上方向下观察；显示“已对正”后提交。",
+    "evidence": "俯视图保留桥长与桥宽，桥高沿视线方向积聚。",
+    "hint": "让竖直桥墩沿视线方向缩短。",
+    "misconception": "bridge-plan-direction"
   },
   {
-    id: 'click-hidden-line', modelId: 'slottedBlock', title: '图上找隐藏线', skill: '不可见轮廓识读', difficulty: 2, type: 'click-projection',
-    views: ['front', 'top', 'side'], showHidden: true, targetView: 'front',
-    hotspots: [{ id: 'hidden-region', shape: 'rect', u: 0.36, v: 0.42, width: 0.28, height: 0.16 }, { id: 'outer-profile', shape: 'rect', u: 0.05, v: 0.72, width: 0.22, height: 0.12 }], answer: ['hidden-region'],
-    prompt: '在右侧主视图中点击表示槽底不可见轮廓的虚线区域。', evidence: '槽底边真实存在，但被实体遮挡时必须用虚线表达；外轮廓则用可见实线。', hint: '先从三维模型确认槽底位置，再在主视图中寻找位于外轮廓内部的断续线。', misconception: 'hidden-line-location', reflection: '你如何区分了内部隐藏轮廓与外部可见轮廓？'
+    "id": "bridge-rotate-elevation",
+    "modelId": "cableStayedFan",
+    "title": "斜拉桥的主视方向",
+    "skill": "空间旋转与主视投影",
+    "difficulty": 2,
+    "type": "rotate-to-view",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": false,
+    "source": "精选桥梁 · 扇形索斜拉桥",
+    "targetView": "front",
+    "targetDirection": [
+      0,
+      0,
+      1
+    ],
+    "toleranceDegrees": 6,
+    "prompt": "拖动模型，沿前方向后观察，使桥长与塔高保留、桥宽积聚；显示“已对正”后提交。",
+    "evidence": "主视图保留桥向与竖向，能表达塔高和拉索斜率。",
+    "hint": "观察前后两索面在立面方向的重合。",
+    "misconception": "bridge-elevation-direction"
   },
   {
-    id: 'mark-hole-diameter', modelId: 'throughHolePlate', title: '定位孔径标注', skill: '尺寸标注定位', difficulty: 2, type: 'mark-dimension',
-    views: ['front', 'top', 'side'], showHidden: true, targetView: 'top', dimensionKind: 'diameter',
-    hotspots: [{ id: 'hole-dimension', shape: 'circle', u: 0.50, v: 0.50, radius: 0.18 }, { id: 'outer-size', shape: 'rect', u: 0.08, v: 0.06, width: 0.24, height: 0.13 }], answer: ['hole-dimension'],
-    prompt: '在右侧俯视图中点击应放置孔径尺寸标注的圆孔特征。', evidence: '直径尺寸应指向圆孔的圆形投影，并以直径符号表达；外轮廓尺寸不能替代孔径尺寸。', hint: '沿孔轴线方向观察时，通孔呈圆形；先在三维模型中确认这一观察方向。', misconception: 'diameter-dimension-placement', reflection: '为什么孔径尺寸应关联圆形投影，而不是外轮廓？'
+    "id": "bridge-rotate-section",
+    "modelId": "beamBridge",
+    "title": "梁桥的左视方向",
+    "skill": "空间旋转与左视投影",
+    "difficulty": 2,
+    "type": "rotate-to-view",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": false,
+    "source": "精选桥梁 · 单跨箱梁桥",
+    "targetView": "side",
+    "targetDirection": [
+      -1,
+      0,
+      0
+    ],
+    "toleranceDegrees": 6,
+    "prompt": "拖动模型，从桥梁左端沿桥向观察，使桥长积聚；显示“已对正”后提交。",
+    "evidence": "左视方向从模型左侧向右观察，保留桥宽与高度。",
+    "hint": "让桥向长边沿视线缩短，并确认观察位置在左端。",
+    "misconception": "bridge-left-view-direction"
+  },
+  {
+    "id": "bridge-click-tower",
+    "modelId": "cableStayedFan",
+    "title": "识别桥塔",
+    "skill": "三维构件识别",
+    "difficulty": 1,
+    "type": "click-model",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": false,
+    "source": "精选桥梁 · 扇形索斜拉桥",
+    "targetComponents": [
+      "tower"
+    ],
+    "prompt": "点击斜拉桥的一根桥塔塔柱。",
+    "evidence": "桥塔高出桥面，斜拉索在塔上锚固。",
+    "hint": "选择竖向塔柱，不选塔横梁或斜拉索。",
+    "misconception": "bridge-tower-identification"
+  },
+  {
+    "id": "bridge-click-stay",
+    "modelId": "cableStayedFan",
+    "title": "识别斜拉索",
+    "skill": "三维构件识别",
+    "difficulty": 1,
+    "type": "click-model",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": false,
+    "source": "精选桥梁 · 扇形索斜拉桥",
+    "targetComponents": [
+      "stay_cable"
+    ],
+    "prompt": "点击一根连接桥塔与桥面的斜拉索。",
+    "evidence": "斜拉索从桥塔斜向连接主梁，与竖直塔柱及水平桥面不同。",
+    "hint": "选择从塔上斜向桥面伸出的细长构件。",
+    "misconception": "bridge-stay-identification"
+  },
+  {
+    "id": "bridge-click-main-cable",
+    "modelId": "suspension",
+    "title": "识别悬索桥主缆",
+    "skill": "主缆与吊杆区分",
+    "difficulty": 2,
+    "type": "click-model",
+    "views": [
+      "front",
+      "top",
+      "side"
+    ],
+    "showHidden": false,
+    "source": "精选桥梁 · 地锚式悬索桥",
+    "targetComponents": [
+      "main_cable"
+    ],
+    "prompt": "点击悬索桥中跨呈下垂曲线的主缆。",
+    "evidence": "主缆跨越桥塔并承接吊杆；吊杆是主缆与桥面之间的竖向细杆。",
+    "hint": "选择连续弯曲的长索，不选一排竖直吊杆。",
+    "misconception": "main-cable-vs-hanger"
   }
 ]);
 

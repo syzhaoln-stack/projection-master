@@ -7,11 +7,13 @@ export const DEEPSEEK_ENDPOINT = 'https://api.deepseek.com/chat/completions';
 export const DEEPSEEK_MODEL = 'deepseek-flash';
 export const DEEPSEEK_MODEL_LABEL = 'DeepSeek V4.1 Flash';
 export const EDIT_PLAN_TIMEOUT_MS = 60_000;
+export const AI_SERVICE_STATUS_TIMEOUT_MS = 8_000;
+export const AI_PROXY_URL = import.meta.env?.VITE_AI_PROXY_URL || '/api/ai/chat';
 const MAX_IMAGE_CHARACTERS = 12 * 1024 * 1024;
 const MAX_TOTAL_IMAGE_CHARACTERS = 24 * 1024 * 1024;
 
 const MESSAGES = Object.freeze({
-  INVALID_INPUT: '请填写有效的 API 密钥和问题，不要在问题或对话中包含密钥。',
+  INVALID_INPUT: '请检查问题与连接设置，不要在问题或对话中包含密钥。',
   INVALID_CONTEXT: '当前模型的信息不完整或不符合规则，暂时无法回答。',
   INVALID_IMAGES: '图片格式或大小不符合要求，请使用 PNG、JPEG、WebP 或 GIF 图片，最多 6 张。',
   INVALID_PLAN: '返回的修改方案不符合当前模型的参数规则，未应用任何修改。',
@@ -24,7 +26,9 @@ const MESSAGES = Object.freeze({
   REQUEST_REJECTED: '模型服务未接受此请求，请稍后重试。',
   NETWORK_ERROR: '无法连接模型服务，请检查网络后重试。',
   TIMEOUT: '生成回答超时，请稍后重试。',
-  ABORTED: '已取消生成回答。'
+  ABORTED: '已取消生成回答。',
+  SHARED_UNAVAILABLE: '共享 AI 服务尚未启用或暂时无法连接，请稍后重试；也可在高级设置中使用自己的 API。',
+  INVALID_PROXY_CONFIG: '共享 AI 服务地址未正确配置，请联系网站维护者。'
 });
 
 export class AIEditError extends Error {
@@ -229,9 +233,59 @@ function httpError(status) {
   return new AIEditError(status >= 500 ? 'SERVER_ERROR' : 'REQUEST_REJECTED');
 }
 
+/** Public service address only. Credentials are never accepted in configuration. */
+export function resolveAiProxyEndpoints(value = AI_PROXY_URL) {
+  if (!isText(value, 2048)) fail('INVALID_PROXY_CONFIG');
+  const configured = value.trim();
+  const relative = configured.startsWith('/') && !configured.startsWith('//');
+  if (configured.includes('\\')) fail('INVALID_PROXY_CONFIG');
+  let url;
+  try { url = new URL(configured, relative ? 'https://same-origin.invalid' : undefined); }
+  catch { fail('INVALID_PROXY_CONFIG'); }
+  if (url.username || url.password || url.search || url.hash
+    || (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))) {
+    fail('INVALID_PROXY_CONFIG');
+  }
+  let path = url.pathname.replace(/\/+$/, '');
+  if (!path.endsWith('/api/ai/chat')) path += path.endsWith('/api/ai') ? '/chat' : '/api/ai/chat';
+  const base = relative ? '' : url.origin;
+  return { chat: `${base}${path}`, status: `${base}${path.replace(/\/chat$/, '/status')}` };
+}
+
+/** Readiness is a separate, free health request; a successful HTTP page is not readiness. */
+export async function requestAiServiceStatus({ proxyUrl = AI_PROXY_URL, signal, fetchImpl = globalThis.fetch } = {}) {
+  const { status: endpoint } = resolveAiProxyEndpoints(proxyUrl);
+  if (typeof fetchImpl !== 'function') return { ready: false, state: 'unavailable' };
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) return { ready: false, state: 'unavailable' };
+  signal?.addEventListener('abort', abort, { once: true });
+  let timeout;
+  const interrupted = new Promise(resolve => {
+    controller.signal.addEventListener('abort', () => resolve({ ready: false, state: 'unavailable' }), { once: true });
+    timeout = setTimeout(abort, AI_SERVICE_STATUS_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([interrupted, (async () => {
+      try {
+        const response = await fetchImpl(endpoint, { method: 'GET', credentials: 'omit', cache: 'no-store',
+          redirect: 'error', referrerPolicy: 'no-referrer', signal: controller.signal });
+        if (!response?.ok) return { ready: false, state: response?.status === 404 ? 'unconfigured' : 'unavailable' };
+        const result = await response.json();
+        return result?.ready === true ? { ready: true, state: 'ready' }
+          : { ready: false, state: result?.ready === false ? 'unconfigured' : 'unavailable' };
+      } catch { return { ready: false, state: 'unavailable' }; }
+    })()]);
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', abort);
+  }
+}
+
 /** Answer or generate a validated plan. Never applies changes, logs or stores credentials. */
-export async function requestEditPlan({ apiKey, instruction, context, history = [], images = [], signal, fetchImpl = globalThis.fetch } = {}) {
-  if (!isText(apiKey, 512) || /\s/.test(apiKey.trim()) || !isText(instruction, 4000)
+export async function requestEditPlan({ mode = 'direct', apiKey, proxyUrl = AI_PROXY_URL, instruction, context, history = [], images = [], signal, fetchImpl = globalThis.fetch } = {}) {
+  const direct = mode === 'direct';
+  if (!['shared', 'direct'].includes(mode) || (direct && (!isText(apiKey, 512) || /\s/.test(apiKey.trim()))) || !isText(instruction, 4000)
     || typeof fetchImpl !== 'function'
     || (signal && (typeof signal.addEventListener !== 'function' || typeof signal.removeEventListener !== 'function'))) {
     fail('INVALID_INPUT');
@@ -241,7 +295,9 @@ export async function requestEditPlan({ apiKey, instruction, context, history = 
   const attachments = imageAttachments(images);
   const question = { instruction: instruction.trim(), context: contract,
     ...(attachments.length ? { imageLabels: attachments.map(image => image.label) } : {}) };
-  if (includesCredential(question, apiKey.trim()) || includesCredential(conversation, apiKey.trim())) fail('INVALID_INPUT');
+  const credential = typeof apiKey === 'string' ? apiKey.trim() : '';
+  if (credential && (includesCredential(question, credential) || includesCredential(conversation, credential))) fail('INVALID_INPUT');
+  const endpoint = direct ? DEEPSEEK_ENDPOINT : resolveAiProxyEndpoints(proxyUrl).chat;
   const userContent = attachments.length ? [
     { type: 'text', text: JSON.stringify(question) },
     ...attachments.map(image => ({ type: 'image_url', image_url: { url: image.dataUrl, detail: 'high' } }))
@@ -266,10 +322,10 @@ export async function requestEditPlan({ apiKey, instruction, context, history = 
 
   const request = async () => {
     if (signal?.aborted) { interrupt('ABORTED'); throw interruption; }
-    const response = await fetchImpl(DEEPSEEK_ENDPOINT, {
+    const response = await fetchImpl(endpoint, {
       method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error',
       referrerPolicy: 'no-referrer', signal: controller.signal,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey.trim()}` },
+      headers: { 'Content-Type': 'application/json', ...(direct ? { Authorization: `Bearer ${credential}` } : {}) },
       body: JSON.stringify({
         model: DEEPSEEK_MODEL, stream: false, thinking: { type: 'disabled' },
         response_format: { type: 'json_object' }, max_tokens: 4096,
@@ -280,7 +336,10 @@ export async function requestEditPlan({ apiKey, instruction, context, history = 
         ]
       })
     });
-    if (!response?.ok) throw httpError(response?.status);
+    if (!response?.ok) {
+      if (!direct && [401, 402, 503].includes(response?.status)) fail('SHARED_UNAVAILABLE');
+      throw httpError(response?.status);
+    }
     let envelope;
     try { envelope = await response.json(); } catch { fail('INVALID_RESPONSE'); }
     const choice = envelope?.choices?.[0];

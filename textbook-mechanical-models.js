@@ -49,6 +49,7 @@ function faceGeometry(result, transform) {
   } else geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
+  geometry.userData.faceGroups = (faces.faceGroups || []).map(group => ({ ...group }));
   // Use the BRep's HLR classification below. Mesh triangle edges and cylinder
   // seams must never be guessed into this model's engineering projections.
   geometry.userData.projectionAnalyticOnly = true;
@@ -60,9 +61,12 @@ export function textbookProjectionSegments(pathData, view, transform = { scene: 
   // These paths come only from our local OpenCascade worker, never user SVG.
   const svg = `<svg xmlns="http://www.w3.org/2000/svg">${pathData.map(path => `<path d="${path}"/>`).join('')}</svg>`;
   const paths = new SVGLoader().parse(svg).paths;
+  // SVGLoader retains SVG's Y coordinates. OpenCascade's `bottom` camera
+  // already emits plan SVG Y = -kernel Y, which is positive scene Z; do not
+  // mirror it a second time (symmetric bodies previously hid this mistake).
   const toScene = point => transform.scene(view === 'front'
     ? [point.x, -point.y, 0]
-    : view === 'side' ? [0, -point.y, point.x] : [point.x, 0, -point.y]);
+    : view === 'side' ? [0, -point.y, point.x] : [point.x, 0, point.y]);
   const positions = [], seenSegments = new Set(), ellipses = new Map();
   const tau = Math.PI * 2, epsilon = 1e-7;
   const wrapped = angle => ((angle % tau) + tau) % tau;

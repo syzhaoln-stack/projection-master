@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import * as THREE from 'three';
 import { BRIDGE_MODELS } from '../bridge-models.js';
 import { DETAILED_BRIDGE_MODELS } from '../detailed-bridges.js';
+import { createDrawingStyle } from '../drawing-style.js';
 
 const SOURCE = await readFile(new URL('../projection-master.js', import.meta.url), 'utf8');
 
@@ -101,7 +102,7 @@ function harness() {
     updateViewMatchFeedback() {}, setStatus() {},
     mountRenderer() { counters.mounts++; },
     scheduleTiledProjectionRefresh() { counters.refreshes++; },
-    compoundController: null,
+    compoundController: null, galleryInspectionHost: null, advanceGalleryProjectionTurn() {},
     // If automatic fitting is accidentally reintroduced, execute a disruptive
     // fit rather than masking it. Camera preservation must then fail.
     fitModelCamera() {
@@ -338,25 +339,45 @@ function approximatelyEqualVector(actual, expected, message) {
     `${message}: got ${actual.toArray()}, expected ${expected}`);
 }
 
-test('all current bridge definitions and unannotated selected parts produce no guessed center line', () => {
+test('selection retains only the complete drawing’s explicit axes and never guesses missing axes', () => {
   const h = geometryHarness();
+  const pad = createDrawingStyle({ drawingUnitsPerPaperMm: 12 / 160 }).centerExtension;
+  assert.ok(Math.abs(pad - 0.225) < 1e-12, 'three paper millimetres are converted to drawing coordinates before this function');
   assert.ok(Object.keys(h.context.MODELS).length >= 23);
   for (const modelId of Object.keys(h.context.MODELS)) {
     h.state.currentModel = modelId;
-    assert.equal(h.context.computeCenterLines(h.bounds).length, 0, modelId);
+    assert.equal(h.context.computeCenterLines(pad).length, 0, modelId);
   }
   h.state.currentModel = 'imported';
-  assert.equal(h.context.computeCenterLines(h.bounds).length, 0);
+  assert.equal(h.context.computeCenterLines(pad).length, 0);
+  const selected = new THREE.Object3D();
+  selected.userData.centerAxes = [{ from: [100, 100, 100], to: [100, 200, 100] }];
+  selected.position.set(20, 3, -8);
+  h.context.selectedComponent = selected;
+  assert.equal(h.context.computeCenterLines(pad).length, 0,
+    'selected-part metadata does not invent overall drawing axes for an unannotated imported model');
   h.context.MODELS.fixture = { centerAxes: [{ from: [0, 0, 0], to: [0, 2, 0] }] };
   h.state.currentModel = 'fixture';
-  h.context.selectedComponent = new THREE.Object3D();
-  h.context.selectedComponent.position.set(20, 3, -8);
-  assert.equal(h.context.computeCenterLines(h.bounds).length, 0,
-    'a selected part without feature metadata must not inherit the assembly axis');
+  for (const component of [null, new THREE.Object3D(), selected]) {
+    h.context.selectedComponent = component;
+    const segments = h.context.computeCenterLines(pad);
+    assert.equal(segments.length, 1, 'a highlight must not replace or suppress complete drawing axes');
+    approximatelyEqualVector(segments[0][0], [0, -0.225, 0], 'whole drawing first endpoint');
+    approximatelyEqualVector(segments[0][1], [0, 2.225, 0], 'whole drawing second endpoint');
+  }
 });
 
-test('explicit selected-part axes follow both component and parent translation, rotation and scale', () => {
+test('complete drawing axes follow geometry variation while paper extensions ignore selected-part transforms', () => {
   const h = geometryHarness();
+  const pad = createDrawingStyle({ drawingUnitsPerPaperMm: 12 / 160 }).centerExtension;
+  const axes = [
+    { from: [1, 2, -3], to: [4, 6, 1] },
+    { from: [-2, 1, 4], to: [-2, 5, 4] }
+  ];
+  const sourceAxes = structuredClone(axes);
+  h.context.MODELS.fixture = { centerAxes: axes };
+  h.state.currentModel = 'fixture';
+  h.state.geometryVariationFactors = [2, 0.5, 1.5];
   const parent = new THREE.Group();
   parent.position.set(10, 4, -3);
   parent.rotation.z = Math.PI / 2;
@@ -367,13 +388,19 @@ test('explicit selected-part axes follow both component and parent translation, 
   part.scale.set(2, 1, 1);
   part.userData.centerAxes = [{ from: [-1, 0, 0], to: [1, 0, 0] }];
   parent.add(part);
-  h.context.selectedComponent = part;
-  const segments = h.context.computeCenterLines(h.bounds);
-  assert.equal(segments.length, 1);
-  // The transformed feature runs from (13,8,2) to (1,8,2), with 0.48
-  // world-unit extensions from the six-unit bounding extent.
-  approximatelyEqualVector(segments[0][0], [13.48, 8, 2], 'transformed first endpoint');
-  approximatelyEqualVector(segments[0][1], [0.52, 8, 2], 'transformed second endpoint');
+  const direction = [3, 1, 3].map(value => value / Math.sqrt(19));
+  for (const component of [null, part, new THREE.Object3D()]) {
+    h.context.selectedComponent = component;
+    const segments = h.context.computeCenterLines(pad);
+    assert.equal(segments.length, 2);
+    approximatelyEqualVector(segments[0][0], [2, 1, -4.5].map((value, index) => value - direction[index] * pad), 'scaled first endpoint');
+    approximatelyEqualVector(segments[0][1], [8, 3, 1.5].map((value, index) => value + direction[index] * pad), 'scaled second endpoint');
+    approximatelyEqualVector(segments[1][0], [-4, 0.275, 6], 'vertical axis lower endpoint');
+    approximatelyEqualVector(segments[1][1], [-4, 2.725, 6], 'vertical axis upper endpoint');
+    assert.ok(Math.abs(segments[0][0].distanceTo(new THREE.Vector3(2, 1, -4.5)) - pad) < 1e-10,
+      'nonuniform model scaling must not stretch the paper-space extension');
+  }
+  assert.deepEqual(axes, sourceAxes, 'drawing and highlight generation must not mutate source feature coordinates');
 });
 
 test('bridge axis arrows use engineering X longitudinal, Y transverse and Z up after mapping', () => {

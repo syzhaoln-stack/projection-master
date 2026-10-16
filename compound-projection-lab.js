@@ -4,7 +4,9 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { mergeVertices, toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { syncFaces, syncLines } from 'replicad-threejs-helper';
+import { createFaceSelection, disposeFaceSelection, isVisibleModelMesh } from './projection-selection.js';
 import { auditLessonWithExactKernel } from './replicad-kernel-client.js?v=8.3.0';
+import { createDrawingStyle, centerlineSvgPath, DRAWING_PAPER_STYLE } from './drawing-style.js';
 import {
   COMPOUND_LESSONS,
   clampStageIndex,
@@ -63,6 +65,8 @@ export function createCompoundProjectionLab({
   refreshProjections,
   projectionImageProvider,
   projectionPointProvider,
+  selectionProjectionProvider,
+  auditKernel = auditLessonWithExactKernel,
   setProjectionHidden,
   clearFocus,
   setStatus
@@ -131,6 +135,11 @@ export function createCompoundProjectionLab({
   let drag = null;
   let pointPickDown = null;
   let pointMarker = null;
+  let facePickDown = null;
+  let faceSelection = null;
+  let faceSelectionOverlay = null;
+  const selectionImages = new Map();
+  const selectionProjectionCache = new Map();
   let exactKernelAudit = { status: 'idle', stage: '', key: '', result: null, error: '' };
   let exactKernelTimer = 0;
   let exactKernelRequestToken = 0;
@@ -1154,7 +1163,7 @@ export function createCompoundProjectionLab({
         object.material.needsUpdate = true;
         return;
       }
-      if (!object.isMesh || object.userData?.pickedPointMarker) return;
+      if (!object.isMesh || object.userData?.pickedPointMarker || object.userData?.projectionSelectionOverlay) return;
       object.castShadow = Boolean(display.shadows);
       object.receiveShadow = Boolean(display.shadows);
       if (object.userData?.booleanTool) return;
@@ -1254,6 +1263,102 @@ export function createCompoundProjectionLab({
     if (options.render !== false) renderObservationTools();
   }
 
+  function selectionImage(view) {
+    if (selectionImages.has(view)) return selectionImages.get(view);
+    const baseImage = doc?.querySelector(`[data-compound-image="${view}"]`);
+    if (!baseImage?.parentElement) return null;
+    const image = doc.createElement('img');
+    image.dataset.compoundSelection = view;
+    image.alt = '';
+    image.setAttribute('aria-hidden', 'true');
+    image.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:transparent;pointer-events:none;z-index:2;display:none';
+    baseImage.parentElement.append(image);
+    selectionImages.set(view, image);
+    return image;
+  }
+
+  function syncSelectionImages() {
+    const projections = exactKernelResultReady() ? exactKernelAudit.result?.projections : null;
+    for (const view of ['front', 'side', 'top']) {
+      const image = faceSelection ? selectionImage(view) : selectionImages.get(view);
+      if (!image) continue;
+      const frame = projections?.[view]?.frame;
+      if (!faceSelection || !frame || !selectionProjectionProvider) {
+        image.hidden = true;
+        image.style.display = 'none';
+        continue;
+      }
+      const cacheKey = `${view}:${frame.join(',')}:${state.display.showHidden !== false}:${state.display.boldEdges}`;
+      let src = selectionProjectionCache.get(cacheKey);
+      if (!src) {
+        src = selectionProjectionProvider({ view, frame, selection: faceSelection,
+          modelRoot: latestModelRoot, exact: true, showHidden: state.display.showHidden !== false, boldEdges: state.display.boldEdges });
+        if (src) selectionProjectionCache.set(cacheKey, src);
+      }
+      if (src && image.getAttribute('src') !== src) image.src = src;
+      image.hidden = !src;
+      image.style.display = src ? 'block' : 'none';
+    }
+  }
+
+  function clearFaceSelection({ render = true, announce = false } = {}) {
+    if (faceSelectionOverlay) {
+      faceSelectionOverlay.parent?.remove(faceSelectionOverlay);
+      faceSelectionOverlay.material.dispose();
+      faceSelectionOverlay = null;
+    }
+    disposeFaceSelection(faceSelection);
+    faceSelection = null;
+    selectionProjectionCache.clear();
+    syncSelectionImages();
+    if (render) renderObservationTools();
+    if (announce) setStatus?.('已取消面高亮，整体三视图与观察角度保持不变。');
+  }
+
+  function selectFace(object, faceIndex) {
+    const selection = createFaceSelection(object, faceIndex);
+    if (!selection) return false;
+    if (faceSelection?.object === object && faceSelection.faceId === selection.faceId) {
+      disposeFaceSelection(selection);
+      clearFaceSelection({ announce: true });
+      return true;
+    }
+    clearFaceSelection({ render: false });
+    faceSelection = selection;
+    faceSelectionOverlay = new THREE.Mesh(selection.geometry, new THREE.MeshBasicMaterial({
+      color: 0xe78a17, transparent: true, opacity: 0.34, depthTest: true, depthWrite: false,
+      side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
+    }));
+    faceSelectionOverlay.name = 'compound_selected_brep_face';
+    faceSelectionOverlay.userData = { projectionSelectionOverlay: true, excludeFromProjection: true };
+    faceSelectionOverlay.renderOrder = 20;
+    faceSelectionOverlay.raycast = () => {};
+    object.add(faceSelectionOverlay);
+    syncSelectionImages();
+    renderObservationTools();
+    setStatus?.(`已选中实体的一个面：三视图同步高亮，${state.display.showHidden !== false ? '被遮挡轮廓以虚线标出' : '隐藏线已关闭，仅强调可见部分'}；再次点击此面或空白处可取消。`);
+    return true;
+  }
+
+  function startFacePick(event) {
+    facePickDown = null;
+    if (!active || event.button !== 0 || drag || state.pointPickEnabled || !exactKernelResultReady()) return;
+    facePickDown = { x: event.clientX, y: event.clientY, pointerId: event.pointerId, time: performance.now() };
+  }
+
+  function endFacePick(event) {
+    const start = facePickDown;
+    facePickDown = null;
+    if (!start || event.pointerId !== start.pointerId || !active || drag || state.pointPickEnabled) return;
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6 || performance.now() - start.time > 500) return;
+    pointerRay(event);
+    latestModelRoot?.updateMatrixWorld(true);
+    const hit = raycaster.intersectObjects(latestModelRoot?.children || [], true)
+      .find(candidate => isVisibleModelMesh(candidate.object));
+    if (hit) selectFace(hit.object, hit.faceIndex);
+    else if (faceSelection) clearFaceSelection({ announce: true });
+  }
+
   function renderObservationTools() {
     if (!dom.observationCard || !dom.observationTools) return;
     const enabled = displayToolsActive();
@@ -1283,6 +1388,11 @@ export function createCompoundProjectionLab({
         <button type="button" class="compound-display-switch" data-display-action="bold-edges" aria-pressed="${display.boldEdges}">工程粗边<span>${display.boldEdges ? '强化特征边' : '标准边线'}</span></button>
         <button type="button" class="compound-display-switch" data-display-action="transparent" aria-pressed="${display.transparent}">透明实体<span>${display.transparent ? '仅保留真实特征边' : '实体显示'}</span></button>
         <button type="button" class="compound-display-switch" data-display-action="hidden-lines" aria-pressed="${display.showHidden}">三视图虚线<span>${display.showHidden ? '显示遮挡边' : '仅显示可见边'}</span></button>
+      </div>
+      <div class="compound-point-picker compound-face-selection">
+        <div><strong>实体面与三视图联动</strong><span>${faceSelection ? '已选中一个面' : '点击实体表面'}</span></div>
+        <p class="compound-point-empty">精确实体就绪后，点击一个面可同步查看它在三视图中的位置；整体轮廓与观察角度保持不变。</p>
+        <div class="compound-point-actions"><button type="button" data-selection-action="clear" ${faceSelection ? '' : 'disabled'}>取消面高亮</button></div>
       </div>
       ${pointPickingActive() ? `<div class="compound-point-picker">
         <div><strong>空间点 P 联动</strong><span>点选蓝色结果体</span></div>
@@ -1415,7 +1525,7 @@ export function createCompoundProjectionLab({
     renderObservationTools();
     syncKernelStatus();
     try {
-      const result = await auditLessonWithExactKernel({
+      const result = await auditKernel({
         ...exactKernelPayload(),
         onProgress: stage => {
           if (requestToken !== exactKernelRequestToken) return;
@@ -1462,6 +1572,7 @@ export function createCompoundProjectionLab({
   }
 
   function disposeExactKernelVisual(root = latestModelRoot) {
+    clearFaceSelection({ render: false });
     if (!root) return;
     const exact = root.children.find(child => child.userData?.exactKernel);
     if (exact) {
@@ -1525,6 +1636,7 @@ export function createCompoundProjectionLab({
   }
 
   function buildCurrentModel() {
+    clearFaceSelection({ render: false });
     const builder = builders[lesson.modelKey] || buildExample51;
     latestModelRoot = builder(state.parameters);
     applyVisibility(latestModelRoot);
@@ -1542,28 +1654,38 @@ export function createCompoundProjectionLab({
       const exactProjection = exactProjections?.[view] || null;
       const src = exactProjection ? kernelProjectionDataUrl(exactProjection) : projectionImageProvider(view);
       if (image && src) {
-        image.src = src;
+        if (image.getAttribute('src') !== src) image.src = src;
         image.dataset.projectionSource = exactProjection ? 'exact-brep' : 'interactive-preview';
       }
     });
     syncAlignedProjectionLayout(exactProjections);
     syncKernelStatus();
     syncMobileProjectionView();
+    syncSelectionImages();
     requestAnimationFrame(syncProjectionPointMarkers);
   }
 
   function kernelProjectionDataUrl(item) {
+    const frame = item.viewBox.trim().split(/\s+/).map(Number);
+    const drawing = createDrawingStyle({
+      boldEdges: state.display.boldEdges,
+      pixelsPerPaperMm: DRAWING_PAPER_STYLE.previewWidthPx / DRAWING_PAPER_STYLE.previewPaperSpanMm,
+      drawingUnitsPerPaperMm: Math.max(frame[2], frame[3]) / DRAWING_PAPER_STYLE.previewPaperSpanMm
+    });
+    const [longDash, gap, dot] = drawing.centerDash;
     const hidden = state.display.showHidden
       ? item.hiddenPathData.map(path => `<path d="${path}" vector-effect="non-scaling-stroke"/>`).join('')
       : '';
     const visible = item.visiblePathData.map(path => `<path d="${path}" vector-effect="non-scaling-stroke"/>`).join('');
     const centerlines = (item.centerlinePathData || [])
-      .map(path => `<path d="${path}" vector-effect="non-scaling-stroke"/>`)
+      .map(path => {
+        const strokes = centerlineSvgPath(path, { longDash, gap, dot });
+        return strokes === null
+          ? `<path d="${path}" vector-effect="non-scaling-stroke" stroke-dasharray="${drawing.centerDashPixels.join(' ')}"/>`
+          : `<path d="${strokes}" vector-effect="non-scaling-stroke"/>`;
+      })
       .join('');
-    const visibleWidth = state.display.boldEdges ? 1.45 : 0.95;
-    const hiddenWidth = state.display.boldEdges ? 0.82 : 0.62;
-    const centerWidth = state.display.boldEdges ? 0.72 : 0.58;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${item.viewBox}" preserveAspectRatio="xMidYMid meet"><rect width="100%" height="100%" fill="#fff"/><g fill="none" stroke="#83929d" stroke-width="${hiddenWidth}" stroke-dasharray="5 3.5">${hidden}</g><g fill="none" stroke="#667b89" stroke-width="${centerWidth}" stroke-dasharray="8 2.5 1.2 2.5">${centerlines}</g><g fill="none" stroke="#20384a" stroke-width="${visibleWidth}" stroke-linecap="round" stroke-linejoin="round">${visible}</g></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${item.viewBox}" preserveAspectRatio="xMidYMid meet" data-drawing-style="mechanical"><rect width="100%" height="100%" fill="#fff"/><g fill="none" stroke="${drawing.color}" stroke-width="${drawing.hiddenWidth}" stroke-dasharray="${drawing.hiddenDashPixels.join(' ')}">${hidden}</g><g fill="none" stroke="${drawing.color}" stroke-width="${drawing.centerWidth}">${centerlines}</g><g fill="none" stroke="${drawing.color}" stroke-width="${drawing.visibleWidth}" stroke-linecap="butt" stroke-linejoin="miter">${visible}</g></svg>`;
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 
@@ -2138,6 +2260,7 @@ export function createCompoundProjectionLab({
 
   function leave(options = {}) {
     if (!active) return controller;
+    clearFaceSelection({ render: false });
     endCutterDrag();
     clearPickedPoint({ render: false });
     if (options.restoreCamera !== false) restoreCamera();
@@ -2387,6 +2510,7 @@ export function createCompoundProjectionLab({
       renderObservationTools();
       return;
     }
+    if (event.target.closest?.('[data-selection-action="clear"]')) return clearFaceSelection({ announce: true });
     const pointAction = event.target.closest?.('[data-point-action]')?.dataset.pointAction;
     if (pointAction === 'toggle' && pointPickingActive()) {
       state.pointPickEnabled = !state.pointPickEnabled;
@@ -2488,11 +2612,13 @@ export function createCompoundProjectionLab({
     }, eventOptions);
     rendererElement?.addEventListener('pointerdown', startCutterDrag, eventOptions);
     rendererElement?.addEventListener('pointerdown', startPointPick, eventOptions);
+    rendererElement?.addEventListener('pointerdown', startFacePick, eventOptions);
     rendererElement?.addEventListener('pointermove', moveCutterDrag, eventOptions);
     rendererElement?.addEventListener('pointerup', endCutterDrag, eventOptions);
     rendererElement?.addEventListener('pointerup', endPointPick, eventOptions);
+    rendererElement?.addEventListener('pointerup', endFacePick, eventOptions);
     rendererElement?.addEventListener('pointercancel', endCutterDrag, eventOptions);
-    rendererElement?.addEventListener('pointercancel', () => { pointPickDown = null; }, eventOptions);
+    rendererElement?.addEventListener('pointercancel', () => { pointPickDown = null; facePickDown = null; }, eventOptions);
     doc?.querySelectorAll('[data-compound-image]').forEach(image => {
       image.addEventListener('load', syncProjectionPointMarkers, eventOptions);
     });
@@ -2500,6 +2626,9 @@ export function createCompoundProjectionLab({
   }
 
   function dispose() {
+    clearFaceSelection({ render: false });
+    selectionImages.forEach(image => image.remove());
+    selectionImages.clear();
     if (rebuildFrame) cancelAnimationFrame(rebuildFrame);
     eventController?.abort();
     leave();
@@ -2722,6 +2851,7 @@ export function createCompoundProjectionLab({
     selectLesson,
     selectStage,
     selectCutter,
+    clearFaceSelection,
     syncProjectionImages,
     scrollActiveLessonIntoView,
     update,

@@ -8,7 +8,7 @@ const source = await readFile(new URL('../ai-model-assistant.js', import.meta.ur
 // Execute the production drawer and its real validator. Only browser surfaces,
 // timers and the network boundary are substituted; no browser/API is contacted.
 const loadAssistant = new Function('document', 'window', 'setInterval', 'clearInterval',
-  'AIEditError', 'DEEPSEEK_MODEL_LABEL', 'requestEditPlan', 'validateEditPlan', 'FileReader', 'localStorage', 'sessionStorage', 'console',
+  'AIEditError', 'DEEPSEEK_MODEL_LABEL', 'requestEditPlan', 'requestAiServiceStatus', 'validateEditPlan', 'FileReader', 'localStorage', 'sessionStorage', 'console',
   `${source.replace(/^import .*;\r?$/gm, '').replace('export function ', 'function ')}\nreturn createAiModelAssistant;`);
 
 function fakeDom() {
@@ -86,7 +86,8 @@ function fakeDom() {
   const create = loadAssistant(document, window,
     callback => { const id = ++timerId; intervals.set(id, callback); return id; },
     id => intervals.delete(id), AIEditError, DEEPSEEK_MODEL_LABEL,
-    () => { throw new Error('Real API calls are forbidden in this test'); }, validateEditPlan,
+    () => { throw new Error('Real API calls are forbidden in this test'); },
+    () => { throw new Error('Real health requests are forbidden in this test'); }, validateEditPlan,
     FileReader, storage, storage, new Proxy({}, { get: () => (...args) => logs.push(args) }));
   return { document, window, create, htmlWrites, storageCalls, logs, intervals, readers };
 }
@@ -112,16 +113,23 @@ function fixture(options = {}) {
     })) };
     return { restore() { restoreCount++; context = previous; } };
   });
-  const assistant = dom.create({ getContext: () => context, applyPlan, requestPlan, captureImages: options.captureImages || null });
+  const serviceRequests = [];
+  const checkService = args => {
+    serviceRequests.push(args);
+    return options.checkService ? options.checkService(args) : Promise.resolve({ ready: true, state: 'ready' });
+  };
+  const assistant = dom.create({ getContext: () => context, applyPlan, requestPlan, checkService, captureImages: options.captureImages || null });
   const panel = dom.document.getElementById('ai-edit-panel');
   const get = name => panel.querySelector(`[data-ai="${name}"]`);
   const key = panel.querySelector('#ai-edit-key');
   const instruction = panel.querySelector('#ai-edit-instruction');
   const launcher = dom.document.getElementById('ai-edit-launcher');
-  return { ...dom, assistant, panel, get, key, instruction, launcher, requests,
+  const useOwnKey = () => { if (get('use-shared-service').checked) { get('use-shared-service').checked = false; return get('use-shared-service').dispatch('change'); } };
+  const useShared = () => { get('use-shared-service').checked = true; return get('use-shared-service').dispatch('change'); };
+  return { ...dom, assistant, panel, get, key, instruction, launcher, requests, serviceRequests, useOwnKey, useShared,
     get context() { return context; }, set context(value) { context = value; },
     get applyCount() { return applyCount; }, get restoreCount() { return restoreCount; },
-    start(question = '宽度改为 4') { key.value = 'test-memory-only-key'; instruction.value = question; return get('generate').click(); },
+    start(question = '宽度改为 4') { useOwnKey(); key.value = 'test-memory-only-key'; instruction.value = question; return get('generate').click(); },
     field() { return get('parameters').querySelector('input'); }
   };
 }
@@ -144,11 +152,11 @@ test('无模型时禁用助手；有模型无参数时仍能问答，修改控�
 });
 
 test('缺少密钥或修改要求时不请求服务', async () => {
-  const h = fixture(); h.instruction.value = '宽度改为 4';
+  const h = fixture(); h.useOwnKey(); h.instruction.value = '宽度改为 4';
   await h.get('generate').click();
   assert.equal(h.requests.length, 0);
   assert.equal(h.document.activeElement, h.key);
-  assert.equal(h.get('connection').open, true);
+  assert.equal(h.get('own-key-fields').hidden, false);
   h.key.value = 'test-memory-only-key'; h.instruction.value = '  ';
   await h.get('generate').click();
   assert.equal(h.requests.length, 0);
@@ -517,8 +525,105 @@ test('上传等待期间关闭或切模型，FileReader 迟到结果不能附到
     else await h.get('close').click();
     h.readers[0].finish(); await task;
     assert.equal(h.get('images').children.length, 0); assert.equal(h.requests.length, 0);
-    assert.equal(h.get('generate').disabled, false);
+    assert.equal(h.get('generate').disabled, false, 'returning to personal mode does not require shared-service readiness');
   }
+});
+
+test('默认个人模式密钥为空且直接可填，打开面板不探测共享服务、不显示未启用警告', async () => {
+  const h = fixture({ checkService: async () => { throw new Error('default mode must not check shared service'); } });
+  assert.equal(h.get('use-shared-service').checked, false);
+  assert.equal(h.get('own-key-fields').hidden, false); assert.equal(h.get('service').hidden, true);
+  assert.equal(h.key.value, ''); assert.equal(h.key.disabled, false);
+  assert.equal(h.key.getAttribute('value'), null); assert.equal(h.key.getAttribute('autocomplete'), 'off');
+  await h.launcher.click();
+  assert.equal(h.document.activeElement, h.key); assert.deepEqual(h.serviceRequests, []);
+  assert.equal(h.get('service-status').textContent, ''); assert.equal(h.get('service-note').textContent, '');
+  h.instruction.value = '解释模型'; await h.get('generate').click();
+  assert.equal(h.requests.length, 0); assert.match(h.get('status').textContent, /请输入|请先输入/);
+  const task = h.start('解释模型'); assert.equal(h.requests[0].args.mode, 'direct'); respond(h, 0); await task;
+  await h.window.dispatch('pagehide'); assert.equal(h.key.value, ''); assert.equal(h.get('use-shared-service').checked, false);
+  assert.deepEqual(h.storageCalls, []); assert.deepEqual(h.logs, []);
+});
+
+test('主动选择共享模式并确认服务后无需密钥即可发送，仍保留图片、对话和参数核对', async () => {
+  const h = fixture({ captureImages: async () => [image('当前模型')] });
+  assert.equal(h.get('generate').disabled, false, 'default personal mode can ask the user for a missing key');
+  assert.equal(h.get('own-key-fields').hidden, false);
+  assert.equal(h.key.value, '');
+  await h.useShared();
+  assert.match(h.get('service-status').textContent, /已启用/);
+  assert.equal(h.get('generate').disabled, false);
+  h.instruction.value = '把宽度改成4';
+  const first = h.get('generate').click(); await flush();
+  assert.equal(h.requests[0].args.mode, 'shared');
+  assert.equal(Object.hasOwn(h.requests[0].args, 'apiKey'), false);
+  assert.deepEqual(h.requests[0].args.images, [image('当前模型')]);
+  respond(h, 0, '建议修改宽度', [{ key: 'width', value: 4 }]); await first;
+  assert.equal(h.applyCount, 0);
+  assert.equal(h.get('apply').disabled, false);
+  h.instruction.value = '还会影响哪张图？';
+  const next = h.get('generate').click(); await flush();
+  assert.equal(h.requests[1].args.history.length, 2);
+  assert.equal(h.requests[1].args.mode, 'shared');
+  respond(h, 1); await next;
+  assert.equal(h.key.value, '');
+  assert.deepEqual(h.storageCalls, []);
+});
+
+test('共享服务未配置时明确显示状态并阻止按钮和快捷键请求，但手动调整仍可使用', async () => {
+  const h = fixture({ checkService: async () => ({ ready: false, state: 'unconfigured' }) });
+  await h.useShared();
+  assert.match(h.get('service-status').textContent, /尚未启用/);
+  assert.equal(h.get('generate').disabled, true);
+  assert.equal(h.get('connection').open, undefined, 'advanced credentials must not open automatically');
+  h.instruction.value = '解释模型';
+  await h.get('generate').click();
+  await h.panel.dispatch('keydown', { key: 'Enter', ctrlKey: true, stopPropagation() {}, preventDefault() {} });
+  assert.equal(h.requests.length, 0);
+  assert.match(h.get('status').textContent, /尚未启用|无法连接/);
+  h.field().value = '4'; await h.get('manual-preview').click();
+  assert.equal(h.get('apply').disabled, false);
+  h.useOwnKey();
+  assert.equal(h.get('own-key-fields').hidden, false);
+  assert.equal(h.get('generate').disabled, false, 'explicit direct mode remains available independently');
+});
+
+test('共享健康状态只接受ready=true；重新检查可恢复，检查本身不发对话', async () => {
+  let ready = false;
+  const h = fixture({ checkService: async () => ready ? { ready: true } : { ready: 'true', state: 'ready' } });
+  await h.useShared();
+  assert.equal(h.get('generate').disabled, true);
+  assert.doesNotMatch(h.get('service-status').textContent, /已启用/);
+  ready = true; await h.get('retry-service').click();
+  assert.equal(h.get('generate').disabled, false);
+  assert.equal(h.requests.length, 0);
+  assert.equal(h.serviceRequests.length, 2);
+});
+
+test('切换共享模式取消自带密钥请求，后续共享请求不携带保留在输入框中的密钥', async () => {
+  const h = fixture(); const direct = h.start();
+  await h.useShared();
+  assert.equal(h.requests[0].args.signal.aborted, true);
+  respond(h, 0); await direct;
+  assert.equal(h.get('conversation').hidden, true, 'a cancelled answer must not enter conversation history');
+  h.instruction.value = '共享模式问题';
+  const shared = h.get('generate').click();
+  assert.equal(h.requests[1].args.mode, 'shared');
+  assert.equal(Object.hasOwn(h.requests[1].args, 'apiKey'), false);
+  assert.equal(h.key.value, 'test-memory-only-key');
+  respond(h, 1); await shared;
+});
+
+test('离开页面取消健康检查，迟到ready不能将离开的页面标为可用', async () => {
+  let resolveHealth;
+  const h = fixture({ checkService: () => new Promise(resolve => { resolveHealth = resolve; }) });
+  const checking = h.useShared();
+  await h.window.dispatch('pagehide');
+  assert.equal(h.serviceRequests[0].signal.aborted, true);
+  resolveHealth({ ready: true }); await checking;
+  assert.equal(h.get('generate').disabled, false, 'pagehide resets to personal mode with an empty key');
+  assert.equal(h.key.value, ''); assert.equal(h.get('service').hidden, true);
+  assert.doesNotMatch(h.get('service-status').textContent, /已启用/);
 });
 
 test('截图、预览和文件读取错误不显示原始异常，也不发送不完整图片', async () => {

@@ -18,6 +18,7 @@ import {
   createPracticeRecord,
   directionAngleDegrees,
   evaluateQuestionAnswer,
+  formatPracticeFeedback,
   getComponentInfo,
   getHotspotHit,
   getQuizOptionState,
@@ -30,6 +31,8 @@ import { createCompoundProjectionLab } from './compound-projection-lab.js?v=8.3.
 import { BRIDGE_MODELS } from './bridge-models.js';
 import { DETAILED_BRIDGE_MODELS } from './detailed-bridges.js';
 import { CURATED_BRIDGE_CATALOG, CURATED_DRAWING_CATALOG } from './model-library-curation.js';
+import { createGalleryEntries, createModelGallery } from './model-gallery.js';
+import { cameraFromGalleryHandoff } from './model-gallery-room.js';
 import { TEXTBOOK_MECHANICAL_MODELS, TEXTBOOK_MECHANICAL_CATALOG } from './textbook-mechanical-models.js';
 import { createViceLab } from './vice-lab.js';
 import { computeTiledProjectionLayout } from './tiled-projection-layout.js';
@@ -37,6 +40,10 @@ import { applyGeometryVariation, geometryVariationVector } from './ai-geometry-v
 import { createAiWorkbenchAdapter } from './ai-workbench-adapter.js';
 import { createAiModelAssistant } from './ai-model-assistant.js';
 import { collectModelFacts } from './ai-model-facts.js';
+import { createDrawingStyle, centerlineSegments } from './drawing-style.js';
+import { createFaceSelection, disposeFaceSelection, isVisibleModelMesh } from './projection-selection.js';
+import { renderSelectionOverlay, renderSelectionDataUrl, createExactSelectionCamera } from './projection-selection-renderer.js';
+import { createProjectionCameraTurn, sampleProjectionCameraTurn, isProjectionDrawingHit } from './gallery-projection-camera.js';
 
 // ===== 基础设置 =====
 const viewport = document.getElementById('viewport');
@@ -120,21 +127,26 @@ const projectionGroup = new THREE.Group();
 const axesGroup = new THREE.Group();
 const projLinesGroup = new THREE.Group();
 const floorGroup = new THREE.Group();
-const focusGroup = new THREE.Group();   // 局部三视图聚焦框标记
+const focusGroup = new THREE.Group();   // 三维选择提示，不参与投影或取景
 scene.add(floorGroup, projectionGroup, modelGroup, axesGroup, projLinesGroup, focusGroup);
 
 let labController = null;
 let compoundController = null;
 const viceController = createViceLab();
 let modelLoadRequest = 0;
+let galleryInspectionHost = null;
+let galleryInspection = null;
+let galleryInspectionRequest = 0;
+let galleryProjectionTurn = null;
 let exploreRestoreState = null;
 const modelVariations = new Map();
 let modelRevision = 0;
 
-// 语义构件选择：真实构件包围盒（null=整体）
-let focusBox = null;
+// 选择层与完整图纸分离；选择不会改变模型范围或投影比例。
 let selectedComponent = null;
 let selectedComponentOriginalMaterial = null;
+let projectionSelection = null;
+let selectedFaceIndex = null;
 const raycaster = new THREE.Raycaster();
 
 const COL = {
@@ -647,7 +659,7 @@ function makeProjectionMaterial(view) {
 function makeSilhouetteMaterial(thickness) {
   return new THREE.ShaderMaterial({
     side: THREE.BackSide,
-    uniforms: { uColor: { value: new THREE.Color(0x24394d) }, uT: { value: thickness } },
+    uniforms: { uColor: { value: new THREE.Color(0x000000) }, uT: { value: thickness } },
     vertexShader: `
       uniform float uT;
       void main(){
@@ -669,23 +681,26 @@ function clearProjScene() {
 }
 
 // 构建离屏线框场景：剪影 + 遮挡体 + 可见实线 + 隐藏虚线 + 中心线
-// 三视图取景边界：局部聚焦时用 focusBox，否则整体
+// 选择构件或面时始终保留完整图纸范围。
 function getProjBounds() {
-  return focusBox ? focusBox.clone() : getModelBounds();
+  return getModelBounds();
 }
 
 function buildProjScene() {
   ensureProjResources();
   clearProjScene();
-  const projectionRoot = selectedComponent || modelGroup;
+  const projectionRoot = modelGroup;
   projectionRoot.updateMatrixWorld(true);
 
   const box = getProjBounds();
   const size = new THREE.Vector3(); box.getSize(size);
   const ext = Math.max(size.x, size.y, size.z) || 1;
-  const dash = ext * 0.02;
   const compoundProjectionStyle = state.mode === 'compound' ? compoundController?.getProjectionStyle?.() : null;
   const boldEdges = Boolean(compoundProjectionStyle?.boldEdges || TEXTBOOK_MECHANICAL_MODELS[state.currentModel]);
+  // 160 mm 是显示纸幅宽度，不代表模型毫米；屏幕线型独立于模型归一化尺寸。
+  const paperSpan = state.mode === 'compound' || state.isTiled ? ext * 1.24 : state.planeSize;
+  const drawingStyle = createDrawingStyle({ boldEdges, pixelsPerPaperMm: PROJ_RES / 160,
+    drawingUnitsPerPaperMm: paperSpan / 160 });
 
   // 收集每个 mesh 的世界空间几何
   const worldGeos = [];
@@ -714,12 +729,13 @@ function buildProjScene() {
   occMat.polygonOffset = true; occMat.polygonOffsetFactor = 1; occMat.polygonOffsetUnits = 1;
   _projDisposables.push(occMat);
   // 剪影（外轮廓）
-  const silMat = makeSilhouetteMaterial(ext * (boldEdges ? 0.0055 : 0.0038));
+  const silMat = makeSilhouetteMaterial(paperSpan / PROJ_RES * drawingStyle.visibleWidth / 2);
+  silMat.userData.projectionContourWidth = drawingStyle.visibleWidth;
   _projDisposables.push(silMat);
   // 可见实线
   const visMat = new LineMaterial({
-    color: 0x20364a,
-    linewidth: boldEdges ? 4.2 : 2.4,
+    color: drawingStyle.color,
+    linewidth: drawingStyle.visibleWidth,
     depthTest: true,
     depthWrite: false,
     alphaToCoverage: true
@@ -728,13 +744,12 @@ function buildProjScene() {
   _projDisposables.push(visMat);
   // 隐藏虚线（仅在被遮挡处绘制）
   const hidMat = new LineMaterial({
-    color: 0x718293,
-    linewidth: boldEdges ? 3 : 2,
+    color: drawingStyle.color,
+    linewidth: drawingStyle.hiddenWidth,
     dashed: true,
-    dashSize: dash * 1.55,
-    gapSize: dash * 1.05,
-    transparent: true,
-    opacity: 0.9,
+    dashSize: drawingStyle.hiddenDash[0],
+    gapSize: drawingStyle.hiddenDash[1],
+    transparent: false,
     depthTest: true,
     depthWrite: false,
     alphaToCoverage: true
@@ -743,8 +758,8 @@ function buildProjScene() {
   hidMat.depthFunc = THREE.GreaterDepth;
   _projDisposables.push(hidMat);
   const analyticVisMat = new LineMaterial({
-    color: 0x20364a,
-    linewidth: boldEdges ? 4.2 : 2.4,
+    color: drawingStyle.color,
+    linewidth: drawingStyle.visibleWidth,
     depthTest: false,
     depthWrite: false,
     alphaToCoverage: true
@@ -752,11 +767,11 @@ function buildProjScene() {
   analyticVisMat.resolution.set(PROJ_RES, PROJ_RES);
   _projDisposables.push(analyticVisMat);
   const analyticHiddenMat = new LineMaterial({
-    color: 0x718293,
-    linewidth: boldEdges ? 3 : 2,
+    color: drawingStyle.color,
+    linewidth: drawingStyle.hiddenWidth,
     dashed: true,
-    dashSize: dash * 1.55,
-    gapSize: dash * 1.05,
+    dashSize: drawingStyle.hiddenDash[0],
+    gapSize: drawingStyle.hiddenDash[1],
     // Keep exact hidden and visible lines in the same render queue: a rear
     // edge coincident with a front outline must not paint dashes over it.
     transparent: false,
@@ -767,14 +782,13 @@ function buildProjScene() {
   });
   analyticHiddenMat.resolution.set(PROJ_RES, PROJ_RES);
   _projDisposables.push(analyticHiddenMat);
-  // 教材中需要特别辨认的隐藏轮廓（例5-5的B3贯穿槽）使用更深、更宽的虚线，
-  // 避免1024px离屏图缩放到卡片尺寸后只剩下不到一个像素。
+  // 教学强调也保留细虚线；对应关系由独立选择层提示。
   const analyticEmphasisHiddenMat = new LineMaterial({
-    color: 0x52687c,
-    linewidth: boldEdges ? 7.2 : 4.4,
+    color: drawingStyle.color,
+    linewidth: drawingStyle.hiddenWidth,
     dashed: true,
-    dashSize: dash * 1.8,
-    gapSize: dash * 0.95,
+    dashSize: drawingStyle.hiddenDash[0],
+    gapSize: drawingStyle.hiddenDash[1],
     transparent: false,
     opacity: 1,
     depthTest: false,
@@ -819,7 +833,7 @@ function buildProjScene() {
       return;
     }
     if (style === 'hidden-emphasis') {
-      if (state.showHidden) makeProjectedSegments(g, analyticEmphasisHiddenMat, 7, true, { views });
+      if (state.showHidden) makeProjectedSegments(g, analyticEmphasisHiddenMat, 5, true, { views });
       return;
     }
     if (style === 'visible') {
@@ -831,51 +845,46 @@ function buildProjScene() {
   });
 
   // 中心线（链式点划线，置顶不消隐）
-  const centerSegs = !state.showCenterLines || compoundProjectionStyle?.suppressCenterLines ? [] : computeCenterLines(box);
+  const centerSegs = !state.showCenterLines || compoundProjectionStyle?.suppressCenterLines ? [] : computeCenterLines(drawingStyle.centerExtension);
   if (centerSegs.length) {
     const cMat = new LineMaterial({
-      color: 0xa86200,
-      linewidth: boldEdges ? 2.6 : 1.8,
-      dashed: true,
-      dashSize: ext * 0.05,
-      gapSize: ext * 0.022,
-      transparent: true,
-      opacity: 0.82,
+      color: drawingStyle.color,
+      linewidth: drawingStyle.centerWidth,
       depthTest: false,
       depthWrite: false,
       alphaToCoverage: true
     });
     cMat.resolution.set(PROJ_RES, PROJ_RES);
     _projDisposables.push(cMat);
-    const positions = [];
-    centerSegs.forEach(([a, b]) => positions.push(a.x, a.y, a.z, b.x, b.y, b.z));
+    const positions = centerlineSegments(centerSegs, {
+      longDash: drawingStyle.centerDash[0], gap: drawingStyle.centerDash[1], dot: drawingStyle.centerDash[2]
+    });
     const cGeo = new LineSegmentsGeometry();
     cGeo.setPositions(positions);
     _projDisposables.push(cGeo);
-    const cLines = new LineSegments2(cGeo, cMat); cLines.renderOrder = 4;
+    const cLines = new LineSegments2(cGeo, cMat); cLines.renderOrder = 1.5;
     cLines.frustumCulled = false;
-    cLines.computeLineDistances();
     projScene.add(cLines);
   }
+  projScene.traverse(object => {
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    materials.forEach(material => {
+      if (material?.isLineMaterial) material.userData.projectionBaseWidth = material.linewidth;
+    });
+  });
 }
 
 // 只使用明确的特征轴。未定义轴的桥梁/导入模型不猜测世界原点处的对称线。
-function computeCenterLines(box) {
+function computeCenterLines(pad) {
   const segs = [];
-  const size = new THREE.Vector3(); box.getSize(size);
-  const pad = Math.max(size.x, size.y, size.z) * 0.08;
 
   const def = MODELS[state.currentModel];
-  const axes = selectedComponent ? selectedComponent.userData?.centerAxes : def?.centerAxes;
+  const axes = def?.centerAxes;
   if (axes && axes.length) {
     axes.forEach(ax => {
       const a = new THREE.Vector3(ax.from[0], ax.from[1], ax.from[2]);
       const b = new THREE.Vector3(ax.to[0], ax.to[1], ax.to[2]);
-      if (selectedComponent) {
-        selectedComponent.updateWorldMatrix(true, false);
-        a.applyMatrix4(selectedComponent.matrixWorld);
-        b.applyMatrix4(selectedComponent.matrixWorld);
-      } else if (state.geometryVariationFactors) {
+      if (state.geometryVariationFactors) {
         const factors = new THREE.Vector3(...state.geometryVariationFactors);
         a.multiply(factors);
         b.multiply(factors);
@@ -902,7 +911,7 @@ function getTiledProjectionLayout(bounds) {
 
 // 三正交相机渲染到 RenderTarget
 // 整体模式：与投影面 1:1（世界坐标 ↔ 平面），三视图与三维模型、彼此严格对齐
-// 局部模式：聚焦放大到 focusBox（细部用，不要求与整体同比例）
+// 选择层使用同一相机、比例与取景，保持长对正、高平齐、宽相等。
 function renderProjViews() {
   ensureProjResources();
   const S = state.planeSize;
@@ -918,7 +927,7 @@ function renderProjViews() {
     : half;
   const dist = Math.max(fullSize.x, fullSize.y, fullSize.z, S) * 2 + 4;  // 仅影响裁剪
 
-  const tiledLayout = state.isTiled ? getTiledProjectionLayout(focusBox || fullBox) : null;
+  const tiledLayout = state.isTiled ? getTiledProjectionLayout(fullBox) : null;
 
   // 平铺卡片采用矩形取景，但三图共用中心与世界/屏幕比例。
   let frames;
@@ -927,15 +936,6 @@ function renderProjViews() {
       ...tiledLayout.frames[view],
       look: new THREE.Vector3(...tiledLayout.center)
     }]));
-  } else if (focusBox && (state.isTiled || state.mode === 'compound')) {
-    const c = new THREE.Vector3(); focusBox.getCenter(c);
-    const sz = new THREE.Vector3(); focusBox.getSize(sz);
-    const h = (Math.max(sz.x, sz.y, sz.z) || 1) * 0.62;
-    frames = {
-      front: { half: h, look: new THREE.Vector3(c.x, c.y, fc.z) },
-      top:   { half: h, look: new THREE.Vector3(c.x, fc.y, c.z) },
-      side:  { half: h, look: new THREE.Vector3(fc.x, c.y, c.z) }
-    };
   } else {
     frames = {
       front: { half: fittedHalf, look: fitProjectionToModel ? fc.clone() : new THREE.Vector3(0, fcY, fc.z) },
@@ -956,6 +956,8 @@ function renderProjViews() {
     const target = projTargets[view];
     const targetWidth = f.renderWidth || PROJ_RES;
     const targetHeight = f.renderHeight || PROJ_RES;
+    const halfWidth = f.halfWidth ?? f.half;
+    const halfHeight = f.halfHeight ?? f.half;
     if (target.width !== targetWidth || target.height !== targetHeight) target.setSize(targetWidth, targetHeight);
     projScene.traverse(object => {
       const projectionViews = object.userData?.projectionViews;
@@ -964,11 +966,15 @@ function renderProjViews() {
       }
       const materials = Array.isArray(object.material) ? object.material : [object.material];
       materials.forEach(material => {
-        if (material?.isLineMaterial) material.resolution.set(targetWidth, targetHeight);
+        if (material?.isLineMaterial) {
+          material.resolution.set(targetWidth, targetHeight);
+          material.linewidth = material.userData.projectionBaseWidth * targetWidth / PROJ_RES;
+        }
+        if (material?.userData.projectionContourWidth) {
+          material.uniforms.uT.value = halfWidth * material.userData.projectionContourWidth / PROJ_RES;
+        }
       });
     });
-    const halfWidth = f.halfWidth ?? f.half;
-    const halfHeight = f.halfHeight ?? f.half;
     cam.left = -halfWidth; cam.right = halfWidth; cam.top = halfHeight; cam.bottom = -halfHeight;
     cam.near = 0.01; cam.far = dist * 2;
     cam.up.copy(cfg.up);
@@ -978,6 +984,10 @@ function renderProjViews() {
 
     renderer.setRenderTarget(target);
     renderer.render(projScene, cam);
+    if (projectionSelection && state.mode !== 'compound') {
+      renderSelectionOverlay({ renderer, camera: cam, target, selection: projectionSelection,
+        modelRoot: modelGroup, showHidden: state.showHidden, boldEdges: Boolean(TEXTBOOK_MECHANICAL_MODELS[state.currentModel]) });
+    }
   });
 
   renderer.setRenderTarget(prevTarget);
@@ -991,14 +1001,20 @@ function drawProjections() {
   if (state.mode === 'compound') compoundController?.syncProjectionImages();
 }
 
-// ===== 语义构件选择：高亮真实构件，并单独生成其三视图 =====
+// ===== 选择独立覆盖层：保留完整实体和完整三视图 =====
 function updateFocusMarker() {
   clearGroup(focusGroup);
-  if (!focusBox) return;
-  const helper = new THREE.Box3Helper(focusBox, new THREE.Color(0xf0b454));
-  if (helper.material) { helper.material.transparent = true; helper.material.opacity = 0.9; helper.material.depthTest = false; }
-  helper.renderOrder = 5;
-  focusGroup.add(helper);
+  if (!projectionSelection?.geometry || selectedFaceIndex === null) return;
+  const material = new THREE.MeshBasicMaterial({ color: 0xf0a020, transparent: true, opacity: 0.48,
+    side: THREE.DoubleSide, depthTest: true, depthWrite: false,
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+  const overlay = new THREE.Mesh(projectionSelection.geometry.clone(), material);
+  overlay.matrixAutoUpdate = false;
+  overlay.matrix.copy(selectedComponent.matrixWorld);
+  overlay.renderOrder = 8;
+  overlay.userData.projectionSelectionOverlay = true;
+  overlay.raycast = () => {};
+  focusGroup.add(overlay);
 }
 
 function cloneHighlightMaterial(material) {
@@ -1022,6 +1038,11 @@ function disposeMaterial(material) {
 }
 
 function restoreComponentHighlight() {
+  if (projectionSelection) {
+    disposeFaceSelection(projectionSelection);
+    projectionSelection = null;
+  }
+  selectedFaceIndex = null;
   if (!selectedComponent || !selectedComponentOriginalMaterial) return;
   const highlightedMaterial = selectedComponent.material;
   selectedComponent.material = selectedComponentOriginalMaterial;
@@ -1046,35 +1067,44 @@ function updateComponentInfo(info) {
   if (role) role.textContent = info.role;
 }
 
-function setFocusComponent(object) {
+function setFocusComponent(object, faceIndex = null) {
   restoreComponentHighlight();
   selectedComponent = object;
-  selectedComponentOriginalMaterial = object.material;
-  object.material = cloneHighlightMaterial(object.material);
-
-  focusBox = new THREE.Box3().setFromObject(object);
-  const size = new THREE.Vector3(); focusBox.getSize(size);
-  const pad = Math.max(Math.max(size.x, size.y, size.z) * 0.08, 0.04);
-  focusBox.expandByScalar(pad);
+  object.updateWorldMatrix(true, false);
+  projectionSelection = Number.isInteger(faceIndex) ? createFaceSelection(object, faceIndex) : null;
+  if (projectionSelection) {
+    selectedFaceIndex = faceIndex;
+  } else {
+    selectedComponentOriginalMaterial = object.material;
+    object.material = cloneHighlightMaterial(object.material);
+    const geometry = object.geometry.clone();
+    projectionSelection = { object, geometry, edgeGeometry: new THREE.EdgesGeometry(geometry, EDGE_THRESHOLD),
+      label: object.userData.label || object.name };
+  }
   updateFocusMarker();
   drawProjections();
 
   const semantic = getComponentInfo(object.name);
-  const info = { ...semantic, label: object.userData.label || object.userData.componentLabel || semantic.label };
+  const info = selectedFaceIndex !== null
+    ? { label: `${object.userData.label || semantic.label} · 选中面`, role: '橙色表示选中面的对应投影；整体轮廓保留，遮挡部分仍为虚线。' }
+    : { ...semantic, label: object.userData.label || object.userData.componentLabel || semantic.label };
   updateComponentInfo(info);
-  setStatus(`已选择${info.label}：${info.role} 三个投影面已切换为该构件的对应视图。`);
+  viewport.dataset.selection = selectedFaceIndex !== null ? 'face' : 'component';
+  viewport.dataset.selectionLabel = info.label;
+  setStatus(`已选择${info.label}：三视图同步高亮，整体位置和比例不变。点击空白处取消。`);
   handleBridgeTaskComponentSelection(object);
 }
 
 function clearFocus(announce) {
-  if (!focusBox && !selectedComponent && !announce) return;
+  if (!selectedComponent && !announce) return;
   restoreComponentHighlight();
   selectedComponent = null;
-  focusBox = null;
+  delete viewport.dataset.selection;
+  delete viewport.dataset.selectionLabel;
   updateFocusMarker();
   updateComponentInfo(null);
   if (modelGroup.children.length) drawProjections();
-  if (announce) setStatus('已恢复整体三视图。提示：点击模型构件，可高亮并查看该构件的三个对应视图。');
+  if (announce) setStatus('已取消高亮。点击构件或实体表面，可查看它在完整三视图中的对应位置。');
 }
 
 function pointToSegmentDistance(px, py, ax, ay, bx, by) {
@@ -1091,7 +1121,7 @@ function findNearbyThinComponent(clientX, clientY, rect) {
   modelGroup.updateMatrixWorld(true);
 
   modelGroup.traverse(object => {
-    if (!object.isMesh || !thinNames.has(object.name)) return;
+    if (!isVisibleModelMesh(object) || !thinNames.has(object.name)) return;
     const height = object.geometry?.parameters?.height;
     if (!Number.isFinite(height)) return;
     const a = new THREE.Vector3(0, -height / 2, 0).applyMatrix4(object.matrixWorld).project(camera);
@@ -1109,16 +1139,69 @@ function findNearbyThinComponent(clientX, clientY, rect) {
   return nearest;
 }
 
+function cancelGalleryProjectionTurn() {
+  galleryProjectionTurn = null;
+}
+
+function startGalleryProjectionTurn(view) {
+  if (!galleryInspectionHost || !galleryInspection || !projectionGroup.visible || state.mode !== 'explore') return false;
+  const turn = createProjectionCameraTurn({ view, position: camera.position, target: controls.target, up: camera.up,
+    center: getModelBounds().getCenter(new THREE.Vector3()), startedAt: performance.now() });
+  if (!turn) return false;
+  // Clear any residual orbit damping without moving the observer at click time.
+  const position = camera.position.clone(), target = controls.target.clone(), up = camera.up.clone();
+  const damping = controls.enableDamping;
+  controls.enableDamping = false; controls.update();
+  camera.position.copy(position); controls.target.copy(target); camera.up.copy(up); controls.update();
+  controls.enableDamping = damping;
+  galleryProjectionTurn = { turn, inspection: galleryInspection, host: galleryInspectionHost,
+    lastPosition: position, lastTarget: target, lastUp: up };
+  return true;
+}
+
+function advanceGalleryProjectionTurn() {
+  const active = galleryProjectionTurn;
+  if (!active) return;
+  if (!galleryInspectionHost || galleryInspection !== active.inspection || galleryInspectionHost !== active.host
+    || !projectionGroup.visible || state.mode !== 'explore'
+    || camera.position.distanceToSquared(active.lastPosition) > 1e-12
+    || controls.target.distanceToSquared(active.lastTarget) > 1e-12
+    || camera.up.distanceToSquared(active.lastUp) > 1e-12) {
+    cancelGalleryProjectionTurn(); return;
+  }
+  const pose = sampleProjectionCameraTurn(active.turn, performance.now());
+  camera.position.copy(pose.position); controls.target.copy(pose.target); camera.up.copy(pose.up);
+  camera.lookAt(controls.target);
+  active.lastPosition.copy(camera.position); active.lastTarget.copy(controls.target); active.lastUp.copy(camera.up);
+  if (pose.done) cancelGalleryProjectionTurn();
+}
+
+function pickGalleryProjectionPlane() {
+  if (!galleryInspectionHost || !projectionGroup.visible || state.mode !== 'explore') return false;
+  const planes = Object.entries(projPlanes).filter(([, plane]) => plane?.isMesh && isVisibleInHierarchy(plane));
+  planes.forEach(([, plane]) => plane.updateWorldMatrix(true, false));
+  const hit = raycaster.intersectObjects(planes.map(([, plane]) => plane), false)[0];
+  const view = hit && planes.find(([, plane]) => plane === hit.object)?.[0];
+  if (!view || !isProjectionDrawingHit({ bounds: getModelBounds(), camera: projCams[view], uv: hit.uv, ...VIEW[view] })) return false;
+  return startGalleryProjectionTurn(view);
+}
+
 function bindFocusPicking() {
   const dom = renderer.domElement;
   let down = null;
-  dom.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  dom.addEventListener('pointerdown', e => {
+    cancelGalleryProjectionTurn();
+    down = { x: e.clientX, y: e.clientY, t: performance.now() };
+  });
+  dom.addEventListener('pointercancel', () => { down = null; cancelGalleryProjectionTurn(); });
+  dom.addEventListener('wheel', cancelGalleryProjectionTurn, { passive: true });
   dom.addEventListener('pointerup', e => {
     if (!down) return;
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
     const dt = performance.now() - down.t;
     down = null;
     if (moved > 6 || dt > 450) return;      // 拖拽/长按 → 视为轨道操作，不聚焦
+    if (e.button !== undefined && e.button !== 0) return;
     if (state.mode === 'lab' || state.mode === 'compound') return;
     const rect = dom.getBoundingClientRect();
     if (state.mode === 'quiz' && handlePracticePointerHit(e, rect)) return;
@@ -1127,11 +1210,13 @@ function bindFocusPicking() {
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
       -((e.clientY - rect.top) / rect.height) * 2 + 1
     );
+    camera.updateMatrixWorld(true);
     raycaster.setFromCamera(ndc, camera);
     const nearbyThinComponent = findNearbyThinComponent(e.clientX, e.clientY, rect);
-    const hits = raycaster.intersectObjects(modelGroup.children, true);
+    const hits = raycaster.intersectObjects(modelGroup.children, true).filter(hit => isVisibleModelMesh(hit.object));
     if (nearbyThinComponent) setFocusComponent(nearbyThinComponent);
-    else if (hits.length) setFocusComponent(hits[0].object);
+    else if (hits.length) setFocusComponent(hits[0].object, hits[0].faceIndex);
+    else if (pickGalleryProjectionPlane()) return;
     else clearFocus(true);
   });
 }
@@ -1354,9 +1439,11 @@ function rebuildModel() {
   restoreComponentHighlight();
   selectedComponent = null;
   selectedComponentOriginalMaterial = null;
+  delete viewport.dataset.selection;
+  delete viewport.dataset.selectionLabel;
   updateComponentInfo(null);
   clearGroup(modelGroup);
-  focusBox = null; clearGroup(focusGroup);   // 换模型时复位局部聚焦
+  clearGroup(focusGroup);   // 换模型时取消选择
   const isImported = state.currentModel === 'imported' && state.importedGeometry;
   const def = isImported ? null : (MODELS[state.currentModel] || MODELS.step);
   let model, statusText;
@@ -1413,10 +1500,11 @@ function updateModelTransparency() {
 
 // ===== UI绑定（手机/PC共享状态）=====
 let modelButtons = [];
+let modelGallery = null;
 
 function populateBridgeLibrary() {
-  const groups = [[CURATED_BRIDGE_CATALOG, 'bridge-library-list'], [CURATED_DRAWING_CATALOG, 'drawing-bridge-list'],
-    [TEXTBOOK_MECHANICAL_CATALOG, 'textbook-mechanical-list']];
+  const groups = [[TEXTBOOK_MECHANICAL_CATALOG, 'textbook-mechanical-list'],
+    [CURATED_BRIDGE_CATALOG, 'bridge-library-list'], [CURATED_DRAWING_CATALOG, 'drawing-bridge-list']];
   for (const [catalog, targetId] of groups) {
     const host = document.getElementById(targetId);
     let lastChapter;
@@ -1461,7 +1549,7 @@ function updateModelSource() {
 
 function fittedCameraFrame(unfold = state.unfoldProgress) {
   const bounds = getModelBounds();
-  if (state.mode === 'explore' && !state.isTiled) {
+  if ((state.mode === 'explore' || state.mode === 'quiz') && !state.isTiled && (!galleryInspectionHost || projectionGroup.visible)) {
     const layout = getPlaneLayout(unfold);
     const half = layout.S / 2;
     for (const view of ['front', 'top', 'side']) {
@@ -1511,24 +1599,28 @@ async function selectLibraryModel(btn) {
     if (definition?.load) {
       setStatus(`正在准备 ${definition.name} 的实体与三视图…`);
       await definition.load();
-      if (requestId !== modelLoadRequest || state.mode !== 'explore') return;
+      if (requestId !== modelLoadRequest || state.mode !== 'explore') return false;
     }
-    modelButtons.forEach(b => b.classList.toggle('active', b === btn));
     if (btn.dataset.url) {
       await loadAssetFromUrl(btn.dataset.url, btn.dataset.name || btn.textContent.trim(), btn.dataset.zup === '1');
     } else {
+      if (!definition) throw new Error('该模型尚未注册');
       state.currentModel = btn.dataset.model;
       rebuildModel();
     }
-    if (requestId !== modelLoadRequest || state.mode !== 'explore') return;
+    if (requestId !== modelLoadRequest || state.mode !== 'explore') return false;
+    modelButtons.forEach(b => b.classList.toggle('active', btn.dataset.url ? b === btn : b.dataset.model === state.currentModel));
     document.querySelectorAll('.quick-chip').forEach(chip => {
       chip.classList.toggle('active', chip.dataset.model === state.currentModel);
     });
+    modelGallery?.refresh();
     fitModelCamera();
     if (window.innerWidth <= 960) document.getElementById('tree-panel')?.classList.remove('open');
+    return true;
   } catch (error) {
     if (requestId === modelLoadRequest) setStatus(`模型未能加载：${error.message}。可重新选择重试。`);
     console.error(error);
+    return false;
   }
 }
 
@@ -1920,6 +2012,7 @@ let practiceAttempts = 0;
 let practiceRecords = [];
 let practiceRestoreState = null;
 let practiceInteraction = null;
+let practiceModelReady = false;
 
 const TILED_VIEW_ORDER = [
   { key: 'front', label: '主视图', direction: [0, 0, 1] },
@@ -1976,13 +2069,13 @@ function updatePracticeSubmitState() {
   const question = currentPracticeQuestion();
   const submit = document.getElementById('quiz-submit');
   const next = document.getElementById('quiz-next-view');
-  if (submit) submit.disabled = practiceAnswered || (isChoiceQuestion(question) ? practiceSelected.size === 0 : !practiceInteraction);
+  if (submit) submit.disabled = !practiceModelReady || practiceAnswered || (isChoiceQuestion(question) ? practiceSelected.size === 0 : !practiceInteraction);
   if (next) next.disabled = !practiceAnswered;
 }
 
 function handlePracticePointerHit(event, rect) {
   const question = currentPracticeQuestion();
-  if (!question || practiceAnswered || isChoiceQuestion(question) || question.type === 'rotate-to-view') return false;
+  if (!question || !practiceModelReady || practiceAnswered || isChoiceQuestion(question) || question.type === 'rotate-to-view') return false;
   const ndc = new THREE.Vector2(
     ((event.clientX - rect.left) / rect.width) * 2 - 1,
     -((event.clientY - rect.top) / rect.height) * 2 + 1
@@ -1991,13 +2084,14 @@ function handlePracticePointerHit(event, rect) {
 
   if (question.type === 'click-model') {
     const nearby = findNearbyThinComponent(event.clientX, event.clientY, rect);
-    const hits = raycaster.intersectObjects(modelGroup.children, true);
+    const hits = raycaster.intersectObjects(modelGroup.children, true).filter(hit => isVisibleModelMesh(hit.object));
     const object = nearby || hits[0]?.object;
     if (!object) {
       setPracticeFeedback('未命中构件；请在模型表面短按后重试。');
       return true;
     }
     practiceInteraction = { componentName: object.name };
+    setFocusComponent(object);
     updatePracticeInteractionUI();
     updatePracticeSubmitState();
     setPracticeFeedback(`已选择“${getComponentInfo(object.name).label}”，请提交核对。`);
@@ -2019,22 +2113,53 @@ function handlePracticePointerHit(event, rect) {
   return true;
 }
 
-function setPracticeModeModel(question) {
-  state.currentModel = question.modelId;
-  state.showHidden = Boolean(question.showHidden);
-  state.isUnfolded = true;
-  state.unfoldProgress = 1;
-  state.transitionActive = false;
-  rebuildModel();
-  Object.entries(projPlanes).forEach(([view, plane]) => {
-    if (plane) plane.visible = question.views.includes(view);
-  });
-  updateUnfold(1);
+async function setPracticeModeModel(question) {
+  const requestId = ++modelLoadRequest;
+  practiceModelReady = false;
+  modelGroup.visible = false;
+  projectionGroup.visible = false;
+  focusGroup.visible = false;
+  setPracticeFeedback(`正在准备${MODELS[question.modelId]?.name || '本题模型'}…`);
+  updatePracticeSubmitState();
+  try {
+    if (!MODELS[question.modelId]) throw new Error('Unknown practice model');
+    await MODELS[question.modelId].load?.();
+    if (requestId !== modelLoadRequest || state.mode !== 'quiz' || currentPracticeQuestion()?.id !== question.id) return false;
+    modelGroup.visible = true;
+    projectionGroup.visible = true;
+    focusGroup.visible = true;
+    state.currentModel = question.modelId;
+    state.showHidden = Boolean(question.showHidden);
+    state.isUnfolded = true;
+    state.unfoldProgress = 1;
+    state.transitionActive = false;
+    rebuildModel();
+    Object.entries(projPlanes).forEach(([view, plane]) => {
+      if (plane) plane.visible = question.views.includes(view);
+    });
+    updateUnfold(1);
+    fitModelCamera();
 
-  if (question.focusComponent) {
-    const target = modelGroup.getObjectByName(question.focusComponent);
-    if (target) setFocusComponent(target);
+    if (question.focusComponent) {
+      const target = modelGroup.getObjectByName(question.focusComponent);
+      if (target) setFocusComponent(target);
+    }
+  } catch {
+    if (requestId === modelLoadRequest && state.mode === 'quiz') {
+      modelGroup.visible = false;
+      projectionGroup.visible = false;
+      focusGroup.visible = false;
+      setPracticeFeedback('本题模型暂未加载成功，请退出练习后重试。', 'error');
+    }
+    return false;
   }
+  practiceModelReady = true;
+  setPracticeFeedback(isChoiceQuestion(question) ? '选择答案后提交。' : question.prompt);
+  setStatus(`${MODELS[question.modelId]?.name || '空间练习'} · ${question.title}`);
+  updatePracticeInteractionUI();
+  updatePracticeOptionUI();
+  updatePracticeSubmitState();
+  return true;
 }
 
 function updatePracticeOptionUI() {
@@ -2045,14 +2170,14 @@ function updatePracticeOptionUI() {
     button.classList.toggle('correct', optionState.correct);
     button.classList.toggle('wrong', optionState.wrong);
     button.classList.toggle('missed', optionState.missed);
-    button.disabled = practiceAnswered;
+    button.disabled = !practiceModelReady || practiceAnswered;
     button.setAttribute('aria-pressed', String(practiceSelected.has(button.dataset.answer)));
   });
 
   const submit = document.getElementById('quiz-submit');
   const next = document.getElementById('quiz-next-view');
   if (isChoiceQuestion(question)) {
-    if (submit) submit.disabled = practiceAnswered || practiceSelected.size === 0;
+    if (submit) submit.disabled = !practiceModelReady || practiceAnswered || practiceSelected.size === 0;
   }
   if (next) next.disabled = !practiceAnswered;
 }
@@ -2066,7 +2191,7 @@ function renderPracticeMemory(question) {
   const views = isBridge ? {
     front: { name: '立面', plane: 'x–z', axis: 'y' },
     top: { name: '平面', plane: 'x–y', axis: 'z' },
-    side: { name: '横断面', plane: 'y–z', axis: 'x' }
+    side: { name: '左视图', plane: 'y–z', axis: 'x' }
   } : {
     front: { name: '主视图', plane: 'x–y', axis: 'z' },
     top: { name: '俯视图', plane: 'x–z', axis: 'y' },
@@ -2105,21 +2230,19 @@ function renderPracticeQuestion() {
   const optionRoot = document.getElementById('quiz-options');
   const feedback = document.getElementById('quiz-feedback');
   const evidence = document.getElementById('quiz-evidence');
-  const reflection = document.getElementById('quiz-reflection');
-  const reflectionPrompt = document.getElementById('quiz-reflection-prompt');
-  const reflectionSelect = document.getElementById('quiz-reflection-select');
   const summary = document.getElementById('quiz-summary');
   const next = document.getElementById('quiz-next-view');
 
   practiceSelected = new Set();
   practiceInteraction = null;
   practiceAnswered = false;
+  practiceModelReady = false;
   practiceHintUsed = false;
   practiceAttempts = 0;
   practiceStartedAt = performance.now();
 
   document.getElementById('quiz-question-text').textContent = question.prompt;
-  document.getElementById('quiz-skill').textContent = question.skill;
+  document.getElementById('quiz-skill').textContent = `${MODELS[question.modelId]?.name || ''} · ${question.skill}`;
   document.getElementById('quiz-difficulty').textContent = `难度 ${question.difficulty}`;
   document.getElementById('quiz-stage-pill').textContent = `第 ${practiceIndex + 1} / ${QUESTION_BANK.length} 题`;
   renderPracticeMemory(question);
@@ -2129,9 +2252,6 @@ function renderPracticeQuestion() {
   feedback.dataset.tone = 'info';
   evidence.hidden = true;
   evidence.textContent = '';
-  reflection.hidden = true;
-  reflectionPrompt.textContent = question.reflection;
-  reflectionSelect.value = '';
   summary.hidden = true;
 
   ['front', 'top', 'side'].forEach(view => {
@@ -2146,11 +2266,11 @@ function renderPracticeQuestion() {
     button.setAttribute('aria-pressed', 'false');
     button.textContent = option.label;
     button.addEventListener('click', () => {
-      if (practiceAnswered) return;
+      if (!practiceModelReady || practiceAnswered) return;
       if (question.type === 'single') practiceSelected = new Set([option.id]);
       else if (practiceSelected.has(option.id)) practiceSelected.delete(option.id);
       else practiceSelected.add(option.id);
-      feedback.textContent = practiceSelected.size ? '已选择答案。请根据三维模型和投影线核对后提交。' : '请至少选择一个答案。';
+      feedback.textContent = practiceSelected.size ? '已选择，可提交判断。' : '请选择答案。';
       updatePracticeOptionUI();
     });
     return button;
@@ -2165,10 +2285,9 @@ function renderPracticeQuestion() {
 function submitPracticeAnswer() {
   const question = currentPracticeQuestion();
   const response = isChoiceQuestion(question) ? practiceSelected : (question.type === 'rotate-to-view' ? { direction: currentCameraDirectionArray() } : practiceInteraction);
-  if (practiceAnswered || (isChoiceQuestion(question) ? practiceSelected.size === 0 : !response)) return;
+  if (!practiceModelReady || practiceAnswered || (isChoiceQuestion(question) ? practiceSelected.size === 0 : !response)) return;
   const feedback = document.getElementById('quiz-feedback');
   const evidence = document.getElementById('quiz-evidence');
-  const reflection = document.getElementById('quiz-reflection');
   const result = evaluateQuestionAnswer(question, response);
   practiceAnswered = true;
   practiceAttempts += 1;
@@ -2184,18 +2303,9 @@ function submitPracticeAnswer() {
   }
 
   evidence.hidden = false;
-  evidence.textContent = `图学证据：${question.evidence}`;
-  reflection.hidden = false;
-  if (result.exact) {
-    feedback.textContent = '判断正确。请说明你用到的图学依据，再进入下一题。';
-    feedback.dataset.tone = 'success';
-  } else {
-    const details = [];
-    if (result.missing?.length) details.push('未命中目标');
-    if (result.unexpected?.length) details.push('选择了不符合的对象');
-    feedback.textContent = `本次判断需要修正（${details.join('；') || '未满足题目条件'}）。请用上面的证据回到模型和投影中核对。`;
-    feedback.dataset.tone = 'error';
-  }
+  evidence.textContent = question.evidence;
+  feedback.textContent = formatPracticeFeedback(question, response, result);
+  feedback.dataset.tone = result.exact ? 'success' : 'error';
 }
 
 function finishPracticeQuestion() {
@@ -2205,8 +2315,7 @@ function finishPracticeQuestion() {
   practiceRecords.push(createPracticeRecord(question, response, 0, {
     endedAt: Math.round(performance.now() - practiceStartedAt),
     attempts: practiceAttempts,
-    hintUsed: practiceHintUsed,
-    reflection: document.getElementById('quiz-reflection-select')?.value || null
+    hintUsed: practiceHintUsed
   }));
 
   if (practiceIndex < QUESTION_BANK.length - 1) {
@@ -2304,6 +2413,7 @@ function captureProductState() {
     transitionActive: false,
     isTiled: state.isTiled,
     selectedComponentPath: getObjectPath(selectedComponent, modelGroup),
+    selectedFaceIndex,
     bridgeTask: captureBridgeTaskSnapshot(),
     statusText: statusStrip?.textContent || '',
     cameraPosition: camera.position.toArray(),
@@ -2321,6 +2431,7 @@ function applyProductState(snapshot) {
     isTiled: restoreTiled,
     returnMode: _returnMode,
     selectedComponentPath,
+    selectedFaceIndex: restoredFaceIndex,
     bridgeTask,
     statusText,
     ...restoredState
@@ -2336,7 +2447,7 @@ function applyProductState(snapshot) {
   updateUnfold(state.unfoldProgress);
   bridgeTaskState.active = false;
   const restoredComponent = resolveObjectPath(modelGroup, selectedComponentPath);
-  if (restoredComponent?.isMesh) setFocusComponent(restoredComponent);
+  if (restoredComponent?.isMesh) setFocusComponent(restoredComponent, restoredFaceIndex ?? null);
   applyBridgeTaskSnapshot(bridgeTask);
   [
     ['tog-projlines', 'tog-projlines-m', 'showProjLines'],
@@ -2485,6 +2596,8 @@ function setAppMode(nextMode, options = {}) {
 }
 
 function exitPractice(targetMode = null) {
+  modelLoadRequest += 1;
+  setProductEnvironmentVisible(true);
   const snapshot = practiceRestoreState;
   const returnMode = targetMode || snapshot?.returnMode || 'explore';
   practiceRestoreState = null;
@@ -2686,8 +2799,10 @@ function bindTiledViewUI() {
 }
 
 function getRendererHost() {
+  if (galleryInspectionHost) return galleryInspectionHost;
   if (state.mode === 'lab') return document.getElementById('lab-canvas-host') || viewport;
   if (state.mode === 'compound') return document.getElementById('compound-model-host') || viewport;
+  if (state.mode === 'quiz') return document.getElementById('quiz-canvas-host') || viewport;
   if (state.isTiled) return document.getElementById('model-pane') || viewport;
   return viewport;
 }
@@ -2712,8 +2827,110 @@ function onResize() {
   if (state.mode === 'compound') compoundController?.scrollActiveLessonIntoView();
 }
 
+// The cabinet temporarily lends its foreground to the existing projection
+// workbench. Returning a piece restores the exact previous model and observer.
+async function inspectGalleryModel({ id, host, signal, handoff }) {
+  leaveGalleryInspection();
+  if (signal?.aborted || state.mode !== 'explore' || !MODELS[id] || !host) return false;
+  const request = ++galleryInspectionRequest;
+  const loadRequest = ++modelLoadRequest;
+  const saved = {
+    snapshot: captureProductState(), background: scene.background,
+    clearColor: renderer.getClearColor(new THREE.Color()), clearAlpha: renderer.getClearAlpha(),
+    cameraLens: { fov: camera.fov, near: camera.near, far: camera.far, zoom: camera.zoom,
+      filmOffset: camera.filmOffset, filmGauge: camera.filmGauge, view: camera.view ? { ...camera.view } : null },
+    controlsEnabled: controls.enabled, controlsDamping: controls.enableDamping,
+    minDistance: controls.minDistance, maxDistance: controls.maxDistance,
+    visibility: [floorGroup, projectionGroup, modelGroup, axesGroup, projLinesGroup, focusGroup].map(group => [group, group.visible]),
+    applied: false, observer: null
+  };
+  galleryInspection = saved;
+  try {
+    await MODELS[id].load?.();
+    if (signal?.aborted || request !== galleryInspectionRequest || loadRequest !== modelLoadRequest || galleryInspection !== saved) return false;
+    saved.applied = true;
+    if (state.isTiled) setTiledMode(false);
+    state.currentModel = id;
+    state.showProjLines = false; state.showAxes = false; state.showCenterLines = false;
+    state.showHidden = true; state.transparentModel = false;
+    state.planeGap = 3.0;
+    state.isUnfolded = false; state.unfoldProgress = 0; state.transitionActive = false;
+    galleryInspectionHost = host;
+    scene.background = new THREE.Color(VIEWPORT_BG); renderer.setClearColor(VIEWPORT_BG, 1);
+    controls.enabled = true;
+    setProductEnvironmentVisible(true);
+    rebuildModel(); floorGroup.visible = false; projectionGroup.visible = true;
+    mountRenderer(); onResize();
+    const damping = controls.enableDamping;
+    controls.enableDamping = false; controls.update();
+    if (handoff?.modelId !== id) throw new Error('模型取放视角未能接续，请放回后重试。');
+    const matched = cameraFromGalleryHandoff(handoff, host.getBoundingClientRect());
+    camera.copy(matched.camera); controls.target.copy(matched.target);
+    // OrbitControls must not clamp an inherited view before the user moves it.
+    const distance = camera.position.distanceTo(controls.target);
+    controls.minDistance = Math.min(saved.minDistance, distance * 0.5);
+    controls.maxDistance = Math.max(saved.maxDistance, distance * 2);
+    controls.update(); camera.updateMatrixWorld(true);
+    controls.enableDamping = damping;
+    if (typeof ResizeObserver !== 'undefined') {
+      let observedWidth = host.clientWidth, observedHeight = host.clientHeight;
+      saved.observer = new ResizeObserver(() => {
+        if (galleryInspection !== saved || (host.clientWidth === observedWidth && host.clientHeight === observedHeight)) return;
+        observedWidth = host.clientWidth; observedHeight = host.clientHeight; onResize();
+      });
+      saved.observer.observe(host);
+    }
+    // The controller reveals this canvas only after the matched first frame is
+    // present; an old workbench framebuffer must never flash during handoff.
+    renderer.render(scene, camera);
+    return { viewMode: 'wrapped' };
+  } catch (error) {
+    if (galleryInspection === saved) leaveGalleryInspection();
+    throw error;
+  }
+}
+
+function leaveGalleryInspection() {
+  galleryInspectionRequest++; modelLoadRequest++;
+  const saved = galleryInspection;
+  galleryInspection = null; galleryInspectionHost = null;
+  if (!saved) return;
+  saved.observer?.disconnect();
+  scene.background = saved.background; renderer.setClearColor(saved.clearColor, saved.clearAlpha);
+  if (saved.applied) {
+    controls.enableDamping = false; controls.update();
+    Object.assign(camera, saved.cameraLens);
+    controls.minDistance = saved.minDistance; controls.maxDistance = saved.maxDistance;
+    const tiled = applyProductState(saved.snapshot);
+    camera.updateProjectionMatrix();
+    controls.enableDamping = saved.controlsDamping; controls.enabled = saved.controlsEnabled;
+    if (tiled) setTiledMode(true);
+    saved.visibility.forEach(([group, visible]) => { group.visible = visible; });
+  }
+  mountRenderer(); onResize();
+}
+
+function setGalleryView(mode) {
+  if (!galleryInspectionHost) return false;
+  if (!['solid', 'wrapped', 'unfolded'].includes(mode)) return false;
+  projectionGroup.visible = mode !== 'solid';
+  if (mode !== 'solid' && state.isUnfolded !== (mode === 'unfolded')) {
+    document.getElementById('unfold-btn')?.click();
+  }
+  return mode;
+}
+
+function zoomGalleryInspection(factor) {
+  if (!galleryInspectionHost || !Number.isFinite(factor) || factor <= 0) return false;
+  const offset = camera.position.clone().sub(controls.target);
+  const distance = THREE.MathUtils.clamp(offset.length() / factor, controls.minDistance, controls.maxDistance);
+  camera.position.copy(controls.target).add(offset.setLength(distance));
+  controls.update(); return true;
+}
+
 function animate() {
   requestAnimationFrame(animate);
+  advanceGalleryProjectionTurn();
   if (state.mode === 'vice') return;
   if (state.transitionActive) {
     const raw = Math.min(1, (performance.now() - state.transitionStart) / state.transitionDuration);
@@ -2758,6 +2975,12 @@ compoundController = createCompoundProjectionLab({
   },
   refreshProjections: drawProjections,
   projectionImageProvider: projectionTargetDataUrl,
+  selectionProjectionProvider: ({ view, frame, selection, modelRoot, exact, showHidden, boldEdges }) => {
+    const selectionCamera = exact
+      ? createExactSelectionCamera({ view, frame, modelRoot })
+      : projCams[view];
+    return renderSelectionDataUrl({ renderer, camera: selectionCamera, selection, modelRoot, showHidden, boldEdges });
+  },
   projectionPointProvider: projectionPointPositions,
   setProjectionHidden: setCompoundProjectionHidden,
   clearFocus: () => clearFocus(false),
@@ -2766,6 +2989,13 @@ compoundController = createCompoundProjectionLab({
 
 populateBridgeLibrary();
 bindModelButtons();
+modelGallery = createModelGallery({
+  entries: createGalleryEntries(TEXTBOOK_MECHANICAL_CATALOG, [], []),
+  definitions: MODELS,
+  onInspect: inspectGalleryModel, onLeaveInspect: leaveGalleryInspection,
+  onSetView: setGalleryView, onZoom: zoomGalleryInspection,
+  onReset: () => { if (galleryInspectionHost) fitModelCamera(); }
+});
 bindObjImport();
 bindControls();
 bindMobileUI();
@@ -2789,10 +3019,14 @@ if (entryMode && ['lab', 'compound', 'explore', 'quiz', 'vice'].includes(entryMo
 if (entryMode === 'explore') {
   const entryModel = entryParameters.get('model');
   const entryButton = modelButtons.find(button => button.dataset.model === entryModel);
-  if (entryButton) selectLibraryModel(entryButton);
+  let entryLoad;
+  if (entryButton) entryLoad = selectLibraryModel(entryButton);
   else if (Object.hasOwn(MODELS, entryModel) && entryModel !== 'chapter5') {
     // Archived models remain available only by their existing explicit share URL.
-    selectLibraryModel({ dataset: { model: entryModel } });
+    entryLoad = selectLibraryModel({ dataset: { model: entryModel } });
+  }
+  if (entryParameters.get('gallery') === 'mechanical') {
+    Promise.resolve(entryLoad).then(() => { if (state.mode === 'explore') modelGallery.open('mechanical'); });
   }
 }
 
@@ -2805,10 +3039,15 @@ const aiWorkbench = createAiWorkbenchAdapter({
   getVariation: id => modelVariations.get(id),
   setVariation: (id, values) => modelVariations.set(id, { ...values }),
   getEditContext: (id, values) => MODELS[id]?.editContext?.(values),
-  getFacts: compoundContext => collectModelFacts({
-    modelRoot: modelGroup, modelId: state.currentModel, label: MODELS[state.currentModel]?.name,
-    note: MODELS[state.currentModel]?.note, selectedComponent, mode: state.mode, compoundContext
-  }),
+  getFacts: compoundContext => {
+    const facts = collectModelFacts({ modelRoot: modelGroup, modelId: state.currentModel, label: MODELS[state.currentModel]?.name,
+      note: MODELS[state.currentModel]?.note, selectedComponent, mode: state.mode, compoundContext });
+    if (selectedFaceIndex !== null && projectionSelection?.kind === 'face') {
+      facts.selectedComponent = { label: `${selectedComponent.userData.label || '当前实体'} · 选中面`, type: 'BRep实体面',
+        description: '当前高亮的是一个真实实体面及其三视投影，尚无孔槽或肋板的完整语义映射。整件尺寸不能当成选中面的尺寸。' };
+    }
+    return facts;
+  },
   rebuild: rebuildModel
 });
 createAiModelAssistant({ ...aiWorkbench, captureImages: captureAiImages });

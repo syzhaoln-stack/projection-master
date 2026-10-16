@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "projection-master-ai",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-05-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "vars": {
+    "AI_ALLOWED_ORIGINS": "https://syzhaoln-stack.github.io,http://127.0.0.1:5186,http://localhost:5186",
+    "AI_IP_PER_MINUTE": "3",
+    "AI_IP_PER_DAY": "20",
+    "AI_GLOBAL_PER_DAY": "300"
+  },
+  "durable_objects": { "bindings": [{ "name": "AI_QUOTA", "class_name": "AiQuota" }] },
+  "migrations": [{ "tag": "shared-ai-v1", "new_sqlite_classes": ["AiQuota"] }]
+}

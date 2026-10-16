@@ -1,9 +1,9 @@
-import { AIEditError, DEEPSEEK_MODEL_LABEL, requestEditPlan, validateEditPlan } from './ai-edit-protocol.js';
+import { AIEditError, DEEPSEEK_MODEL_LABEL, requestEditPlan, requestAiServiceStatus, validateEditPlan } from './ai-edit-protocol.js';
 import './ai-model-assistant.css';
 
 // Conversation is flexible. Only validated, reviewable changes reach the model.
 // No response is evaluated as code or inserted as HTML.
-export function createAiModelAssistant({ getContext, applyPlan, captureImages = null, requestPlan = requestEditPlan }) {
+export function createAiModelAssistant({ getContext, applyPlan, captureImages = null, requestPlan = requestEditPlan, checkService = requestAiServiceStatus }) {
   const launcher = document.createElement('button');
   launcher.id = 'ai-edit-launcher';
   launcher.type = 'button';
@@ -19,11 +19,15 @@ export function createAiModelAssistant({ getContext, applyPlan, captureImages = 
     <header class="ai-edit-header"><div><span class="ai-edit-kicker" data-ai="model-label"></span><h2 id="ai-edit-title">看图、讲解与改模型</h2></div><button type="button" data-ai="close" aria-label="关闭 AI 助手">×</button></header>
     <div class="ai-edit-body">
       <div class="ai-edit-target"><span>当前模型</span><strong data-ai="target"></strong><p data-ai="scope"></p></div>
-      <details class="ai-edit-connection" data-ai="connection"><summary>连接 DeepSeek 官方 API</summary>
-        <label for="ai-edit-key">API 密钥</label><input id="ai-edit-key" type="password" autocomplete="off" spellcheck="false" placeholder="在这里输入您的 API 密钥" maxlength="256">
-        <p>密钥仅保存在本页内存中，刷新后清除。点击发送后，问题、最近对话、模型资料和所附图片直接发给 DeepSeek。</p>
-        <button type="button" data-ai="clear-key">清除密钥</button>
-      </details>
+      <section class="ai-edit-connection" data-ai="connection">
+        <div data-ai="own-key-fields"><label for="ai-edit-key">DeepSeek 官方 API 密钥</label><input id="ai-edit-key" type="password" autocomplete="off" spellcheck="false" placeholder="请输入您收到的 DeepSeek API 密钥" maxlength="256">
+        <p>密钥仅保存在本页内存中，刷新后清除。发送时，问题、最近对话、模型资料和所附图片直接发给 DeepSeek。</p>
+        <button type="button" data-ai="clear-key">清除密钥</button></div>
+        <details class="ai-edit-service-options"><summary>可选：站点共享服务</summary>
+          <label class="ai-edit-check"><input type="checkbox" data-ai="use-shared-service">使用站点共享 AI 服务</label>
+          <div class="ai-edit-service" data-ai="service" hidden><strong data-ai="service-status" role="status"></strong><p data-ai="service-note"></p><button type="button" data-ai="retry-service">重新检查服务</button></div>
+        </details>
+      </section>
       <section class="ai-edit-conversation" data-ai="conversation" hidden aria-label="与 AI 的对话"><div data-ai="messages" role="log" aria-live="polite"></div><button type="button" data-ai="clear-history">开始新对话</button></section>
       <label class="ai-edit-label" for="ai-edit-instruction">想了解什么，或怎样修改？</label>
       <textarea id="ai-edit-instruction" rows="3" maxlength="2000" placeholder="解释这座桥的构件；或告诉我想修改的地方。"></textarea>
@@ -48,10 +52,12 @@ export function createAiModelAssistant({ getContext, applyPlan, captureImages = 
   const instruction = panel.querySelector('#ai-edit-instruction');
   el('model-label').textContent = `${DEEPSEEK_MODEL_LABEL} · 视觉`;
   el('include-views').checked = true;
+  el('use-shared-service').checked = false;
   let context = null, contextKey = null, initialized = false;
   let plan = null, planKey = null, pending = null, undo = null, timer = null, applying = false;
   let conversationId = null, history = [], uploaded = [], viewImages = [];
   let imageVersion = 0, previewing = false, uploading = false;
+  let serviceState = 'idle', serviceCheck = null;
   const inputs = new Map();
   const staleMessage = '模型或参数已变化，请重新生成修改方案。';
   const staleError = new Error(staleMessage);
@@ -75,6 +81,36 @@ export function createAiModelAssistant({ getContext, applyPlan, captureImages = 
     el('status').textContent = message;
     el('status').classList.toggle('is-error', error);
   };
+  const usesOwnKey = () => el('use-shared-service').checked !== true;
+  function renderConnection() {
+    const own = usesOwnKey();
+    el('own-key-fields').hidden = !own;
+    el('service').hidden = own;
+    el('service-status').textContent = own ? ''
+      : serviceState === 'ready' ? '共享 AI 服务已启用'
+        : serviceState === 'checking' ? '正在检查共享 AI 服务…'
+          : serviceState === 'unconfigured' ? '共享 AI 服务尚未启用' : '共享 AI 服务暂时无法连接';
+    el('service-note').textContent = own ? ''
+      : serviceState === 'ready' ? '无需填写密钥。点击发送后，问题、最近对话、模型资料和所附图片由网站服务转发给 DeepSeek。'
+        : serviceState === 'checking' ? '正在确认服务状态，尚未发送问题或图片。'
+          : '暂时不能使用共享服务。取消上方勾选后，可输入您自己的 API 密钥。';
+    el('retry-service').hidden = own || serviceState === 'ready';
+    el('retry-service').disabled = serviceState === 'checking';
+  }
+  async function refreshService() {
+    if (serviceCheck) return serviceCheck.promise;
+    const request = { controller: new AbortController(), promise: null };
+    serviceCheck = request; serviceState = 'checking'; renderConnection(); updateButtons();
+    request.promise = (async () => {
+      let result;
+      try { result = await checkService({ signal: request.controller.signal }); }
+      catch { result = { ready: false, state: 'unavailable' }; }
+      if (serviceCheck !== request || request.controller.signal.aborted) return;
+      serviceState = result?.ready === true ? 'ready' : result?.state === 'unconfigured' ? 'unconfigured' : 'unavailable';
+      serviceCheck = null; renderConnection(); updateButtons();
+    })();
+    return request.promise;
+  }
   function renderConversation() {
     el('messages').replaceChildren(); el('conversation').hidden = !history.length;
     for (const message of history) {
@@ -153,7 +189,7 @@ export function createAiModelAssistant({ getContext, applyPlan, captureImages = 
   function updateButtons() {
     const ready = Boolean(context), editable = Boolean(context?.parameters?.length);
     const busy = Boolean(pending) || applying || previewing || uploading;
-    el('generate').disabled = !ready || busy;
+    el('generate').disabled = !ready || busy || (!usesOwnKey() && serviceState !== 'ready');
     el('manual').hidden = !editable;
     el('manual-preview').disabled = !editable || busy;
     el('apply').disabled = !editable || busy || planKey !== contextKey || !plan?.changes.length;
@@ -163,6 +199,7 @@ export function createAiModelAssistant({ getContext, applyPlan, captureImages = 
     el('preview-images').disabled = !ready || busy || !captureImages || !el('include-views').checked;
     el('upload').disabled = !ready || busy; el('include-views').disabled = busy;
     el('clear-history').disabled = busy;
+    keyInput.disabled = !usesOwnKey() || busy;
   }
   function showPlan(candidate, expected) {
     const current = getContext();
@@ -188,11 +225,13 @@ export function createAiModelAssistant({ getContext, applyPlan, captureImages = 
   async function generate() {
     refresh();
     if (!context || pending || applying || previewing || uploading) return;
-    if (!keyInput.value.trim()) {
-      el('connection').open = true; keyInput.focus(); status('请先在连接设置中输入 DeepSeek 官方 API 密钥。', true); return;
+    const own = usesOwnKey();
+    if (!own && serviceState !== 'ready') { status(new AIEditError('SHARED_UNAVAILABLE').message, true); return; }
+    if (own && !keyInput.value.trim()) {
+      keyInput.focus(); status('请先输入 DeepSeek 官方 API 密钥。', true); return;
     }
     if (!instruction.value.trim()) { instruction.focus(); status('请先输入问题或修改要求。', true); return; }
-    const captured = context, question = instruction.value.trim(), credential = keyInput.value.trim();
+    const captured = context, question = instruction.value.trim(), credential = own ? keyInput.value.trim() : undefined;
     const controller = new AbortController(); pending = controller;
     discardPlan(); updateButtons(); status('正在准备模型资料…');
     try {
@@ -204,13 +243,16 @@ export function createAiModelAssistant({ getContext, applyPlan, captureImages = 
         viewImages = currentViews; renderImages(); images.unshift(...currentViews);
       }
       status(images.length ? `正在结合模型资料和 ${images.length} 张图片回答…` : '正在结合模型资料回答…');
-      const candidate = await requestPlan({ apiKey: credential, instruction: question, context: captured,
+      const candidate = await requestPlan({ mode: own ? 'direct' : 'shared', ...(own ? { apiKey: credential } : {}), instruction: question, context: captured,
         history: history.map(item => ({ ...item })), images, signal: controller.signal });
       if (pending !== controller || controller.signal.aborted) return;
       const checked = showPlan(candidate, captured);
       remember({ role: 'user', content: question }, { role: 'assistant', content: checked.summary });
       if (instruction.value.trim() === question) instruction.value = '';
     } catch (error) {
+      if (pending === controller && !own && error instanceof AIEditError && error.code === 'SHARED_UNAVAILABLE') {
+        serviceState = 'unavailable'; renderConnection();
+      }
       if (pending === controller) status(safeMessage(error, '未能完成回答，请稍后再试；也可取消附图后重试。'), true);
     } finally {
       if (pending === controller) pending = null;
@@ -223,8 +265,9 @@ export function createAiModelAssistant({ getContext, applyPlan, captureImages = 
     if (!panel.hidden) { close(); return; }
     panel.hidden = false; launcher.setAttribute('aria-expanded', 'true');
     refresh();
-    if (!keyInput.value) el('connection').open = true;
-    timer = setInterval(refresh, 500); instruction.focus();
+    timer = setInterval(refresh, 500);
+    if (usesOwnKey()) { (keyInput.value.trim() ? instruction : keyInput).focus(); return; }
+    instruction.focus(); return refreshService();
   });
   el('close').addEventListener('click', close);
   panel.addEventListener('keydown', event => {
@@ -235,6 +278,13 @@ export function createAiModelAssistant({ getContext, applyPlan, captureImages = 
   });
   el('generate').addEventListener('click', generate);
   el('cancel').addEventListener('click', () => cancel());
+  el('retry-service').addEventListener('click', refreshService);
+  el('use-shared-service').addEventListener('change', () => {
+    cancel(usesOwnKey() ? '已切换为自己的 API。' : '已切换为共享 AI 服务。');
+    if (usesOwnKey()) { serviceCheck?.controller.abort(); serviceCheck = null; serviceState = 'idle'; }
+    renderConnection(); updateButtons();
+    if (!usesOwnKey()) return refreshService();
+  });
   el('clear-key').addEventListener('click', () => { keyInput.value = ''; cancel('密钥已清除。'); });
   el('clear-history').addEventListener('click', () => { history = []; renderConversation(); discardPlan(); status('已开始新对话，当前模型保持不变。'); });
   el('include-views').addEventListener('change', () => { if (!el('include-views').checked) { viewImages = []; renderImages(); } updateButtons(); });
@@ -322,12 +372,13 @@ export function createAiModelAssistant({ getContext, applyPlan, captureImages = 
     finally { applying = false; updateButtons(); }
   });
   window.addEventListener('pagehide', () => {
+    serviceCheck?.controller.abort(); serviceCheck = null; serviceState = 'unavailable';
     imageVersion++; previewing = false; uploading = false;
     history = []; uploaded = []; viewImages = []; renderConversation(); renderImages();
-    keyInput.value = ''; cancel(''); discardPlan();
+    keyInput.value = ''; el('use-shared-service').checked = false; renderConnection(); cancel(''); discardPlan();
     if (timer) clearInterval(timer); timer = null;
     panel.hidden = true; launcher.setAttribute('aria-expanded', 'false');
   });
-  refresh();
-  return { refresh };
+  renderConnection(); refresh();
+  return { refresh, refreshService };
 }

@@ -254,7 +254,9 @@ test('chapter 5 shell exposes a real CSG workbench and draggable cutter wiring',
   assert.match(exactClient, /action: 'audit-lesson'/);
   assert.match(controller, /syncAlignedProjectionLayout/);
   assert.match(controller, /--compound-front-track/);
-  assert.match(controller, /visibleWidth = state\.display\.boldEdges \? 1\.45 : 0\.95/);
+  assert.match(controller, /const drawing = createDrawingStyle\(/);
+  assert.match(controller, /stroke-width="\$\{drawing\.visibleWidth\}"/);
+  assert.match(controller, /centerlineSvgPath\(path, \{ longDash, gap, dot \}\)/);
   assert.match(css, /--compound-front-track/);
   assert.match(css, /--compound-elevation-track/);
   assert.match(css, /is-scale-aligned \.compound-view-card\{[^}]*border:0/);

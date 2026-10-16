@@ -27,3 +27,5 @@ build/
 # Local environment files
 .env
 .env.*
+/.dev.vars
+/.dev.vars.*

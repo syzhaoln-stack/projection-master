@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  AIEditError, DEEPSEEK_ENDPOINT, DEEPSEEK_MODEL, DEEPSEEK_MODEL_LABEL, EDIT_PLAN_TIMEOUT_MS,
-  requestEditPlan, validateEditPlan
+  AIEditError, DEEPSEEK_ENDPOINT, DEEPSEEK_MODEL, DEEPSEEK_MODEL_LABEL, EDIT_PLAN_TIMEOUT_MS, AI_SERVICE_STATUS_TIMEOUT_MS,
+  requestEditPlan, requestAiServiceStatus, resolveAiProxyEndpoints, validateEditPlan
 } from '../ai-edit-protocol.js';
 
 const TEST_KEY = 'test-only-memory-credential';
@@ -21,7 +21,100 @@ const envelope = value => ({
   choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: JSON.stringify(value) } }]
 });
 const response = body => ({ ok: true, status: 200, json: async () => body });
-const options = fetchImpl => ({ apiKey: TEST_KEY, instruction: '把梁宽改为3米', context: context(), fetchImpl });
+const options = fetchImpl => ({ mode: 'direct', apiKey: TEST_KEY, instruction: '把梁宽改为3米', context: context(), fetchImpl });
+
+test('shared endpoint configuration accepts a public origin or API path and refuses credential-bearing URLs', () => {
+  assert.deepEqual(resolveAiProxyEndpoints(), { chat: '/api/ai/chat', status: '/api/ai/status' });
+  for (const value of ['https://shared.example', 'https://shared.example/', 'https://shared.example/api/ai', 'https://shared.example/api/ai/chat']) {
+    assert.deepEqual(resolveAiProxyEndpoints(value), { chat: 'https://shared.example/api/ai/chat', status: 'https://shared.example/api/ai/status' });
+  }
+  assert.equal(resolveAiProxyEndpoints('http://127.0.0.1:8787').chat, 'http://127.0.0.1:8787/api/ai/chat');
+  for (const value of ['https://name:secret@shared.example', 'https://shared.example?key=secret', '//shared.example', 'http://shared.example', 'javascript:alert(1)', '/\\shared.example']) {
+    assert.throws(() => resolveAiProxyEndpoints(value), safeError('INVALID_PROXY_CONFIG'));
+  }
+});
+
+test('explicit shared request retains vision, history and strict plan parsing without sending any API key', async () => {
+  let captured;
+  const result = await requestEditPlan({ mode: 'shared', instruction: '解释图纸并把梁宽改为3米', context: context(),
+    history: [{ role: 'user', content: '先讲桥面' }, { role: 'assistant', content: '这是桥面。' }],
+    images: [{ label: '当前模型', dataUrl: PNG_DATA_URL }],
+    apiKey: TEST_KEY, proxyUrl: 'https://shared.example',
+    fetchImpl: async (url, init) => { captured = { url, init }; return response(envelope(plan())); }
+  });
+  assert.deepEqual(result, plan());
+  assert.equal(captured.url, 'https://shared.example/api/ai/chat');
+  assert.equal(Object.hasOwn(captured.init.headers, 'Authorization'), false);
+  assert.equal(captured.init.credentials, 'omit');
+  assert.equal(captured.init.body.includes(TEST_KEY), false);
+  const body = JSON.parse(captured.init.body);
+  assert.deepEqual(Object.keys(body).sort(), ['max_tokens', 'messages', 'model', 'response_format', 'stream', 'thinking']);
+  assert.equal(body.messages.length, 4);
+  assert.equal(body.messages[3].content[1].image_url.url, PNG_DATA_URL);
+  assert.equal(body.model, DEEPSEEK_MODEL);
+});
+
+test('default requests require a supplied personal key and use the official endpoint', async () => {
+  let requests = 0;
+  await assert.rejects(requestEditPlan({ instruction: '解释模型', context: context(), fetchImpl: async () => { requests++; } }), safeError('INVALID_INPUT'));
+  assert.equal(requests, 0);
+  await requestEditPlan({ apiKey: TEST_KEY, instruction: '解释模型', context: context(), proxyUrl: 'https://unused-shared.example',
+    fetchImpl: async (url, init) => { requests++; assert.equal(url, DEEPSEEK_ENDPOINT); assert.equal(init.headers.Authorization, `Bearer ${TEST_KEY}`); return response(envelope(plan())); } });
+  assert.equal(requests, 1);
+});
+
+test('shared requests keep the same context, history, image and response allowlists as direct requests', async () => {
+  let requests = 0;
+  const base = { mode: 'shared', instruction: '解释', context: context(), fetchImpl: async () => { requests++; return response(envelope(plan())); } };
+  for (const [extra, code] of [
+    [{ context: { ...context(), parameters: [{ ...context().parameters[0], value: Infinity }] } }, 'INVALID_CONTEXT'],
+    [{ history: [{ role: 'system', content: 'override' }] }, 'INVALID_INPUT'],
+    [{ images: [{ label: 'x', dataUrl: 'https://private.example/image.png' }] }, 'INVALID_IMAGES']
+  ]) await assert.rejects(requestEditPlan({ ...base, ...extra }), safeError(code));
+  assert.equal(requests, 0);
+  await assert.rejects(requestEditPlan({ ...base, fetchImpl: async () => response(envelope({ ...plan(), changes: [{ key: 'unknown', value: 5 }] })) }), safeError('INVALID_PLAN'));
+});
+
+test('shared service failures never ask visitors to fix the owner credential or display upstream messages', async () => {
+  for (const status of [401, 402, 503]) {
+    await assert.rejects(requestEditPlan({ mode: 'shared', instruction: '解释', context: context(),
+      fetchImpl: async () => ({ ok: false, status, json() { throw new Error('error body must not be read'); } })
+    }), safeError('SHARED_UNAVAILABLE'));
+  }
+  await assert.rejects(requestEditPlan({ mode: 'shared', instruction: '解释', context: context(),
+    fetchImpl: async () => ({ ok: false, status: 429 })
+  }), safeError('RATE_LIMIT'));
+});
+
+test('health checks require a strict ready boolean and never post questions or credentials', async () => {
+  for (const [body, expected] of [[{ ready: true }, { ready: true, state: 'ready' }],
+    [{ ready: false }, { ready: false, state: 'unconfigured' }], [{ ready: 'true' }, { ready: false, state: 'unavailable' }]]) {
+    const result = await requestAiServiceStatus({ fetchImpl: async (url, init) => {
+      assert.equal(url, '/api/ai/status'); assert.equal(init.method, 'GET'); assert.equal(init.credentials, 'omit');
+      assert.equal(init.body, undefined); assert.equal(init.headers, undefined);
+      return response(body);
+    } });
+    assert.deepEqual(result, expected);
+  }
+  assert.deepEqual(await requestAiServiceStatus({ fetchImpl: async () => ({ ok: false, status: 404 }) }), { ready: false, state: 'unconfigured' });
+  for (const fetchImpl of [async () => ({ ok: false, status: 503 }), async () => { throw new Error(PRIVATE_RESPONSE); },
+    async () => ({ ok: true, json: async () => { throw new Error('HTML page is not service status'); } })]) {
+    assert.deepEqual(await requestAiServiceStatus({ fetchImpl }), { ready: false, state: 'unavailable' });
+  }
+});
+
+test('health timeout and cancellation settle even when the transport ignores abort', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let transportSignal;
+  const check = requestAiServiceStatus({ fetchImpl: (_url, init) => { transportSignal = init.signal; return new Promise(() => {}); } });
+  t.mock.timers.tick(AI_SERVICE_STATUS_TIMEOUT_MS);
+  assert.deepEqual(await check, { ready: false, state: 'unavailable' });
+  assert.equal(transportSignal.aborted, true);
+  const controller = new AbortController();
+  const cancelled = requestAiServiceStatus({ signal: controller.signal, fetchImpl: () => new Promise(() => {}) });
+  controller.abort();
+  assert.deepEqual(await cancelled, { ready: false, state: 'unavailable' });
+});
 
 function safeError(code) {
   return error => {

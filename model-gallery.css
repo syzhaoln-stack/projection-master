@@ -1,0 +1,58 @@
+.gallery-bridge-shortcuts { align-items: flex-start; gap: 12px; }
+.gallery-bridge-shortcuts .quick-col { display: flex; flex-direction: column; align-items: stretch; gap: 3px; }
+.gallery-shortcut-note { padding: 3px 8px; font-size: 10px; color: var(--muted); white-space: nowrap; }
+.gallery-tree-open { margin-left: auto; padding: 3px 5px; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 10px; letter-spacing: 0; cursor: pointer; }
+.model-gallery { position: fixed; inset: 0; z-index: 240; background: #e7e9df; color: #33483f; font: 13px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; }
+.model-gallery[hidden], .model-gallery [hidden] { display: none !important; }
+.model-gallery-dialog { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+.model-gallery-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex: 0 0 auto; padding: 13px 25px; background: #f0f1e9; border-bottom: 1px solid #cbd1c4; }
+.model-gallery h2 { margin: 0; color: #2d483c; font: 500 23px/1.4 "STZhongsong", "Songti SC", "SimSun", serif; letter-spacing: .06em; }
+.model-gallery button { font: inherit; cursor: pointer; }
+.model-gallery button:disabled { cursor: wait; opacity: .5; }
+.model-gallery button:focus-visible, .gallery-tree-open:focus-visible { outline: 3px solid #367e87; outline-offset: 3px; }
+.model-gallery-close { border: 1px solid #bac6b6; border-radius: 5px; padding: 8px 12px; background: transparent; color: #506c59; white-space: nowrap; font-size: 12px !important; }
+.model-gallery-close span { margin-left: 10px; font-size: 18px; }
+.model-gallery-stage { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; overflow: hidden; background: #d8ddd1; isolation: isolate; }
+.model-gallery-room, .model-gallery-inspection { position: absolute; inset: 0; }
+.model-gallery-room { z-index: 0; transition: opacity .25s; }
+.model-gallery-stage.is-inspecting .model-gallery-room { opacity: 0; pointer-events: none; }
+.model-gallery-inspection { z-index: 2; background: #f3f6f9; }
+.model-gallery-inspection canvas { display: block; width: 100% !important; height: 100% !important; background: transparent; touch-action: none; }
+.model-gallery-room-canvas, .model-gallery-room-labels { position: absolute; inset: 0; }
+.model-gallery-room-canvas { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
+.model-gallery-room-labels { pointer-events: none; }
+/* No visible cabinet plaques; keyboard-only alternatives remain available. */
+.model-gallery-room-wall-title { display: none !important; }
+.model-gallery-room-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; pointer-events: none !important; }
+.model-gallery-room-label:focus-visible { width: auto; height: auto; max-width: 260px; padding: 6px 10px; margin: 0; border: 1px solid #a9b89f; background: #f0f4e8; clip-path: none; overflow: visible; color: #365439; }
+.model-gallery-room-label .tag { display: none; }
+.model-gallery-stage.is-inspecting .model-gallery-room-label { visibility: hidden; }
+.model-gallery-status { position: absolute; z-index: 4; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px); margin: 0; padding: 8px 16px; border-radius: 5px; background: #f0f3e9ef; color: #617759; font-size: 12px; }
+.model-gallery-controls { display: flex; justify-content: center; align-items: center; gap: 14px; flex: 0 0 auto; padding: 12px 20px; background: #edf2e5; border-top: 1px solid #bbc9b1; }
+.model-gallery-controls button { min-height: 44px; padding: 9px 18px; border: 1px solid #9eb192; border-radius: 6px; background: #f7f9f2; color: #42643b; font-size: 14px; }
+.model-gallery-controls .model-gallery-return { padding-inline: 25px; background: #52734b; border-color: #52734b; color: #fff; font-weight: 700; }
+.model-gallery-views { display: flex; border: 1px solid #9eb192; border-radius: 6px; }
+.model-gallery-views button { border: 0; border-radius: 0; background: transparent; padding-inline: 15px; white-space: nowrap; }
+.model-gallery-views button + button { border-left: 1px solid #9eb192; }
+.model-gallery-views button:first-child { border-radius: 5px 0 0 5px; }
+.model-gallery-views button:last-child { border-radius: 0 5px 5px 0; }
+.model-gallery-views button[aria-pressed="true"] { background: #d4e3c7; color: #294d23; font-weight: 700; box-shadow: inset 0 -3px #56784b; }
+.model-gallery-zoom { display: flex; gap: 6px; }
+.model-gallery-zoom button { min-width: 80px; font-size: 18px; }
+.model-gallery-zoom span { font-size: 12px; }
+.model-gallery-zoom button.model-gallery-fit { font-size: 12px; }
+@media(max-width:840px) { .model-gallery-controls { flex-wrap: wrap; gap: 8px; } }
+@media(max-width:620px) {
+  .model-gallery-header { padding: 10px 14px; gap: 10px; }
+  .model-gallery h2 { font-size: 19px; }
+  .model-gallery-close { font-size: 10px !important; padding: 6px 9px; }
+  .model-gallery-close span { margin-left: 4px; }
+  .model-gallery-controls { gap: 8px; padding: 10px; flex-wrap: wrap; }
+  .model-gallery-controls button { min-height: 44px; padding-inline: 12px; font-size: 12px; }
+  .model-gallery-controls .model-gallery-return { padding-inline: 16px; }
+  .model-gallery-views button { padding-inline: 10px; }
+  .model-gallery-zoom { gap: 4px; }
+  .model-gallery-zoom button { min-width: 44px; font-size: 20px; padding-inline: 10px; }
+  .model-gallery-zoom span { display: none; }
+}
+@media(prefers-reduced-motion:reduce) { .model-gallery-room { transition: none; } }

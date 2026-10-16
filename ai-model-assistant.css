@@ -19,6 +19,9 @@
 #ai-edit-panel textarea{resize:vertical;min-height:78px;max-height:200px}
 #ai-edit-panel input:focus-visible,#ai-edit-panel textarea:focus-visible,#ai-edit-panel button:focus-visible,#ai-edit-panel summary:focus-visible,#ai-edit-launcher:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #ai-edit-panel .ai-edit-connection p,.ai-edit-hint{color:var(--muted,#64778b);font-size:11px;margin:7px 0;line-height:1.6}
+.ai-edit-connection>div>label{font-weight:700;margin-bottom:6px}
+#ai-edit-panel .ai-edit-service-options{padding-top:12px;margin-bottom:5px}
+#ai-edit-panel .ai-edit-service-options summary{font-size:11px;font-weight:500;color:var(--muted)}
 #ai-edit-panel button{border:1px solid var(--line-strong,#b9c6d5);background:var(--chrome-0,#f4f7fa);color:var(--text);border-radius:4px;font-family:inherit;font-size:12px;font-weight:600;line-height:1.4;padding:7px 10px;cursor:pointer}
 #ai-edit-panel button:hover{filter:brightness(.97)}
 #ai-edit-panel button:disabled{opacity:.48;cursor:default}
@@ -37,6 +40,10 @@
 .ai-edit-plan button{width:100%}
 .ai-edit-status{color:var(--accent);margin:12px 0;font-size:11px;min-height:17px;overflow-wrap:anywhere}
 .ai-edit-status.is-error{color:#a83d33}
+.ai-edit-service{margin:12px 0;padding:10px;border:1px solid var(--line-soft);border-radius:5px;background:var(--chrome-0,#f4f7fa)}
+.ai-edit-service strong{font-size:12px;color:var(--ink,#20384a)}
+.ai-edit-service p{font-size:11px;line-height:1.6;color:var(--muted,#64778b);margin:6px 0}
+#ai-edit-panel .ai-edit-service button{font-size:10px;padding:4px 7px}
 .ai-edit-conversation{margin:14px 0;border-bottom:1px solid var(--line-soft);padding-bottom:12px}
 .ai-edit-message{padding:10px 11px;margin:8px 0;border-radius:6px;background:var(--chrome-0,#f4f7fa);overflow-wrap:anywhere}
 .ai-edit-message-user{margin-left:24px;background:var(--accent-soft,#e8f1f7)}

@@ -189,18 +189,51 @@ body.mode-lab #lab-shell{
 
 body:not(.mode-lab) #lab-shell{display:none;}
 
+/* Practice has its own drawing area. The answer card must never cover a view. */
+#quiz-canvas-host{display:none;}
 body.mode-quiz #ribbon,
 body.mode-quiz #tree-panel,
-body.mode-quiz #props-panel{
-  filter:grayscale(.18);
-  opacity:.7;
-}
+body.mode-quiz #props-panel,
+body.mode-quiz #tiled-layout,
+body.mode-quiz .vp-hint,
+body.mode-quiz .vp-component,
 body.mode-quiz .standard-view-actions,
 body.mode-quiz .unfold-fab,
 body.mode-quiz #panel-toggle-l,
-body.mode-quiz #panel-toggle-r{
-  pointer-events:none;
-  opacity:.42;
+body.mode-quiz #panel-toggle-r{display:none!important;}
+body.mode-quiz #viewport{--quiz-answer-width:400px;}
+body.mode-quiz #quiz-canvas-host{
+  display:block;position:absolute;left:0;top:0;bottom:0;right:var(--quiz-answer-width);
+  min-width:0;min-height:0;overflow:hidden;background:var(--viewport-bg);
+}
+body.mode-quiz #quiz-canvas-host>canvas{position:absolute;inset:0;width:100%!important;height:100%!important;}
+body.mode-quiz #quiz-overlay{
+  left:auto;right:0;top:0;bottom:0;width:var(--quiz-answer-width);
+}
+body.mode-quiz .quiz-card{
+  position:relative;inset:auto;width:100%;height:100%;max-height:none;min-height:0;
+  border:0;border-left:1px solid var(--line-strong);border-radius:0;box-shadow:none;overflow:hidden;
+  background:var(--panel);
+}
+body.mode-quiz .quiz-titlebar,
+body.mode-quiz .quiz-footer{flex:0 0 auto;}
+body.mode-quiz .quiz-body{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;}
+body.mode-quiz .quiz-footer{gap:6px;padding:11px 10px;}
+body.mode-quiz .quiz-footer .dlg-btn{min-width:0;padding-inline:5px;}
+body.mode-quiz #statusbar .std{display:none;}
+
+@media(max-width:740px){
+  body.mode-quiz #viewport{
+    display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(150px,.9fr) minmax(200px,1.1fr);
+    overflow-y:auto;
+  }
+  body.mode-quiz #quiz-canvas-host{position:relative;inset:auto;grid-column:1;grid-row:1;}
+  body.mode-quiz #quiz-overlay{position:relative;inset:auto;width:100%;min-height:0;grid-column:1;grid-row:2;}
+  body.mode-quiz .quiz-card{border-left:0;border-top:1px solid var(--line-strong);}
+  body.mode-quiz .quiz-titlebar{padding:8px 10px;}
+  body.mode-quiz .quiz-body{padding:10px;}
+  body.mode-quiz .quiz-footer{padding:8px 10px;}
+  body.mode-quiz .quiz-footer .dlg-btn{min-height:40px;font-size:11px;}
 }
 
 @media(max-width:1180px){

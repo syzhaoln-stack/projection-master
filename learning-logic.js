@@ -130,6 +130,29 @@ export function evaluateQuestionAnswer(question, response) {
   return evaluateQuizSelection(response, question.answer);
 }
 
+export function formatPracticeFeedback(question, response, result = evaluateQuestionAnswer(question, response)) {
+  if (result.exact) return '回答正确。';
+  if (question.type === 'single' || question.type === 'multiple') {
+    const labels = ids => ids.map(id => question.options.find(option => option.id === id)?.label || id).join('、');
+    const parts = [];
+    if (result.missing.length) parts.push(`${question.type === 'single' ? '正确答案' : '漏选'}：${labels(result.missing)}`);
+    if (result.unexpected.length) parts.push(`误选：${labels(result.unexpected)}`);
+    return `${parts.join('；')}。`;
+  }
+  if (question.type === 'rotate-to-view') {
+    const view = { front: '主视', top: '俯视', side: '左视' }[question.targetView] || '目标';
+    return Number.isFinite(result.angle)
+      ? `距${view}方向还差 ${result.angle.toFixed(1)}°，允许偏差 ${question.toleranceDegrees}°。`
+      : `请先旋转模型，对准${view}方向。`;
+  }
+  if (question.type === 'click-model') {
+    const expected = (question.targetComponents || []).map(name => getComponentInfo(name).label).join('或');
+    const actual = response?.componentName ? getComponentInfo(response.componentName).label : '空白位置';
+    return `应点击${expected}；当前选中的是${actual}。`;
+  }
+  return `目标在${{ front: '主视图', top: '俯视图', side: '左视图' }[question.targetView] || '指定视图'}，请对照图中对应轮廓。`;
+}
+
 export function createPracticeRecord(question, response, startedAt, options = {}) {
   const evaluation = evaluateQuestionAnswer(question, response);
   const endedAt = options.endedAt ?? Date.now();

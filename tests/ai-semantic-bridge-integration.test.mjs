@@ -9,6 +9,7 @@ import { BRIDGE_MODELS, buildTextbookBridge, bridgePointToThree } from '../bridg
 import { applyGeometryVariation, geometryVariationVector } from '../ai-geometry-variation.js';
 import { createAiWorkbenchAdapter } from '../ai-workbench-adapter.js';
 import { collectModelFacts } from '../ai-model-facts.js';
+import { createDrawingStyle, centerlineSegments } from '../drawing-style.js';
 
 const source = await readFile(new URL('../projection-master.js', import.meta.url), 'utf8');
 function productionFunction(name) {
@@ -45,7 +46,7 @@ function harness(t, modelId = 'cableStayedFan', unfoldProgress = 0.63) {
   camera.position.set(6, 4, 10); camera.zoom = 1.2; camera.lookAt(controls.target);
   let rasterCalls = 0, status = '';
   const deps = {
-    THREE, LineMaterial, LineSegments2, LineSegmentsGeometry, state, camera, controls,
+    THREE, LineMaterial, LineSegments2, LineSegmentsGeometry, createDrawingStyle, centerlineSegments, state, camera, controls,
     MODELS: BRIDGE_MODELS, TEXTBOOK_MECHANICAL_MODELS: {}, modelVariations: new Map(), modelRevision: 0,
     modelGroup: new THREE.Group(), focusGroup: new THREE.Group(), projectionGroup: new THREE.Group(), projLinesGroup: new THREE.Group(),
     projScene: new THREE.Scene(), projPlanes: {}, _projDisposables: [], selectedComponent: null,
