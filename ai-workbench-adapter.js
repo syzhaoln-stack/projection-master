@@ -27,7 +27,9 @@ export function createAiWorkbenchAdapter({ getMode, getModelId, getModelLabel, g
       modelFacts: getFacts(),
       description: editContext?.description || (readOnly ? '可以结合当前模型与三视图讲解、识别和提出建模建议；此模型暂未开放可执行尺寸修改。' : '可以讲解当前模型与三视图。整体几何比例练习：纵向、横向、竖向分别缩放，会一起改变构件截面。原图纸尺寸仅供对照；暂不支持单独改桥面、索塔或新增构件。'),
       parameters: editContext?.parameters || (readOnly ? [] : GEOMETRY_VARIATION_PARAMETERS.map(p => ({ ...p, value: values[p.key] ?? p.value }))),
-      example: editContext ? '桥面加宽 2 米，塔高保持不变，索再密一些。也可以先解释这座桥的三视图。' : '解释当前模型和三视图，也可以描述您想做的修改。'
+      example: editContext?.example || (editContext?.parameters?.length
+        ? '桥面加宽 2 米，塔高保持不变，索再密一些。也可以先解释这座桥的三视图。'
+        : '解释当前模型的孔槽、三视图对应关系，以及教材中的表达方法。')
     };
   }
   function applyPlan(plan) {

@@ -115,6 +115,7 @@ export function collectModelFacts({ modelRoot, modelId, label, note, selectedCom
   const { nodes, entries } = inventory(modelRoot);
   const sourceNode = nodes.find(node => node.userData?.sourceModel);
   const source = sourceNode?.userData.sourceModel;
+  const textbook = nodes.find(node => node.userData?.textbookSource)?.userData.textbookSource;
   const contract = source?.geometryContract || nodes.find(node => node.userData?.geometryContract)?.userData.geometryContract || {};
   const drawingNode = nodes.find(node => node.userData?.sourceBridgeId && node.userData?.sourceUnit === 'm');
   const drawing = drawingContracts.bridges.find(item => item.id === drawingNode?.userData.sourceBridgeId);
@@ -122,7 +123,7 @@ export function collectModelFacts({ modelRoot, modelId, label, note, selectedCom
     || nodes.find(node => PHYSICAL_UNITS.has(node.userData?.units))?.userData.units;
   const variation = nodes.find(node => node.userData?.geometryVariation)?.userData.geometryVariation;
   const reference = Boolean(variation);
-  const compound = mode === 'compound' || Boolean(compoundContext) || nodes.some(node => node.userData?.chapter5Lesson);
+  const compound = mode === 'compound' || Boolean(compoundContext) || (!textbook && nodes.some(node => node.userData?.chapter5Lesson));
   const bridge = Boolean(source || drawing || contract.mainSpan);
   const type = compound ? 'compound' : bridge ? 'bridge' : modelId === 'imported' ? 'imported' : 'mechanical';
   const title = text(label || source?.title || compoundContext?.lesson?.label || sourceNode?.userData.label, 120) || '当前模型';
@@ -150,6 +151,16 @@ export function collectModelFacts({ modelRoot, modelId, label, note, selectedCom
     ]
   };
   const dim = (name, value, unit = 'm') => addDimension(facts.dimensions, name, value, unit, reference);
+  if (textbook) {
+    facts.summary += ` 教材依据：${text(textbook.book || '现代机械制图', 80)}，第${text(String(textbook.chapter), 12)}章，${text(textbook.figure, 100)}，第${text(String(textbook.page), 20)}页。`;
+    for (const item of Array.isArray(textbook.sourceDimensions) ? textbook.sourceDimensions : []) {
+      if (PHYSICAL_UNITS.has(item?.unit)) dim(item.label, item.value, item.unit);
+    }
+    facts.projectionNotes.push(`尺寸依据：${text(textbook.dimensionStatus, 200)}。仅列已核教材尺寸及明确推导值；显示坐标和教学比例不等于原图尺寸。`);
+    if (text(textbook.description || note)) facts.projectionNotes.push(`模型教学说明：${text(textbook.description || note, 300)}`);
+    const simplifications = (Array.isArray(textbook.simplifications) ? textbook.simplifications : []).map(value => text(value, 140)).filter(Boolean);
+    if (simplifications.length) facts.projectionNotes.push(`简化说明：${simplifications.join('；').slice(0, 350)}`);
+  }
   if (source?.units === 'm') {
     dim('主跨跨径', contract.mainSpan ?? source.span);
     dim('桥面总长', source.length);
@@ -192,7 +203,7 @@ export function collectModelFacts({ modelRoot, modelId, label, note, selectedCom
     }
     facts.projectionNotes.push('组合体参数中的“格”是教学坐标单位，不代表原图毫米；按当前构建步骤解释已加入和已切除的实体。');
   }
-  if (!bridge && !compound) {
+  if (!bridge && !compound && !textbook) {
     facts.projectionNotes.push('未声明实际工程单位；归一化显示范围和网格坐标不能当作米或毫米尺寸。');
     // Notes are model descriptions, not observations of the current rendered drawing.
     if (text(note)) facts.projectionNotes.push(`模型教学说明：${text(note, 300)}`);

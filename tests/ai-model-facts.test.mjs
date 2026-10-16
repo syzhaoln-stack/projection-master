@@ -5,10 +5,26 @@ import * as THREE from 'three';
 import { collectModelFacts } from '../ai-model-facts.js';
 import { BRIDGE_CATALOG, buildTextbookBridge } from '../bridge-models.js';
 import { applyGeometryVariation } from '../ai-geometry-variation.js';
+import textbookContract from '../textbook-mechanical-contract.json' with { type: 'json' };
 
 const component = (facts, label) => facts.components.find(item => item.label === label);
 const dimension = (facts, label) => facts.dimensions.find(item => item.label === label);
 const dispose = root => root.traverse(object => { object.geometry?.dispose(); object.material?.dispose(); });
+
+test('textbook facts cite the actual figure and only its verified dimensions', () => {
+  for (const entry of textbookContract.models) {
+    const root = new THREE.Group();
+    root.userData.textbookSource = { ...entry, book: '现代机械制图', description: entry.note };
+    root.add(mesh('textbook_body', { label: entry.name }));
+    const facts = collectModelFacts({ modelRoot: root, modelId: entry.id, label: entry.name, mode: 'explore' });
+    assert.equal(facts.type, 'mechanical');
+    assert.ok(facts.summary.includes(entry.figure));
+    assert.deepEqual(facts.dimensions, entry.sourceDimensions);
+    assert.ok(facts.projectionNotes.some(note => note.includes(entry.dimensionStatus)));
+    assert.ok(!facts.projectionNotes.some(note => note.includes('未声明实际工程单位')));
+    assertBounded(facts);
+  }
+});
 function mesh(name, data = {}) {
   const object = new THREE.Mesh();
   object.name = name;

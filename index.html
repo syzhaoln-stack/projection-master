@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#e9ecf0">
 <link rel="icon" href="data:,">
-<title>工图投影大师 v8.5.0 · AI改图、三视图与剖切</title>
+<title>工图投影大师 v8.6.0 · AI改图、三视图与剖切</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -557,6 +557,9 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
   .quiz-options{grid-template-columns:1fr;}
   .status-cell.std{display:none;}
 }
+.library-chapter{padding:10px 14px 4px;font-size:11px;font-weight:700;color:#5c7892;border-top:1px solid #e4eaf0;}
+#model-source-reference{font-weight:600;color:#315773;}
+#model-source-card[hidden]{display:none;}
 </style>
 <link rel="stylesheet" href="./basic-projection-lab.css?v=8.0.0">
 <link rel="stylesheet" href="./compound-projection-lab.css?v=8.3.1">
@@ -571,7 +574,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
     <div id="logo" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M5 4.5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6.5l-3 2v-2h-1a1.5 1.5 0 0 1-1.5-1.5v-11A1 1 0 0 1 5 4.5zm3.5 2h-2v2h2v-2zm0 4h-2v2h2v-2zm0 4h-2v2h2v-2zm4-8h7v2h-7v-2zm0 4h7v2h-7v-2zm0 4h7v2h-7v-2z"/></svg>
     </div>
-    <h1>工图投影大师<span class="ver">v8.5.0</span></h1>
+    <h1>工图投影大师<span class="ver">v8.6.0</span></h1>
     <span class="sub">空间智能教学工作台 · 第一角投影</span>
   </div>
   <div id="doc-tabs" role="tablist">
@@ -612,13 +615,12 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       </div>
       <div class="rib-group">
         <div class="rib-group-row quick-col">
-          <button class="quick-chip" data-model="step">叠加台阶块</button>
-          <button class="quick-chip" data-model="throughHolePlate">通孔板</button>
-          <button class="quick-chip" data-model="bearingSeat">轴承座</button>
-          <button class="quick-chip" data-url="assets/step_bearing_block.step">STEP轴承座</button>
+          <button class="quick-chip" data-model="textbookObliqueCylinder">斜切圆柱</button>
+          <button class="quick-chip" data-model="textbook51">例5-1 支座</button>
+          <button class="quick-chip" data-model="textbookFlange">轮盘</button>
           <button class="quick-more" data-cat="solids">更多 ▾</button>
         </div>
-        <div class="rib-group-label">机械组合体</div>
+        <div class="rib-group-label">教材机械模型</div>
       </div>
       <div class="rib-group">
         <div class="rib-group-row" style="flex-direction:column;align-items:stretch;gap:5px;">
@@ -693,42 +695,20 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 
       <!-- 教材模型：保持命名构件与米制方向，供三视图和单件识读 -->
       <div class="tree-group open">
-        <div class="tree-group-head" data-group="bridge"><span class="caret"></span>桥梁模型墙<span class="grp-badge">20</span></div>
-        <p class="library-note">教材新版 · 桥向水平、竖向向上<br>点击构件可单独查看三视图</p>
+        <div class="tree-group-head" data-group="bridge"><span class="caret"></span>典型桥梁 · 三视图<span class="grp-badge">9</span></div>
+        <p class="library-note">梁、拱、索的典型投影对照<br>点击构件可单独查看三视图</p>
         <div class="tree-children" id="bridge-library-list"></div>
       </div>
       <div class="tree-group open">
-        <div class="tree-group-head" data-group="bridge-asset"><span class="caret"></span>按图纸重构的桥梁<span class="grp-badge">3</span></div>
-        <p class="library-note">保留零件与材质 · 含教学简化</p>
+        <div class="tree-group-head" data-group="bridge-asset"><span class="caret"></span>工程图纸模型<span class="grp-badge">3</span></div>
+        <p class="library-note">适合进阶识图 · 保留来源与教学简化说明</p>
         <div class="tree-children" id="drawing-bridge-list"></div>
       </div>
 
       <div class="tree-group open">
-        <div class="tree-group-head" data-group="engineering-joints"><span class="caret"></span>工程节点<span class="grp-badge">1</span></div>
-        <div class="tree-children">
-          <button class="model-btn" data-model="jointDetail"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 14h16M12 14V5M9 9h6M7 14l-1 5m12-5l1 5"/></svg></span><span><span class="name">节点构造</span><span class="desc">吊杆、横梁与主梁连接</span></span></button>
-        </div>
-      </div>
-
-      <!-- 机械组合体（入门）—— 现有可用模型 -->
-      <div class="tree-group open">
-        <div class="tree-group-head" data-group="solids">
-          <span class="caret"></span>
-          <span class="grp-ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 3v18M4 7.5l8 4.5 8-4.5"/></svg></span>
-          机械组合体
-          <span class="grp-badge">入门</span>
-        </div>
-        <div class="tree-children">
-          <button class="model-btn active" data-model="step"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h5v-4h5v-4h6"/></svg></span><span><span class="name">叠加台阶块</span><span class="desc">三层叠加，训练长对正</span></span></button>
-          <button class="model-btn" data-model="slottedBlock"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4zM9 6v6h6V6"/></svg></span><span><span class="name">开槽导块</span><span class="desc">矩形导槽与槽底虚线</span></span></button>
-          <button class="model-btn" data-model="throughHolePlate"><span class="leaf-ico"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/><circle cx="12" cy="12" r="3"/></svg></span><span><span class="name">通孔板</span><span class="desc">竖直通孔、圆与中心线</span></span></button>
-          <button class="model-btn" data-model="ribBracket"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 20V8h4v12M8 12l8-4v12M4 20h16"/></svg></span><span><span class="name">肋板支架</span><span class="desc">底板、立板、三角肋板</span></span></button>
-          <button class="model-btn" data-model="bearingSeat"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M6 18v-5a6 6 0 0 1 12 0v5"/><circle cx="12" cy="13" r="2"/></svg></span><span><span class="name">轴承座</span><span class="desc">经典综合组合体</span></span></button>
-          <button class="model-btn" data-url="assets/step_bearing_block.step" data-name="STEP轴承座样件" data-zup="1"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M6 18v-5a6 6 0 0 1 12 0v5"/><circle cx="12" cy="13" r="2"/></svg></span><span><span class="name">STEP轴承座样件</span><span class="desc">浏览器内解析并生成三视图</span></span></button>
-          <button class="model-btn" data-model="dovetailSlide"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M8 18l2-9h4l2 9"/></svg></span><span><span class="name">燕尾槽滑块</span><span class="desc">斜面投影训练</span></span></button>
-          <button class="model-btn" data-model="vBlock"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4zM8 6l4 6 4-6"/></svg></span><span><span class="name">V形定位块</span><span class="desc">V槽与对称中心线</span></span></button>
-          <button class="model-btn" data-model="compoundSeat"><span class="leaf-ico"><svg viewBox="0 0 24 24"><path d="M4 18h16M7 18v-4h10v4M9 14v-3h6v3M11 11V8h2v3"/></svg></span><span><span class="name">综合支座</span><span class="desc">凸台、槽口、圆柱混合</span></span></button>
-        </div>
+        <div class="tree-group-head" data-group="solids"><span class="caret"></span>教材机械模型<span class="grp-badge" id="mechanical-model-count">8</span></div>
+        <p class="library-note">《现代机械制图》原图对应<br>截切 → 组合体 → 零件表达</p>
+        <div class="tree-children" id="textbook-mechanical-list"></div>
       </div>
 
     </div>
@@ -1000,6 +980,11 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
       属性
     </div>
     <div class="props-scroll">
+      <div class="prop-section" id="model-source-card" hidden>
+        <div class="prop-section-title" id="model-source-title">教材对应</div>
+        <p class="help-block" id="model-source-reference"></p>
+        <p class="help-block" id="model-source-focus"></p>
+      </div>
       <div class="prop-section">
         <div class="prop-section-title">投影面</div>
         <div class="slider-block">
@@ -1121,6 +1106,6 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
 })();
 </script>
 
-<script type="module" src="projection-master.js?v=8.5.0"></script>
+<script type="module" src="projection-master.js?v=8.6.0"></script>
 </body>
 </html>

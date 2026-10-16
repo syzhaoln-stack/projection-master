@@ -46,14 +46,14 @@ function harness(t, modelId = 'cableStayedFan', unfoldProgress = 0.63) {
   let rasterCalls = 0, status = '';
   const deps = {
     THREE, LineMaterial, LineSegments2, LineSegmentsGeometry, state, camera, controls,
-    MODELS: BRIDGE_MODELS, modelVariations: new Map(), modelRevision: 0,
+    MODELS: BRIDGE_MODELS, TEXTBOOK_MECHANICAL_MODELS: {}, modelVariations: new Map(), modelRevision: 0,
     modelGroup: new THREE.Group(), focusGroup: new THREE.Group(), projectionGroup: new THREE.Group(), projLinesGroup: new THREE.Group(),
     projScene: new THREE.Scene(), projPlanes: {}, _projDisposables: [], selectedComponent: null,
     selectedComponentOriginalMaterial: null, focusBox: null, compoundController: null,
     PROJ_BG: 0xffffff, PROJ_RES: 1024, EDGE_THRESHOLD: 25, COL: { cyan: 0x64aabc },
     viewport: { dataset: {} }, applyGeometryVariation, geometryVariationVector,
     ensureProjResources() {}, buildFloorReference() {}, buildAxes() {},
-    restoreComponentHighlight() {}, updateComponentInfo() {}, updateModelTransparency() {},
+    restoreComponentHighlight() {}, updateComponentInfo() {}, updateModelTransparency() {}, updateModelSource() {},
     makeProjectionMaterial: () => new THREE.MeshBasicMaterial(),
     setStatus(value) { status = value; },
     renderProjViews() { rasterCalls += 1; },
@@ -61,7 +61,7 @@ function harness(t, modelId = 'cableStayedFan', unfoldProgress = 0.63) {
   };
   const names = ['clearGroup', 'makeSilhouetteMaterial', 'clearProjScene', 'getProjBounds', 'buildProjScene', 'drawProjections',
     'isVisibleInHierarchy', 'isProjectionMesh', 'getModelBounds', 'getPlaneLayout', 'createProjectionPlanes', 'updateUnfold', 'applyClearance', 'rebuildModel'];
-  const production = new Function('deps', `with (deps) { ${names.map(productionFunction).join('\n')}\nreturn { rebuildModel, getModelBounds, getPlaneLayout, clearProjScene }; }`)(deps);
+  const production = new Function('deps', `with (deps) { ${names.map(productionFunction).join('\n')}\nreturn { rebuildModel, getModelBounds, getPlaneLayout, clearProjScene, buildProjScene }; }`)(deps);
   const writes = [];
   const adapter = createAiWorkbenchAdapter({
     getMode: () => state.mode, getModelId: () => state.currentModel,
@@ -211,4 +211,23 @@ test('mesh endpoints and regenerated source anchors share the complete Three.js 
     vectorNear(part(h.root, `${cable.userData.component_id}-tower-anchor`).getWorldPosition(new THREE.Vector3()), expectedB);
   }
   checkProductionProjection(h, ['stay-comparison-1-1-1-12', 'deck-095', 'comparison-tower-1-1']);
+});
+
+test('exact visible outlines paint over coincident hidden edges in one render queue', t => {
+  const h = harness(t);
+  const segment = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0)]);
+  for (const style of ['visible', 'hidden']) {
+    const guide = new THREE.LineSegments(segment.clone(), new THREE.LineBasicMaterial({ visible: false }));
+    guide.userData = { projectionGuide: true, projectionViews: ['front'], projectionLineStyle: style };
+    h.root.add(guide);
+  }
+  segment.dispose();
+  h.production.buildProjScene();
+  const visible = h.deps.projScene.children.find(node => node.renderOrder === 6);
+  const hidden = h.deps.projScene.children.find(node => node.renderOrder === 5);
+  assert.ok(visible && hidden);
+  assert.equal(hidden.material.transparent, visible.material.transparent, 'both lines must sort in the same pass');
+  assert.ok(visible.renderOrder > hidden.renderOrder, 'visible outlines take priority over coincident rear edges');
+  assert.ok(visible.material.linewidth > hidden.material.linewidth);
+  assert.equal(hidden.material.dashed, true, 'unoccluded internal hidden lines remain dashed');
 });

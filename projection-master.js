@@ -27,8 +27,10 @@ import {
 import { QUESTION_BANK } from './question-bank.js?v=7.0.1';
 import { createBasicProjectionLab } from './basic-projection-lab.js?v=8.0.0';
 import { createCompoundProjectionLab } from './compound-projection-lab.js?v=8.3.1';
-import { BRIDGE_MODELS, BRIDGE_CATALOG } from './bridge-models.js';
-import { DETAILED_BRIDGE_MODELS, DETAILED_BRIDGE_CATALOG } from './detailed-bridges.js';
+import { BRIDGE_MODELS } from './bridge-models.js';
+import { DETAILED_BRIDGE_MODELS } from './detailed-bridges.js';
+import { CURATED_BRIDGE_CATALOG, CURATED_DRAWING_CATALOG } from './model-library-curation.js';
+import { TEXTBOOK_MECHANICAL_MODELS, TEXTBOOK_MECHANICAL_CATALOG } from './textbook-mechanical-models.js';
 import { createViceLab } from './vice-lab.js';
 import { computeTiledProjectionLayout } from './tiled-projection-layout.js';
 import { applyGeometryVariation, geometryVariationVector } from './ai-geometry-variation.js';
@@ -83,7 +85,7 @@ scene.add(rimLight);
 
 // ===== 状态 =====
 const state = {
-  currentModel: 'step',
+  currentModel: 'cableStayedFan',
   geometryVariationFactors: [1, 1, 1],
   unfoldProgress: 0,
   isUnfolded: false,
@@ -522,7 +524,7 @@ Object.assign(MODELS, {
   }
 });
 
-Object.assign(MODELS, BRIDGE_MODELS, DETAILED_BRIDGE_MODELS);
+Object.assign(MODELS, BRIDGE_MODELS, DETAILED_BRIDGE_MODELS, TEXTBOOK_MECHANICAL_MODELS);
 
 // ===== 投影核心 =====
 const projPlanes = { front: null, top: null, side: null };
@@ -683,7 +685,7 @@ function buildProjScene() {
   const ext = Math.max(size.x, size.y, size.z) || 1;
   const dash = ext * 0.02;
   const compoundProjectionStyle = state.mode === 'compound' ? compoundController?.getProjectionStyle?.() : null;
-  const boldEdges = Boolean(compoundProjectionStyle?.boldEdges);
+  const boldEdges = Boolean(compoundProjectionStyle?.boldEdges || TEXTBOOK_MECHANICAL_MODELS[state.currentModel]);
 
   // 收集每个 mesh 的世界空间几何
   const worldGeos = [];
@@ -755,8 +757,10 @@ function buildProjScene() {
     dashed: true,
     dashSize: dash * 1.55,
     gapSize: dash * 1.05,
-    transparent: true,
-    opacity: 0.9,
+    // Keep exact hidden and visible lines in the same render queue: a rear
+    // edge coincident with a front outline must not paint dashes over it.
+    transparent: false,
+    opacity: 1,
     depthTest: false,
     depthWrite: false,
     alphaToCoverage: true
@@ -771,7 +775,7 @@ function buildProjScene() {
     dashed: true,
     dashSize: dash * 1.8,
     gapSize: dash * 0.95,
-    transparent: true,
+    transparent: false,
     opacity: 1,
     depthTest: false,
     depthWrite: false,
@@ -1376,6 +1380,7 @@ function rebuildModel() {
     statusText = `${def.name} · ${parameters.map(p => `${p.label} ${p.value}${p.unit}`).join(' / ')}。三视图由当前构件重绘。`;
   }
   modelGroup.add(model);
+  updateModelSource();
   modelRevision += 1;
   updateModelTransparency();
   modelGroup.updateMatrixWorld(true);
@@ -1410,10 +1415,19 @@ function updateModelTransparency() {
 let modelButtons = [];
 
 function populateBridgeLibrary() {
-  const groups = [[BRIDGE_CATALOG, 'bridge-library-list'], [DETAILED_BRIDGE_CATALOG, 'drawing-bridge-list']];
+  const groups = [[CURATED_BRIDGE_CATALOG, 'bridge-library-list'], [CURATED_DRAWING_CATALOG, 'drawing-bridge-list'],
+    [TEXTBOOK_MECHANICAL_CATALOG, 'textbook-mechanical-list']];
   for (const [catalog, targetId] of groups) {
     const host = document.getElementById(targetId);
+    let lastChapter;
     for (const item of catalog) {
+      if (item.chapter && item.chapter !== lastChapter) {
+        const heading = document.createElement('div');
+        heading.className = 'library-chapter';
+        heading.textContent = `第${item.chapter}章`;
+        host.append(heading);
+        lastChapter = item.chapter;
+      }
       const button = document.createElement('button');
       button.className = 'model-btn';
       button.dataset.model = item.id;
@@ -1422,10 +1436,27 @@ function populateBridgeLibrary() {
       const name = document.createElement('span');
       name.className = 'name'; name.textContent = item.name;
       const description = document.createElement('span');
-      description.className = 'desc'; description.textContent = item.family;
+      description.className = 'desc';
+      description.textContent = item.figure ? `${item.figure} · ${item.topics?.join(' / ') || item.note}` : item.focus;
       text.append(name, description); button.append(text); host.append(button);
     }
   }
+  document.getElementById('mechanical-model-count').textContent = TEXTBOOK_MECHANICAL_CATALOG.length;
+}
+
+function updateModelSource() {
+  const card = document.getElementById('model-source-card');
+  if (!card) return;
+  const mechanical = TEXTBOOK_MECHANICAL_CATALOG.find(item => item.id === state.currentModel);
+  const bridge = [...CURATED_BRIDGE_CATALOG, ...CURATED_DRAWING_CATALOG].find(item => item.id === state.currentModel);
+  card.hidden = !mechanical && !bridge;
+  if (card.hidden) return;
+  document.getElementById('model-source-title').textContent = mechanical ? '教材对应' : '制图观察';
+  document.getElementById('model-source-reference').textContent = mechanical
+    ? `《现代机械制图》第${mechanical.chapter}章 · ${mechanical.figure} · 第${mechanical.page}页`
+    : bridge.name;
+  document.getElementById('model-source-focus').textContent = mechanical
+    ? `${mechanical.note} 尺寸依据：${mechanical.dimensionStatus}。` : bridge.focus;
 }
 
 function fittedCameraFrame(unfold = state.unfoldProgress) {
@@ -1478,7 +1509,7 @@ async function selectLibraryModel(btn) {
   try {
     const definition = MODELS[btn.dataset.model];
     if (definition?.load) {
-      setStatus(`正在加载 ${definition.name}，保留独立构件…`);
+      setStatus(`正在准备 ${definition.name} 的实体与三视图…`);
       await definition.load();
       if (requestId !== modelLoadRequest || state.mode !== 'explore') return;
     }
@@ -1490,6 +1521,9 @@ async function selectLibraryModel(btn) {
       rebuildModel();
     }
     if (requestId !== modelLoadRequest || state.mode !== 'explore') return;
+    document.querySelectorAll('.quick-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.model === state.currentModel);
+    });
     fitModelCamera();
     if (window.innerWidth <= 960) document.getElementById('tree-panel')?.classList.remove('open');
   } catch (error) {
@@ -2756,6 +2790,10 @@ if (entryMode === 'explore') {
   const entryModel = entryParameters.get('model');
   const entryButton = modelButtons.find(button => button.dataset.model === entryModel);
   if (entryButton) selectLibraryModel(entryButton);
+  else if (Object.hasOwn(MODELS, entryModel) && entryModel !== 'chapter5') {
+    // Archived models remain available only by their existing explicit share URL.
+    selectLibraryModel({ dataset: { model: entryModel } });
+  }
 }
 
 const aiWorkbench = createAiWorkbenchAdapter({

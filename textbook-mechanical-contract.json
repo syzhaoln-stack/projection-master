@@ -1,0 +1,650 @@
+{
+  "schema_version": "1.0",
+  "source": {
+    "items": [
+      {
+        "file": "现代机械制图-教材PDF（已压缩）.pdf",
+        "title": "现代机械制图（第3版）",
+        "type": "PDF",
+        "page_offset": 7
+      }
+    ],
+    "units": "per-model; unlabelled figures use teaching proportions",
+    "scale_status": "source topology; dimensions explicitly separated from teaching proportions",
+    "projection_convention": "first-angle",
+    "evidence_priority": [
+      "textbook figure and adjacent explanation",
+      "existing verified chapter 5 BRep generators"
+    ]
+  },
+  "coordinate_system": {
+    "x": "width / shaft axis",
+    "y": "depth in the exact kernel; negative y faces the front observer",
+    "z": "height in the exact kernel",
+    "front_direction": "negative kernel Y; scene (X,Y,Z)=(kernel X,kernel Z,-kernel Y)"
+  },
+  "entities": [
+    {
+      "id": "cylinder",
+      "domain_term": "直立圆柱",
+      "role": "base",
+      "evidence": "explicit"
+    },
+    {
+      "id": "slant-cut",
+      "domain_term": "正垂截平面上部切除体",
+      "role": "tool",
+      "evidence": "explicit"
+    },
+    {
+      "id": "upper-slot",
+      "domain_term": "顶部前后贯穿矩形槽刀具",
+      "role": "tool",
+      "evidence": "explicit"
+    },
+    {
+      "id": "lower-side-cuts",
+      "domain_term": "底端成对侧切刀具",
+      "role": "tool",
+      "evidence": "explicit"
+    },
+    {
+      "id": "shaft",
+      "domain_term": "水平圆柱轴",
+      "role": "base",
+      "evidence": "explicit"
+    },
+    {
+      "id": "keyway",
+      "domain_term": "圆头封闭键槽刀具",
+      "role": "tool",
+      "evidence": "explicit"
+    },
+    {
+      "id": "flange",
+      "domain_term": "轮盘底座",
+      "role": "base",
+      "evidence": "explicit"
+    },
+    {
+      "id": "hub-and-ribs",
+      "domain_term": "轮毂与四块径向肋",
+      "role": "add",
+      "evidence": "explicit"
+    },
+    {
+      "id": "hub-bore",
+      "domain_term": "中央轴向通孔刀具",
+      "role": "tool",
+      "evidence": "explicit"
+    },
+    {
+      "id": "counterbores",
+      "domain_term": "四个等分柱形沉孔刀具",
+      "role": "tool",
+      "evidence": "explicit"
+    },
+    {
+      "id": "valve-adapter",
+      "domain_term": "阀体接头方形法兰及轴向台阶",
+      "role": "base",
+      "evidence": "explicit"
+    },
+    {
+      "id": "valve-bores",
+      "domain_term": "中央阶梯贯通孔及四个法兰通孔",
+      "role": "tool",
+      "evidence": "explicit"
+    }
+  ],
+  "operations": [
+    {
+      "order": 1,
+      "model": "textbookObliqueCylinder",
+      "type": "subtract",
+      "target": "cylinder",
+      "tools": [
+        "slant-cut"
+      ]
+    },
+    {
+      "order": 2,
+      "model": "textbookSlotCylinder",
+      "type": "subtract",
+      "target": "cylinder",
+      "tools": [
+        "upper-slot",
+        "lower-side-cuts"
+      ]
+    },
+    {
+      "order": 3,
+      "model": "textbookKeyedShaft",
+      "type": "subtract",
+      "target": "shaft",
+      "tools": [
+        "keyway"
+      ]
+    },
+    {
+      "order": 4,
+      "model": "textbookFlange",
+      "type": "union",
+      "target": "flange",
+      "tools": [
+        "hub-and-ribs"
+      ]
+    },
+    {
+      "order": 5,
+      "model": "textbookFlange",
+      "type": "subtract",
+      "target": "flange",
+      "tools": [
+        "hub-bore",
+        "counterbores"
+      ]
+    },
+    {
+      "order": 6,
+      "model": "textbookValveAdapter",
+      "type": "subtract",
+      "target": "valve-adapter",
+      "tools": [
+        "valve-bores"
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "name": "unlabelled_source_dimensions",
+      "role": "unknown",
+      "value": null,
+      "unit": null,
+      "evidence": "Dimensions missing from a figure are not asserted as source dimensions."
+    },
+    {
+      "name": "display_extent",
+      "role": "fixed",
+      "value": 5,
+      "unit": "scene-unit",
+      "evidence": "Viewer normalization only; never a physical dimension."
+    },
+    {
+      "name": "upper_slot_equals_lower_tongue_width",
+      "role": "derived",
+      "value": true,
+      "unit": null,
+      "evidence": "Figure 4-10 and its adjacent explanation."
+    }
+  ],
+  "constraints": [
+    {
+      "type": "single-solid",
+      "participants": [
+        "all-final-models"
+      ],
+      "status": "fixed"
+    },
+    {
+      "type": "source-of-truth",
+      "participants": [
+        "BRep",
+        "display-mesh",
+        "three-views"
+      ],
+      "status": "fixed"
+    },
+    {
+      "type": "shared-side-planes",
+      "participants": [
+        "upper-slot",
+        "lower-side-cuts"
+      ],
+      "status": "fixed"
+    },
+    {
+      "type": "blind-keyway",
+      "participants": [
+        "shaft",
+        "keyway"
+      ],
+      "status": "fixed"
+    },
+    {
+      "type": "through-hole",
+      "participants": [
+        "flange",
+        "hub-bore",
+        "counterbores"
+      ],
+      "status": "fixed"
+    }
+  ],
+  "uncertainties": [
+    {
+      "issue": "Several source figures lack complete dimension sets.",
+      "impact": "Absolute size and some proportions are not fully recoverable.",
+      "status": "Teaching-proportion models are explicitly labelled; only readable source dimensions are exposed as millimetre facts."
+    },
+    {
+      "issue": "The library teaches shape and view correspondence rather than manufacturing detail.",
+      "impact": "Small production chamfers/fillets in chapter 7 are simplified.",
+      "status": "Simplifications are stated on the relevant model; no claim of production drawing equivalence."
+    }
+  ],
+  "acceptance": {
+    "topology": [
+      "Exactly one positive-volume BRep solid; BRepCheck_Analyzer must pass."
+    ],
+    "geometry": [
+      "Through cutters overshoot both exterior faces; blind features retain material beneath the floor.",
+      "Check slot, tongue, central bores, radial holes and remaining walls with independent material probes."
+    ],
+    "projections": [
+      "All views derive from the same final body; front/top lengths, front/side heights and top/side widths agree."
+    ],
+    "annotations": [
+      "Do not turn normalization units or inferred proportions into textbook millimetres."
+    ],
+    "parameter_regression": [
+      "The first release exposes fixed source models, without independent size editing. Existing chapter 5 parameter regressions remain authoritative."
+    ]
+  },
+  "models": [
+    {
+      "id": "textbookObliqueCylinder",
+      "name": "斜截圆柱",
+      "chapter": 4,
+      "figure": "例4-8 · 图4-9",
+      "page": 82,
+      "pdfPage": 89,
+      "note": "正垂面斜截圆柱：观察截面椭圆与三视图的对应关系；展示截平面下方实体，采用教学比例。",
+      "topics": [
+        "截交线",
+        "椭圆投影",
+        "正垂面"
+      ],
+      "units": "教学比例",
+      "dimensionStatus": "未标完整尺寸，教学比例重构",
+      "parameters": {
+        "radius": 15,
+        "height": 50,
+        "cutCenterHeight": 27.5,
+        "cutSlope": 1.1
+      },
+      "sourceDimensions": [],
+      "color": 6201254,
+      "features": [
+        "直立圆柱",
+        "正垂斜截面"
+      ],
+      "simplifications": [
+        "显示切去截平面上部后的实体，以便观察截面。"
+      ]
+    },
+    {
+      "id": "textbookSlotCylinder",
+      "name": "槽舌截切圆柱",
+      "chapter": 4,
+      "figure": "例4-9 · 图4-10",
+      "page": 83,
+      "pdfPage": 90,
+      "note": "顶部矩形通槽，底端两侧切除留中央舌；槽宽与舌宽由同一对侧平面确定，采用教学比例。",
+      "topics": [
+        "截切",
+        "通槽",
+        "可见与不可见线"
+      ],
+      "units": "教学比例",
+      "dimensionStatus": "未标完整尺寸，教学比例重构",
+      "parameters": {
+        "radius": 15,
+        "height": 48,
+        "slotWidth": 12,
+        "slotDepth": 9,
+        "tongueHeight": 12
+      },
+      "sourceDimensions": [],
+      "color": 5674408,
+      "features": [
+        "直立圆柱",
+        "顶部前后贯穿槽",
+        "底部等宽中央舌"
+      ],
+      "simplifications": []
+    },
+    {
+      "id": "textbook51",
+      "name": "圆筒肋板支座",
+      "chapter": 5,
+      "figure": "例5-1 · 图5-1～5-2",
+      "page": 93,
+      "pdfPage": 100,
+      "note": "底板、拱顶立板、圆筒与矩形肋板合成单一实体，中心孔和两个底板孔真实贯穿；复用例5-1最终结果。",
+      "topics": [
+        "叠加型组合体",
+        "形体分析",
+        "贯穿孔"
+      ],
+      "units": "教学比例",
+      "dimensionStatus": "教材形体关系重构，非制造尺寸",
+      "lessonId": "example-5-1",
+      "sourceDimensions": [],
+      "color": 6914987,
+      "features": [
+        "圆角底板",
+        "拱顶立板",
+        "水平圆筒",
+        "矩形肋板",
+        "中心通孔",
+        "两个底板通孔"
+      ],
+      "simplifications": []
+    },
+    {
+      "id": "textbook55",
+      "name": "斜切贯槽组合体",
+      "chapter": 5,
+      "figure": "例5-5 · 图5-14～5-15",
+      "page": 102,
+      "pdfPage": 109,
+      "note": "正垂面P、前后成对侧垂面Q及底部贯穿槽共同切除；复用例5-5单实体最终结果。",
+      "topics": [
+        "切割型组合体",
+        "贯通空腔",
+        "线面分析"
+      ],
+      "units": "教学比例",
+      "dimensionStatus": "教材形体关系重构，非制造尺寸",
+      "lessonId": "example-5-5",
+      "sourceDimensions": [],
+      "color": 8621493,
+      "features": [
+        "长方体基体",
+        "P斜截面",
+        "前后成对Q斜截面",
+        "底部全长贯穿槽"
+      ],
+      "simplifications": []
+    },
+    {
+      "id": "textbook56",
+      "name": "方槽拱槽圆筒座",
+      "chapter": 5,
+      "figure": "例5-6 · 图5-16～5-17",
+      "page": 103,
+      "pdfPage": 110,
+      "note": "全高空心圆柱与相切底板并集，再切底板方槽、前方槽与后部倒置拱形槽；复用例5-6最终结果。",
+      "topics": [
+        "综合组合体",
+        "内孔",
+        "槽形辨析"
+      ],
+      "units": "教学比例",
+      "dimensionStatus": "教材形体关系重构，非制造尺寸",
+      "lessonId": "example-5-6",
+      "sourceDimensions": [],
+      "color": 5739675,
+      "features": [
+        "全高空心圆柱",
+        "相切底板",
+        "底板方槽",
+        "前方槽",
+        "后倒置拱形槽"
+      ],
+      "simplifications": []
+    },
+    {
+      "id": "textbookKeyedShaft",
+      "name": "封闭键槽轴",
+      "chapter": 7,
+      "figure": "例7-2 · 图7-21～7-22",
+      "page": 148,
+      "pdfPage": 155,
+      "note": "按图7-22切出宽6、总长20、深3.5 mm的封闭圆头键槽，轴径20 mm；轴总长采用教学比例。",
+      "topics": [
+        "零件建模",
+        "盲槽",
+        "轴类零件"
+      ],
+      "units": "mm",
+      "dimensionStatus": "部分原图尺寸，其余为教学比例；不作制造依据",
+      "parameters": {
+        "radius": 10,
+        "length": 40,
+        "slotWidth": 6,
+        "slotLength": 20,
+        "slotDepth": 3.5
+      },
+      "sourceDimensions": [
+        {
+          "label": "轴直径",
+          "value": 20,
+          "unit": "mm"
+        },
+        {
+          "label": "键槽深度",
+          "value": 3.5,
+          "unit": "mm"
+        },
+        {
+          "label": "键槽宽度",
+          "value": 6,
+          "unit": "mm"
+        },
+        {
+          "label": "键槽两圆心距",
+          "value": 14,
+          "unit": "mm"
+        },
+        {
+          "label": "键槽总长（由14+6求得）",
+          "value": 20,
+          "unit": "mm"
+        }
+      ],
+      "color": 7704228,
+      "features": [
+        "圆柱轴",
+        "封闭圆头键槽",
+        "完整槽底"
+      ],
+      "simplifications": [
+        "省略两端小倒角，突出键槽与轴面的关系。",
+        "未读出的长度值按教学比例设置，不作为教材尺寸。"
+      ]
+    },
+    {
+      "id": "textbookFlange",
+      "name": "四肋沉孔轮盘",
+      "chapter": 7,
+      "figure": "例7-3 · 图7-23～7-29",
+      "page": 149,
+      "pdfPage": 156,
+      "note": "圆盘、轮毂和四块径向肋组成整体，中央轴孔与四个等分沉孔真实切通；小圆角与倒角作教学简化。",
+      "topics": [
+        "轮盘类零件",
+        "圆周阵列",
+        "沉孔与肋板"
+      ],
+      "units": "mm",
+      "dimensionStatus": "部分原图尺寸，其余为教学比例；不作制造依据",
+      "parameters": {
+        "baseRadius": 100,
+        "baseThickness": 20,
+        "hubRadius": 50,
+        "boreRadius": 25,
+        "totalHeight": 80,
+        "holeCircleRadius": 75,
+        "holeRadius": 11,
+        "counterboreRadius": 15,
+        "counterboreDepth": 3,
+        "ribThickness": 12,
+        "ribTop": 80,
+        "ribOuterRadius": 90,
+        "holePhaseDegrees": 45,
+        "ribPhaseDegrees": 0
+      },
+      "sourceDimensions": [
+        {
+          "label": "底盘厚度",
+          "value": 20,
+          "unit": "mm"
+        },
+        {
+          "label": "柱形沉孔直径",
+          "value": 30,
+          "unit": "mm"
+        },
+        {
+          "label": "柱形沉孔深度",
+          "value": 3,
+          "unit": "mm"
+        },
+        {
+          "label": "底盘直径",
+          "value": 200,
+          "unit": "mm"
+        },
+        {
+          "label": "轮毂外径",
+          "value": 100,
+          "unit": "mm"
+        },
+        {
+          "label": "中央轴孔直径",
+          "value": 50,
+          "unit": "mm"
+        },
+        {
+          "label": "肋板厚度",
+          "value": 12,
+          "unit": "mm"
+        },
+        {
+          "label": "肋高（盘顶以上）",
+          "value": 60,
+          "unit": "mm"
+        },
+        {
+          "label": "总高（由20+60求得）",
+          "value": 80,
+          "unit": "mm"
+        }
+      ],
+      "color": 6781868,
+      "features": [
+        "圆盘底座",
+        "空心轮毂",
+        "四块径向肋",
+        "中央贯通轴孔",
+        "四个等分沉孔"
+      ],
+      "simplifications": [
+        "省略R3圆角与端口倒角。",
+        "M20是教材选用的螺栓规格，不作为孔径；未核安装孔径与分布圆按教学比例设置。"
+      ]
+    },
+    {
+      "id": "textbookValveAdapter",
+      "name": "阀体接头",
+      "chapter": 10,
+      "figure": "图10-42～10-43",
+      "page": 250,
+      "pdfPage": 257,
+      "note": "82×82圆角法兰、4个φ14通孔和中央φ25/φ43阶梯通孔；保留真实轴向台阶，外螺纹与小圆角作教学简化。",
+      "topics": [
+        "零件表达",
+        "阶梯通孔",
+        "装配接口"
+      ],
+      "units": "mm",
+      "dimensionStatus": "主体与孔系采用原图尺寸，螺纹和工艺过渡简化",
+      "parameters": {
+        "length": 63,
+        "flangeSize": 82,
+        "flangeRadius": 12,
+        "flangeStart": 45,
+        "flangeThickness": 12,
+        "holePitch": 58,
+        "mountHoleRadius": 7,
+        "frontRadius": 25,
+        "frontLength": 17,
+        "neckRadius": 19,
+        "rearBossRadius": 27.5,
+        "rearBossThickness": 3,
+        "endBossRadius": 22.5,
+        "endBossThickness": 3,
+        "boreRadius": 12.5,
+        "rearBoreRadius": 21.5,
+        "rearBoreDepth": 6
+      },
+      "sourceDimensions": [
+        {
+          "label": "总长",
+          "value": 63,
+          "unit": "mm"
+        },
+        {
+          "label": "方法兰边长",
+          "value": 82,
+          "unit": "mm"
+        },
+        {
+          "label": "法兰圆角半径",
+          "value": 12,
+          "unit": "mm"
+        },
+        {
+          "label": "法兰厚度",
+          "value": 12,
+          "unit": "mm"
+        },
+        {
+          "label": "安装孔中心距",
+          "value": 58,
+          "unit": "mm"
+        },
+        {
+          "label": "安装通孔直径",
+          "value": 14,
+          "unit": "mm"
+        },
+        {
+          "label": "主通孔直径",
+          "value": 25,
+          "unit": "mm"
+        },
+        {
+          "label": "背部沉孔直径",
+          "value": 43,
+          "unit": "mm"
+        },
+        {
+          "label": "背部沉孔深度",
+          "value": 6,
+          "unit": "mm"
+        },
+        {
+          "label": "管颈外径",
+          "value": 38,
+          "unit": "mm"
+        }
+      ],
+      "color": 6524850,
+      "features": [
+        "圆角方形法兰",
+        "四个安装通孔",
+        "螺纹段外径示意",
+        "细管颈",
+        "背面两级凸台",
+        "中央阶梯通孔"
+      ],
+      "simplifications": [
+        "M50×3外螺纹以φ50外包络圆柱表达，未生成螺旋牙形。",
+        "省略C2小倒角与R6管颈过渡圆角；不作制造加工模型。"
+      ]
+    }
+  ]
+}
